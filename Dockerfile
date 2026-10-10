@@ -31,9 +31,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --extra saml --no-editable --python "${PYTHON_VERSION}" \
       --no-binary-package xmlsec --no-binary-package lxml
 
-# Drop debug symbols and build-only files (headers, man pages) to keep the runtime image small.
-RUN find /app/.venv /opt/python -type f \( -name '*.so' -o -name '*.so.*' \) -exec strip --strip-unneeded {} + \
- && find /opt/python/*/bin -type f -name 'python3.*' ! -name '*-config' -exec strip --strip-unneeded {} + \
+# Drop debug symbols from the compiled packages (lxml, xmlsec, …) and build-only files to keep the
+# runtime image small. Never strip the interpreter under /opt/python: uv already installs a stripped
+# build, and stripping it again breaks its symbol versioning on amd64.
+RUN find /app/.venv -type f \( -name '*.so' -o -name '*.so.*' \) -exec strip --strip-unneeded {} + \
  && rm -rf /opt/python/*/include /opt/python/*/share
 
 # ---- runtime ---------------------------------------------------------------------------------
