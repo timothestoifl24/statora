@@ -1,0 +1,86 @@
+{% set impact_labels = {'none': 'No impact', 'minor': 'Minor', 'major': 'Major', 'critical': 'Critical'} %}
+<section class="banner banner-{{ s.overall.status }}" role="status">
+  <span class="banner-icon" aria-hidden="true">{{ '✓' if s.overall.status == 'operational' else ('🛠' if s.overall.status == 'maintenance' else '!') }}</span>
+  <span>{{ s.overall.label }}</span>
+</section>
+
+{% for i in s.active_incidents %}
+<article class="notice notice-{{ i.impact }}">
+  <h2>{{ i.title }}</h2>
+  {% for u in i.updates %}
+    <div class="update">
+      <div class="update-head"><strong>{{ u.status|capitalize }}</strong> <time datetime="{{ u.created_at }}">{{ u.created_at|dt }}</time></div>
+      <div class="update-body">{{ u.body_html|safe }}</div>
+    </div>
+  {% endfor %}
+</article>
+{% endfor %}
+
+{% for m in s.maintenances %}
+<article class="notice notice-maintenance">
+  <h2>{{ '🛠 ' if m.active }}{{ m.title }}</h2>
+  <div class="update-head">
+    {{ 'In progress' if m.active else 'Scheduled' }} ·
+    <time datetime="{{ m.starts_at }}">{{ m.starts_at|dt }}</time> – <time datetime="{{ m.ends_at }}">{{ m.ends_at|dt }}</time>
+  </div>
+  {% if m.body_html %}<div class="update-body">{{ m.body_html|safe }}</div>{% endif %}
+</article>
+{% endfor %}
+
+{% for g in s.groups %}
+<section class="group">
+  <h2 class="group-title">{{ g.name }}</h2>
+  <div class="components">
+    {% for c in g.components %}
+    <div class="component">
+      <div class="component-head">
+        <span class="component-name">{{ c.name }}</span>
+        <span class="component-status st-{{ c.status }}">{{ c.status_label }}</span>
+      </div>
+      <div class="bars" role="img" aria-label="Uptime of {{ c.name }} over the last 90 days: {{ '%.2f'|format(c.uptime) ~ '%' if c.uptime is not none else 'no data' }}">
+        {% for b in c.bars %}
+          <span class="bar lv-{{ b.level }}" data-tip="{{ b.day }} · {{ ('%.2f'|format(b.uptime) ~ '% uptime') if b.uptime is not none else ('maintenance' if b.level == 'maintenance' else 'no data') }}{{ (' · ' ~ b.down ~ ' failed checks') if b.down }}"></span>
+        {% endfor %}
+      </div>
+      <div class="bars-legend"><span>90 days ago</span><span class="rule"></span><span>{{ ('%.2f'|format(c.uptime) ~ '% uptime') if c.uptime is not none else 'No data yet' }}</span><span class="rule"></span><span>Today</span></div>
+      {% if c.members %}
+      <details class="members" data-key="component-{{ c.id }}">
+        <summary>
+          <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
+          {{ c.members|length }} component{{ 's' if c.members|length != 1 }}
+          <span class="muted">· {{ 'redundant' if c.group_mode == 'redundancy' else 'all required' }}</span>
+        </summary>
+        <ul class="member-list">
+          {% for m in c.members %}
+          <li>
+            <span class="dot dot-{{ m.status }}" aria-hidden="true"></span>
+            <span class="member-name">{{ m.name }}</span>
+            <span class="member-uptime muted">{{ ('%.2f'|format(m.uptime) ~ '%') if m.uptime is not none else '—' }}</span>
+            <span class="component-status st-{{ m.status }}">{{ m.status_label }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+
+<section class="history">
+  <h2 class="group-title">Past incidents</h2>
+  {% for i in s.past_incidents %}
+    <article class="past">
+      <h3>{{ i.title }} <span class="pill pill-{{ i.impact }}">{{ impact_labels[i.impact] }}</span></h3>
+      {% for u in i.updates %}
+        <div class="update">
+          <div class="update-head"><strong>{{ u.status|capitalize }}</strong> <time datetime="{{ u.created_at }}">{{ u.created_at|dt }}</time></div>
+          <div class="update-body">{{ u.body_html|safe }}</div>
+        </div>
+      {% endfor %}
+    </article>
+  {% else %}
+    <p class="muted">No incidents in the last 14 days.</p>
+  {% endfor %}
+</section>

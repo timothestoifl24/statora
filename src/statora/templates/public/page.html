@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% include '_brand_head.html' %}
+  <title>{{ s.page.title }} · {{ s.overall.label }}</title>
+  <meta name="description" content="Current status and uptime of {{ s.page.title }}.">
+  <meta property="og:title" content="{{ s.page.title }} · {{ s.overall.label }}">
+  <meta property="og:description" content="Current status and uptime of {{ s.page.title }}.">
+  <meta property="og:image" content="{{ url_for('static', path='brand/og-image.png') }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="{{ asset('css/public.css') }}">
+  <noscript><meta http-equiv="refresh" content="{{ refresh }}"></noscript>
+  <style>:root { --accent: {{ s.page.accent_color }}; }</style>
+  <script>
+    // Apply a saved theme before first paint to avoid a flash.
+    try { var t = localStorage.getItem("statora-theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+  </script>
+</head>
+<body>
+  <main class="wrap">
+    <div class="topbar">
+      <button type="button" class="theme-toggle" id="theme-toggle" hidden aria-label="Switch between light and dark mode" title="Switch light / dark mode">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9a9 9 0 1 1 -9 -9z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7"/></svg>
+      </button>
+    </div>
+    <header class="masthead">
+      {% if s.page.logo_url %}<img src="{{ s.page.logo_url }}" alt="{{ s.page.title }}" class="logo">{% endif %}
+      <h1>{{ s.page.title }}</h1>
+      {% if s.page.description_html %}<div class="intro">{{ s.page.description_html|safe }}</div>{% endif %}
+    </header>
+    <div id="content" hx-get="{{ request.url.path }}" hx-trigger="every {{ refresh }}s" hx-swap="innerHTML">
+      {% include "public/_content.html" %}
+    </div>
+    <footer class="foot">
+      {% if s.page.footer_html %}<div>{{ s.page.footer_html|safe }}</div>{% endif %}
+      <div class="muted">Updated <time datetime="{{ s.generated_at }}" data-relative>{{ s.generated_at|dt('%H:%M UTC') }}</time>{% if s.page.show_powered_by is not defined or s.page.show_powered_by %} · <span class="powered"><img src="{{ asset('brand/mark.svg') }}" alt="" width="14" height="14"> Powered by Statora</span>{% endif %}</div>
+    </footer>
+  </main>
+  <script src="{{ asset('vendor/htmx.min.js') }}" defer></script>
+  <script src="{{ asset('js/public.js') }}" defer></script>
+</body>
+</html>
