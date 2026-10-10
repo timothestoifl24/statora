@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --frozen --all-extras
+      - run: uv run ruff check src tests
+      - run: uv run ruff format --check src tests
+
+  test:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: statora
+          POSTGRES_PASSWORD: statora
+          POSTGRES_DB: statora
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U statora" --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
+      openldap:
+        image: bitnamilegacy/openldap:2.6
+        env:
+          LDAP_ROOT: dc=example,dc=org
+          LDAP_ADMIN_USERNAME: admin
+          LDAP_ADMIN_PASSWORD: adminpassword
+          LDAP_USERS: alice,bob
+          LDAP_PASSWORDS: alicepassword,bobpassword
+          LDAP_GROUP: statora-admins
+        ports: ["1389:1389"]
+    env:
+      STATORA_TEST_DATABASE_URL: postgresql+asyncpg://statora:statora@localhost:5432/statora_test
+      STATORA_TEST_REDIS_URL: redis://localhost:6379/15
+      STATORA_TEST_LDAP_URL: ldap://localhost:1389
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - run: uv sync --frozen --all-extras
+      - name: Wait for OpenLDAP
+        # LDAP tests skip themselves when the server isn't up yet, so make sure it is.
+        run: |
+          for _ in $(seq 1 60); do (echo > /dev/tcp/localhost/1389) 2>/dev/null && exit 0; sleep 1; done
+          echo "OpenLDAP did not start" && exit 1
+      - run: uv run pytest -q -rs
