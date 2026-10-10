@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "Self-hosted uptime monitoring and public status pages"
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_LICENSES.md"]
+authors = [{ name = "Timothé Stoifl" }]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
@@ -41,6 +44,12 @@ dependencies = [
 [project.optional-dependencies]
 saml = ["python3-saml>=1.16"]
 
+[project.urls]
+Homepage = "https://statora.stoifl.app"
+Documentation = "https://statora.stoifl.app/guide/"
+Repository = "https://github.com/timothestoifl24/statora"
+Changelog = "https://statora.stoifl.app/reference/changelog"
+
 [project.scripts]
 statora = "statora.cli:app"
 
@@ -55,7 +64,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
