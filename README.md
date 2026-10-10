@@ -214,3 +214,15 @@ docs/            website and documentation (VitePress), published to statora.sto
 ## Brand
 
 The logo, icon and colour palette are documented in [branding/README.md](branding/README.md).
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first. Contributors sign the [CLA](CLA.md) once, and everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Security
+
+Please report vulnerabilities privately through [GitHub's private vulnerability reporting](https://github.com/timothestoifl24/statora/security/advisories/new). See [SECURITY.md](SECURITY.md) for supported versions, response times and scope.
+
+## License
+
+Statora is released under the [MIT License](LICENSE). Third-party components and their licenses are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

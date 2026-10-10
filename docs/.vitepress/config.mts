@@ -47,6 +47,8 @@ export default defineConfig({
           { text: 'Development', link: '/reference/development' },
           { text: 'Changelog', link: '/reference/changelog' },
           { text: 'Container images', link: '/reference/images' },
+          { text: 'Contributing', link: 'https://github.com/timothestoifl24/statora/blob/main/CONTRIBUTING.md' },
+          { text: 'Security policy', link: 'https://github.com/timothestoifl24/statora/blob/main/SECURITY.md' },
         ],
       },
     ],
@@ -97,6 +99,14 @@ export default defineConfig({
             { text: 'Container images', link: '/reference/images' },
           ],
         },
+        {
+          text: 'Project',
+          items: [
+            { text: 'Contributing', link: 'https://github.com/timothestoifl24/statora/blob/main/CONTRIBUTING.md' },
+            { text: 'Security policy', link: 'https://github.com/timothestoifl24/statora/blob/main/SECURITY.md' },
+            { text: 'License (MIT)', link: 'https://github.com/timothestoifl24/statora/blob/main/LICENSE' },
+          ],
+        },
       ],
     },
 
@@ -105,7 +115,7 @@ export default defineConfig({
     editLink: { pattern: `${repo}/edit/main/docs/:path`, text: 'Edit this page on GitHub' },
     outline: { level: [2, 3] },
     footer: {
-      message: 'Self-hosted uptime monitoring and status pages.',
+      message: 'Released under the <a href="https://github.com/timothestoifl24/statora/blob/main/LICENSE">MIT License</a>.',
       copyright: `© ${new Date().getFullYear()} Timothé Stoifl`,
     },
   },

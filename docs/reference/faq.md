@@ -1,5 +1,13 @@
 # FAQ
 
+### Is Statora free for commercial use?
+
+Yes. Statora is released under the [MIT License](https://github.com/timothestoifl24/statora/blob/main/LICENSE): you can use it, modify it and run it for your business, including for your customers, as long as you keep the copyright and license notice. Third-party components are listed in [THIRD_PARTY_LICENSES.md](https://github.com/timothestoifl24/statora/blob/main/THIRD_PARTY_LICENSES.md).
+
+### How do I report a security problem?
+
+Privately, through [GitHub's private vulnerability reporting](https://github.com/timothestoifl24/statora/security/advisories/new), never in a public issue. The [security policy](https://github.com/timothestoifl24/statora/blob/main/SECURITY.md) has the details.
+
 ### Where are checks run from?
 
 From wherever Statora runs. To check from several locations, run an instance in each location.
