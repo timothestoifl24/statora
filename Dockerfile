@@ -21,7 +21,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 RUN uv python install "${PYTHON_VERSION}"
 
 WORKDIR /app
-COPY pyproject.toml uv.lock README.md ./
+COPY pyproject.toml uv.lock README.md LICENSE THIRD_PARTY_LICENSES.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --extra saml --no-install-project --python "${PYTHON_VERSION}" \
       --no-binary-package xmlsec --no-binary-package lxml
