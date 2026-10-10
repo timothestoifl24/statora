@@ -1,6 +1,18 @@
 # Development
 
-You need Python 3.12+, [uv](https://docs.astral.sh/uv/), and Docker or Podman for PostgreSQL and Redis.
+You need Python 3.12 or newer (3.15 is what the container image uses), [uv](https://docs.astral.sh/uv/), and Docker or Podman for PostgreSQL and Redis. CI tests Python 3.12 to 3.15 against PostgreSQL 18 and Redis 8.8.
+
+::: info SAML support on Python 3.15
+`xmlsec`, which SAML uses, doesn't publish packages for Python 3.15 yet, so it's compiled from source. Install its system libraries first, and build `lxml` against the same `libxml2`:
+
+```bash
+brew install libxmlsec1 pkg-config                                    # macOS
+sudo apt install pkg-config libxml2-dev libxslt1-dev libxmlsec1-dev   # Debian/Ubuntu
+uv sync --all-extras --no-binary-package xmlsec --no-binary-package lxml
+```
+
+On Python 3.12–3.14, a plain `uv sync --all-extras` is enough.
+:::
 
 ```bash
 git clone https://github.com/timothestoifl24/statora.git && cd statora

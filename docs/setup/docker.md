@@ -18,11 +18,11 @@ echo "STATORA_SECRET_KEY=$STATORA_SECRET_KEY"
 ```bash
 docker run -d --name statora-postgres --network statora --restart unless-stopped \
   -e POSTGRES_USER=statora -e POSTGRES_DB=statora -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
-  -v statora-pgdata:/var/lib/postgresql/data \
-  docker.io/library/postgres:17-alpine
+  -v statora-pgdata:/var/lib/postgresql \
+  docker.io/library/postgres:18-alpine
 
 docker run -d --name statora-redis --network statora --restart unless-stopped \
-  docker.io/library/redis:7-alpine redis-server --save "" --appendonly no
+  docker.io/library/redis:8.8-alpine redis-server --save "" --appendonly no
 ```
 
 ::: tip Using an existing PostgreSQL

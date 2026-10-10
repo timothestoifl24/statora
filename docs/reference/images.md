@@ -21,6 +21,6 @@ gh attestation verify oci://ghcr.io/timothestoifl24/statora:0.1.0 --owner timoth
 
 ## What's inside
 
-- `python:3.13-slim` base, with the app in a virtual environment at `/app/.venv`.
+- Debian trixie (slim) with Python 3.15.0, from uv's standalone CPython builds. The app lives in a virtual environment at `/app/.venv`.
 - Runs as UID 10001, listens on port 8000, and the default command is `statora serve`.
 - No compilers or build tools in the final image. SAML support (`xmlsec`) is included.

@@ -97,7 +97,7 @@ To use a managed PostgreSQL service (RDS, Cloud SQL, Azure Database, or an opera
 1. Remove `postgres.yaml` from `resources:` in `kustomization.yaml`.
 2. Point `STATORA_DATABASE_URL` at the managed instance.
 
-The same applies to Redis: any Redis 6+ works.
+The same applies to Redis: any Redis 6+ works. The manifests use PostgreSQL 18 and Redis 8.8.
 
 ## Probes and ping
 

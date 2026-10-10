@@ -11,8 +11,8 @@ Statora is one container image, `ghcr.io/timothestoifl24/statora`, plus a Postgr
 ## Requirements
 
 - **Container runtime:** Docker 24+ or Podman 4+ (with the Compose plugin for the Compose setup), or Kubernetes 1.27+.
-- **PostgreSQL 14 or newer.** PostgreSQL 17 is what the examples use and what CI tests against.
-- **Redis 6 or newer.** Redis only holds caches, locks and short-lived state, so it doesn't need persistence or backups.
+- **PostgreSQL 14 or newer.** The examples and CI use PostgreSQL 18.
+- **Redis 6 or newer.** The examples and CI use Redis 8.8. Redis only holds caches, locks and short-lived state, so it doesn't need persistence or backups.
 - **Resources:** about 200 MB of RAM for the app. A few hundred monitors fit comfortably on one small VM.
 - **Network:** outbound access to whatever you monitor. Ping checks need unprivileged ICMP; each guide shows how to allow it.
 

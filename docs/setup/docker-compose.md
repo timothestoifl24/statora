@@ -74,16 +74,16 @@ services:
       redis: { condition: service_healthy }
 
   postgres:
-    image: docker.io/library/postgres:17-alpine
+    image: docker.io/library/postgres:18-alpine
     environment:
       POSTGRES_USER: statora
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: statora
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql   # PostgreSQL 18+ layout
 
   redis:
-    image: docker.io/library/redis:7-alpine
+    image: docker.io/library/redis:8.8-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no"]
 
 volumes:
