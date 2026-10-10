@@ -1,0 +1,26 @@
+# Container images
+
+Images are published to the GitHub Container Registry for `linux/amd64` and `linux/arm64`:
+
+```
+ghcr.io/timothestoifl24/statora
+```
+
+| Tag | Updated | Use |
+|---|---|---|
+| `0.1.0`, `0.1` | on each release | **Production**: pin a full version, or a minor version to get patch updates. |
+| `latest` | on each release | Quick starts and trying things out. |
+| `edge` | on every push to `main` | Testing unreleased changes. |
+| `sha-<commit>` | on every build | Reproducing a specific build. |
+
+Each image comes with build provenance and an SBOM attestation. Verify an image with the GitHub CLI:
+
+```bash
+gh attestation verify oci://ghcr.io/timothestoifl24/statora:0.1.0 --owner timothestoifl24
+```
+
+## What's inside
+
+- `python:3.13-slim` base, with the app in a virtual environment at `/app/.venv`.
+- Runs as UID 10001, listens on port 8000, and the default command is `statora serve`.
+- No compilers or build tools in the final image. SAML support (`xmlsec`) is included.

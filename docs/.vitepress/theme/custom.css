@@ -1,0 +1,64 @@
+/* Statora brand on top of the VitePress default theme. */
+:root {
+  --st-teal: #12b5a0;
+  --st-blue: #1f6feb;
+  --st-live: #3ddc97;
+
+  --vp-c-brand-1: #1a5fcb;
+  --vp-c-brand-2: #1f6feb;
+  --vp-c-brand-3: #1f6feb;
+  --vp-c-brand-soft: rgba(31, 111, 235, 0.14);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: -webkit-linear-gradient(120deg, var(--st-teal) 20%, var(--st-blue));
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, rgba(18, 181, 160, 0.55) 40%, rgba(31, 111, 235, 0.55) 60%);
+  --vp-home-hero-image-filter: blur(56px);
+
+  --vp-button-brand-bg: var(--st-blue);
+  --vp-button-brand-hover-bg: #1a5fcb;
+  --vp-button-brand-active-bg: #164fa8;
+}
+
+.dark {
+  --vp-c-brand-1: #6aa6ff;
+  --vp-c-brand-2: #4b8ff7;
+  --vp-c-brand-3: #1f6feb;
+  --vp-c-bg: #0f1726;
+  --vp-c-bg-alt: #0b1220;
+  --vp-c-bg-elv: #151f33;
+  --vp-c-bg-soft: #151f33;
+}
+
+@media (min-width: 640px) {
+  :root { --vp-home-hero-image-filter: blur(68px); }
+}
+
+.VPHero .image-src { max-width: 220px; border-radius: 22%; }
+
+/* Screenshots: framed like a browser window. */
+.shot {
+  margin: 20px 0 28px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--vp-c-bg-soft);
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.35);
+}
+.shot img { display: block; width: 100%; height: auto; }
+.shot figcaption { padding: 10px 16px; font-size: 14px; color: var(--vp-c-text-2); border-top: 1px solid var(--vp-c-divider); }
+
+.home-section { max-width: 1152px; margin: 0 auto; padding: 0 24px; }
+@media (min-width: 640px) { .home-section { padding: 0 48px; } }
+@media (min-width: 960px) { .home-section { padding: 0 64px; } }
+
+.home-preview {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr;
+  margin-top: 8px;
+}
+@media (min-width: 960px) { .home-preview { grid-template-columns: 1.15fr 1fr; } }
+.home-preview .shot { margin: 0; }
+
+.status-legend { display: inline-flex; align-items: center; gap: 6px; }
+.status-legend::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
