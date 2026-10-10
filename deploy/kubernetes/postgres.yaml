@@ -38,7 +38,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: postgres
-          image: docker.io/library/postgres:17-alpine
+          image: docker.io/library/postgres:18-alpine
           ports:
             - name: postgres
               containerPort: 5432
@@ -52,8 +52,6 @@ spec:
                 secretKeyRef:
                   name: statora-secrets
                   key: POSTGRES_PASSWORD
-            - name: PGDATA
-              value: /var/lib/postgresql/data/pgdata
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", "statora", "-d", "statora"]
@@ -74,8 +72,9 @@ spec:
             capabilities:
               drop: ["ALL"]
           volumeMounts:
+            # PostgreSQL 18+ keeps its data in /var/lib/postgresql/<major>/docker.
             - name: data
-              mountPath: /var/lib/postgresql/data
+              mountPath: /var/lib/postgresql
             - name: run
               mountPath: /var/run/postgresql
       volumes:

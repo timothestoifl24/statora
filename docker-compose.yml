@@ -30,14 +30,15 @@ services:
         condition: service_healthy
 
   postgres:
-    image: docker.io/library/postgres:17-alpine
+    image: docker.io/library/postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: statora
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: statora
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # PostgreSQL 18+ keeps its data in /var/lib/postgresql/<major>/docker, so mount the parent.
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U statora"]
       interval: 5s
@@ -45,7 +46,7 @@ services:
       retries: 20
 
   redis:
-    image: docker.io/library/redis:7-alpine
+    image: docker.io/library/redis:8.8-alpine
     restart: unless-stopped
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     healthcheck:

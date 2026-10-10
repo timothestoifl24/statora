@@ -6,7 +6,7 @@ name: statora-dev
 
 services:
   postgres:
-    image: docker.io/library/postgres:17-alpine
+    image: docker.io/library/postgres:18-alpine
     environment:
       POSTGRES_USER: statora
       POSTGRES_PASSWORD: statora
@@ -14,7 +14,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata-dev:/var/lib/postgresql/data
+      - pgdata-dev-18:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U statora"]
       interval: 5s
@@ -22,7 +22,7 @@ services:
       retries: 10
 
   redis:
-    image: docker.io/library/redis:7-alpine
+    image: docker.io/library/redis:8.8-alpine
     ports:
       - "6379:6379"
 
@@ -50,4 +50,4 @@ services:
       - "1389:1389"
 
 volumes:
-  pgdata-dev:
+  pgdata-dev-18:
