@@ -6,8 +6,8 @@ name: statora
 
 services:
   app:
-    build: .
-    image: statora:latest
+    image: ghcr.io/timothestoifl24/statora:${STATORA_VERSION:-latest}
+    # To run a local build instead: docker build -t ghcr.io/timothestoifl24/statora:latest .
     restart: unless-stopped
     env_file: .env
     environment:

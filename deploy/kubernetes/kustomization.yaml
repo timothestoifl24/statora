@@ -1,0 +1,36 @@
+# Statora on Kubernetes: app (2 replicas) + PostgreSQL + Redis.
+#
+#   cp secrets.env.example secrets.env   # fill in real values
+#   cp config.env.example config.env     # set STATORA_BASE_URL
+#   kubectl apply -k .
+#
+# Docs: https://statora.stoifl.app/setup/kubernetes
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: statora
+
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - redis.yaml
+  - statora.yaml
+  - ingress.yaml
+
+images:
+  - name: ghcr.io/timothestoifl24/statora
+    newTag: "0.1.0"
+
+secretGenerator:
+  - name: statora-secrets
+    envs:
+      - secrets.env
+
+configMapGenerator:
+  - name: statora-config
+    envs:
+      - config.env
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: statora

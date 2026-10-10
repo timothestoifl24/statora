@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: statora
+  labels:
+    app.kubernetes.io/name: statora
+spec:
+  selector:
+    app.kubernetes.io/name: statora
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: statora
+  labels:
+    app.kubernetes.io/name: statora
+spec:
+  # Every replica serves the UI and API; a Redis leader lock makes sure only one runs checks.
+  # Migrations run on start-up and are serialized with a database lock, so rollouts are safe.
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: statora
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: statora
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+        # Unprivileged ICMP for ping monitors (a "safe" sysctl, allowed by default).
+        sysctls:
+          - name: net.ipv4.ping_group_range
+            value: "0 2147483647"
+      containers:
+        - name: statora
+          image: ghcr.io/timothestoifl24/statora
+          args: ["serve"]
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: statora-config
+            - secretRef:
+                name: statora-secrets
+          env:
+            - name: FORWARDED_ALLOW_IPS
+              value: "*"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          # TCP only: /healthz reports dependency outages, which a restart wouldn't fix.
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

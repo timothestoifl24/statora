@@ -1,0 +1,26 @@
+# Adjust the host (and STATORA_BASE_URL in config.env) to your domain.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: statora
+  labels:
+    app.kubernetes.io/name: statora
+  # annotations:
+  #   cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  # ingressClassName: nginx
+  rules:
+    - host: status.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: statora
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - status.example.com
+      secretName: statora-tls
