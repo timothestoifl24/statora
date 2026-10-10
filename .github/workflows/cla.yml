@@ -17,8 +17,9 @@ jobs:
   cla:
     name: Contributor License Agreement
     runs-on: ubuntu-latest
+    # Bots (Dependabot, GitHub Actions) don't sign; skip their pull requests entirely.
     if: >-
-      github.event_name == 'pull_request_target' ||
+      (github.event_name == 'pull_request_target' && github.event.pull_request.user.type != 'Bot') ||
       (github.event.issue.pull_request &&
         (github.event.comment.body == 'recheck' ||
          github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA'))
@@ -30,7 +31,8 @@ jobs:
           path-to-document: https://github.com/timothestoifl24/statora/blob/main/CLA.md
           path-to-signatures: signatures/v1/cla.json
           branch: cla-signatures
-          allowlist: timothestoifl24,dependabot[bot],github-actions[bot]
+          # Entries are patterns ("[bot]" would be a character class), so match bots with a wildcard.
+          allowlist: timothestoifl24,dependabot*,github-actions*
           custom-notsigned-prcomment: >-
             Thanks for your contribution! Before it can be merged, please read the
             [Contributor License Agreement](https://github.com/timothestoifl24/statora/blob/main/CLA.md)
