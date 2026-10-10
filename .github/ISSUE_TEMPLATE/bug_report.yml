@@ -1,0 +1,57 @@
+name: Bug report
+description: Something doesn't work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. **Security problems** go to [private vulnerability reporting](https://github.com/timothestoifl24/statora/security/advisories/new), not here.
+  - type: input
+    id: version
+    attributes:
+      label: Statora version
+      description: Shown in the admin panel footer, or the image tag you run.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you run Statora?
+      options:
+        - Docker Compose
+        - Docker
+        - Kubernetes
+        - From source
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: PostgreSQL and Redis versions, browser if it's a UI problem, identity provider if it's about sign-in.
+      placeholder: "PostgreSQL 18, Redis 8.8, Firefox 140, Keycloak 26"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a monitor with …
+        2. Open …
+        3. See …
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant output of `docker compose logs app` or the pod logs. Remove secrets, tokens and hostnames you don't want to share.
+      render: text

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/timothestoifl24/statora/security/advisories/new
+    about: Please report security problems privately, never in a public issue.
+  - name: Documentation
+    url: https://statora.stoifl.app
+    about: Setup guides, configuration reference and FAQ.
+  - name: Questions and ideas
+    url: https://github.com/timothestoifl24/statora/discussions
+    about: Ask how to do something, or discuss an idea before opening a feature request.
