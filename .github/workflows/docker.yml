@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: statora
           POSTGRES_PASSWORD: statora
@@ -90,7 +90,7 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U statora" --health-interval 5s --health-timeout 3s --health-retries 20
       redis:
-        image: redis:7-alpine
+        image: redis:8.8-alpine
     steps:
       - uses: actions/checkout@v4
       - name: Build image
