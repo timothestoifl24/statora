@@ -1,0 +1,136 @@
+{% extends "admin/base.html" %}
+{% set type_labels = {'ldap': 'LDAP / Active Directory', 'oidc': 'OAuth2 / OpenID Connect', 'saml': 'SAML 2.0'} %}
+{% block title %}{{ provider.name if provider else 'New ' ~ type_labels[provider_type] ~ ' provider' }}{% endblock %}
+{% block pretitle %}<div class="page-pretitle">{{ type_labels[provider_type] }}</div>{% endblock %}
+{% block actions %}
+  {% if provider %}
+  <div class="btn-list">
+    <button class="btn" hx-post="/admin/settings/auth/{{ provider.id }}/test" hx-target="#test-result" hx-indicator="#test-spinner">
+      <span id="test-spinner" class="spinner-border spinner-border-sm me-2 htmx-indicator" role="status"></span>
+      <i class="ti ti-plug-connected me-1"></i>Test connection
+    </button>
+    <form method="post" action="/admin/settings/auth/{{ provider.id }}/delete" class="d-inline"
+          data-confirm="Delete provider “{{ provider.name }}”? Its users stay but can no longer sign in.">
+      {{ csrf_input(request) }}
+      <button class="btn btn-outline-danger" type="submit" aria-label="Delete"><i class="ti ti-trash"></i></button>
+    </form>
+  </div>
+  {% endif %}
+{% endblock %}
+{% block content %}
+<div id="test-result"></div>
+<form method="post" autocomplete="off">
+  {{ csrf_input(request) }}
+  <div class="row row-cards">
+    <div class="col-lg-7">
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">Connection</h3></div>
+        <div class="card-body">
+          <div class="row g-3">
+          {% for f in fields %}
+            {% set value = values.config.get(f.name) %}
+            {% if f.kind == 'bool' %}
+              <div class="col-12">
+                <label class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" name="cfg_{{ f.name }}"
+                         {{ 'checked' if (value if value is not none else f.default) }}>
+                  <span class="form-check-label">{{ f.label }}</span>
+                </label>
+                {% if f.help %}<small class="form-hint">{{ f.help }}</small>{% endif %}
+              </div>
+            {% else %}
+              <div class="{{ 'col-12' if f.kind == 'textarea' else 'col-md-6' }}">
+                <label class="form-label {{ 'required' if f.required }}" for="cfg_{{ f.name }}">{{ f.label }}</label>
+                {% if f.kind == 'textarea' %}
+                  <textarea class="form-control font-monospace" rows="4" id="cfg_{{ f.name }}" name="cfg_{{ f.name }}"
+                    placeholder="{{ 'Stored — leave empty to keep' if f.secret and f.name in stored_secrets else '' }}">{{ '' if f.secret else (value or '') }}</textarea>
+                {% else %}
+                  <input class="form-control" id="cfg_{{ f.name }}" name="cfg_{{ f.name }}"
+                    type="{{ 'password' if f.secret else 'text' }}" {{ 'required' if f.required }}
+                    value="{{ '' if f.secret else (value if value is not none else f.default) }}"
+                    placeholder="{{ 'Stored — leave empty to keep' if f.secret and f.name in stored_secrets else '' }}"
+                    {{ 'autocomplete=new-password' if f.secret }}>
+                {% endif %}
+                {% if f.help %}<small class="form-hint">{{ f.help }}</small>{% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card mb-3">
+        <div class="card-header"><h3 class="card-title">General</h3></div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label required" for="name">Name</label>
+            <input class="form-control" id="name" name="name" value="{{ values.name }}" required maxlength="100">
+          </div>
+          {% if provider_type != 'ldap' %}
+          <div class="mb-3">
+            <label class="form-label" for="button_label">Login button label</label>
+            <input class="form-control" id="button_label" name="button_label" value="{{ values.button_label or '' }}" placeholder="Sign in with {{ values.name or '…' }}">
+          </div>
+          {% endif %}
+          <label class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="enabled" {{ 'checked' if values.enabled }}>
+            <span class="form-check-label">Enabled</span>
+          </label>
+          <label class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="auto_create_users" {{ 'checked' if values.auto_create_users }}>
+            <span class="form-check-label">Create users on first login</span>
+          </label>
+        </div>
+      </div>
+      <div class="card mb-3">
+        <div class="card-header"><h3 class="card-title">Roles</h3></div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label" for="default_role">Default role</label>
+            <select class="form-select" id="default_role" name="default_role">
+              {% for r in roles %}<option value="{{ r }}" {{ 'selected' if values.default_role == r }}>{{ r|capitalize }}</option>{% endfor %}
+            </select>
+          </div>
+          <label class="form-label" for="mapping">Group → role mapping</label>
+          <textarea class="form-control font-monospace" id="mapping" name="mapping" rows="4"
+                    placeholder="statora-admins = admin&#10;ops = editor">{{ values.mapping }}</textarea>
+          <small class="form-hint">One <code>group = role</code> per line ({{ 'group DN or cn' if provider_type == 'ldap' else 'value of the groups claim/attribute' }}). The highest match wins. When set, roles are refreshed at every login.</small>
+        </div>
+      </div>
+      {% if saml_urls or oidc_callback %}
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">Values for your identity provider</h3></div>
+        <div class="card-body">
+          {% if oidc_callback %}
+            <label class="form-label">Redirect / callback URL</label>
+            <div class="input-group mb-2">
+              <input class="form-control font-monospace-sm" id="oidc-callback" value="{{ oidc_callback }}" readonly>
+              <button class="btn" type="button" data-copy="#oidc-callback"><i class="ti ti-copy"></i></button>
+            </div>
+          {% endif %}
+          {% if saml_urls %}
+            <label class="form-label">ACS URL</label>
+            <div class="input-group mb-2">
+              <input class="form-control font-monospace-sm" id="saml-acs" value="{{ saml_urls.acs }}" readonly>
+              <button class="btn" type="button" data-copy="#saml-acs"><i class="ti ti-copy"></i></button>
+            </div>
+            <label class="form-label">SP entity ID / metadata</label>
+            <div class="input-group mb-2">
+              <input class="form-control font-monospace-sm" id="saml-meta" value="{{ saml_urls.metadata }}" readonly>
+              <button class="btn" type="button" data-copy="#saml-meta"><i class="ti ti-copy"></i></button>
+            </div>
+            <a href="{{ saml_urls.metadata }}" class="btn btn-sm" target="_blank" rel="noopener"><i class="ti ti-download me-1"></i>Download SP metadata</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="d-flex mt-3">
+    <a href="/admin/settings/auth" class="btn btn-link">Back</a>
+    <button type="submit" class="btn btn-primary ms-auto">{{ 'Save' if provider else 'Create provider' }}</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% include '_brand_head.html' %}
+  <meta name="csrf-token" content="{{ csrf_token(request) }}">
+  <title>{% block title %}Admin{% endblock %} · Statora</title>
+  <link rel="stylesheet" href="{{ asset('vendor/tabler.min.css') }}">
+  <link rel="stylesheet" href="{{ asset('vendor/tabler-icons.min.css') }}">
+  <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
+  <script>
+    (function () {
+      var theme = null;
+      try { theme = localStorage.getItem("statora-theme"); } catch (e) {}
+      if (!theme) theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-bs-theme", theme);
+    })();
+  </script>
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ csrf_token(request) }}"}'>
+<div class="page">
+  <header class="navbar navbar-expand-md d-print-none">
+    <div class="container-xl">
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu"
+              aria-controls="navbar-menu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <a href="/admin" class="navbar-brand pe-0 pe-md-3" aria-label="Statora">
+        <img src="{{ asset('brand/logo.svg') }}" alt="Statora" height="30" class="brand-logo brand-logo-light">
+        <img src="{{ asset('brand/logo-dark.svg') }}" alt="Statora" height="30" class="brand-logo brand-logo-dark">
+      </a>
+      <div class="navbar-nav flex-row order-md-last">
+        <button type="button" class="nav-link px-0 me-2 btn btn-link" id="theme-toggle" title="Toggle dark mode"
+                aria-label="Toggle dark mode">
+          <i class="ti ti-moon fs-2 theme-icon-dark"></i><i class="ti ti-sun fs-2 theme-icon-light"></i>
+        </button>
+        <div class="nav-item dropdown">
+          <a href="#" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" aria-label="Open user menu">
+            <span class="avatar avatar-sm">{{ (user.display_name or user.username)[:2]|upper }}</span>
+            <div class="d-none d-xl-block ps-2">
+              <div>{{ user.display_name or user.username }}</div>
+              <div class="mt-1 small text-secondary">{{ user.role|capitalize }}</div>
+            </div>
+          </a>
+          <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+            <a href="/admin/profile/tokens" class="dropdown-item"><i class="ti ti-key me-2"></i>API tokens</a>
+            <a href="/api/docs" class="dropdown-item" target="_blank" rel="noopener"><i class="ti ti-api me-2"></i>API docs</a>
+            <div class="dropdown-divider"></div>
+            <form method="post" action="/logout">
+              {{ csrf_input(request) }}
+              <button class="dropdown-item" type="submit"><i class="ti ti-logout me-2"></i>Log out</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="collapse navbar-collapse" id="navbar-menu">
+        <ul class="navbar-nav">
+          {% macro navlink(href, icon, label, active=None) -%}
+            <li class="nav-item {{ 'active' if (active if active is not none else nav.startswith(href)) }}">
+              <a class="nav-link" href="{{ href }}">
+                <span class="nav-link-icon"><i class="ti ti-{{ icon }}"></i></span>
+                <span class="nav-link-title">{{ label }}</span>
+              </a>
+            </li>
+          {%- endmacro %}
+          {{ navlink('/admin', 'activity', 'Monitors', active=(nav == '/admin' or nav.startswith('/admin/monitors'))) }}
+          {{ navlink('/admin/pages', 'layout-dashboard', 'Status pages') }}
+          {{ navlink('/admin/incidents', 'alert-triangle', 'Incidents') }}
+          {{ navlink('/admin/maintenance', 'tool', 'Maintenance') }}
+          {% if user.role == 'admin' %}
+            {{ navlink('/admin/users', 'users', 'Users') }}
+            {{ navlink('/admin/settings/auth', 'shield-lock', 'Authentication') }}
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </header>
+
+  <div class="page-wrapper">
+    <div class="page-header d-print-none">
+      <div class="container-xl">
+        <div class="row g-2 align-items-center">
+          <div class="col">
+            {% block pretitle %}{% endblock %}
+            <h2 class="page-title">{% block heading %}{{ self.title() }}{% endblock %}</h2>
+          </div>
+          <div class="col-auto ms-auto d-print-none">{% block actions %}{% endblock %}</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-body">
+      <div class="container-xl">
+        {% if flash %}
+          <div class="alert alert-{{ flash.kind }} alert-dismissible" role="alert">
+            {{ flash.message }}
+            <a class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
+          </div>
+        {% endif %}
+        {% if errors %}
+          <div class="alert alert-danger" role="alert">
+            <h4 class="alert-title">Please fix the following</h4>
+            <ul class="mb-0">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+          </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+    <footer class="footer footer-transparent d-print-none">
+      <div class="container-xl text-secondary small">
+        Statora v{{ app_version }} · <a href="/api/docs" class="link-secondary">API</a> · <a href="/" class="link-secondary">Public page</a>
+      </div>
+    </footer>
+  </div>
+</div>
+<script src="{{ asset('vendor/tabler.min.js') }}" defer></script>
+<script src="{{ asset('vendor/htmx.min.js') }}" defer></script>
+<script src="{{ asset('js/admin.js') }}" defer></script>
+<script src="{{ asset('js/dual-list.js') }}" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

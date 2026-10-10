@@ -1,0 +1,58 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ 'Edit ' ~ target.username if target else 'New local user' }}{% endblock %}
+{% block actions %}
+  {% if target and target.id != user.id %}
+  <form method="post" action="/admin/users/{{ target.id }}/delete" data-confirm="Delete user {{ target.username }}?">
+    {{ csrf_input(request) }}
+    <button class="btn btn-outline-danger" type="submit"><i class="ti ti-trash me-1"></i>Delete</button>
+  </form>
+  {% endif %}
+{% endblock %}
+{% block content %}
+<form method="post" class="card" style="max-width: 720px" autocomplete="off">
+  {{ csrf_input(request) }}
+  <div class="card-body">
+    {% if target and not target.is_local %}
+      <div class="alert alert-info">This account signs in through <strong>{{ target.auth_provider.name if target.auth_provider else 'an external provider' }}</strong>. Profile fields are refreshed at each login{% if target.auth_provider and target.auth_provider.group_role_mapping %}, and so is the role (group mapping){% endif %}.</div>
+    {% endif %}
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label {{ 'required' if not target }}" for="username">Username</label>
+        <input class="form-control" id="username" name="username" value="{{ values.username or '' }}" {{ 'disabled' if target else 'required' }} maxlength="150">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="display_name">Display name</label>
+        <input class="form-control" id="display_name" name="display_name" value="{{ values.display_name or '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="email">Email</label>
+        <input type="email" class="form-control" id="email" name="email" value="{{ values.email or '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="role">Role</label>
+        <select class="form-select" id="role" name="role">
+          {% for r in roles %}<option value="{{ r }}" {{ 'selected' if values.role == r }}>{{ r|capitalize }}</option>{% endfor %}
+        </select>
+        <small class="form-hint">Viewer: read-only · Editor: monitors, pages, incidents · Admin: everything.</small>
+      </div>
+      {% if not target or target.is_local %}
+      <div class="col-md-6">
+        <label class="form-label {{ 'required' if not target }}" for="password">{{ 'New password' if target else 'Password' }}</label>
+        <input type="password" class="form-control" id="password" name="password" minlength="8" autocomplete="new-password"
+               {{ 'required' if not target }} placeholder="{{ 'Leave empty to keep' if target else 'At least 8 characters' }}">
+      </div>
+      {% endif %}
+      <div class="col-12">
+        <label class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" name="active" {{ 'checked' if values.active }}>
+          <span class="form-check-label">Active</span>
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer d-flex">
+    <a href="/admin/users" class="btn btn-link">Cancel</a>
+    <button type="submit" class="btn btn-primary ms-auto">{{ 'Save' if target else 'Create user' }}</button>
+  </div>
+</form>
+{% endblock %}

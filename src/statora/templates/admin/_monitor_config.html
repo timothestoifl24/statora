@@ -1,0 +1,143 @@
+{% set c = values.config or {} %}
+{% set t = values.type %}
+<div class="row g-3">
+{% if t == 'http' %}
+  <div class="col-md-3">
+    <label class="form-label" for="cfg_method">Method</label>
+    <select class="form-select" id="cfg_method" name="cfg_method">
+      {% for m in ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] %}
+        <option {{ 'selected' if (c.method or 'GET') == m }}>{{ m }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-5">
+    <label class="form-label" for="cfg_expected_status">Accepted status codes</label>
+    <input class="form-control" id="cfg_expected_status" name="cfg_expected_status"
+           value="{{ (c.expected_status or ['200-299'])|join(', ') }}" placeholder="200-299, 301">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label" for="cfg_degraded_threshold_ms">Degraded above (ms)</label>
+    <input type="number" class="form-control" id="cfg_degraded_threshold_ms" name="cfg_degraded_threshold_ms" min="1"
+           value="{{ c.degraded_threshold_ms or '' }}" placeholder="optional">
+  </div>
+  <div class="col-md-8">
+    <label class="form-label" for="cfg_keyword">Keyword</label>
+    <input class="form-control" id="cfg_keyword" name="cfg_keyword" value="{{ c.keyword or '' }}"
+           placeholder="Text that must appear in the response (optional)">
+  </div>
+  <div class="col-md-4 d-flex align-items-end">
+    <label class="form-check">
+      <input class="form-check-input" type="checkbox" name="cfg_invert_keyword" {{ 'checked' if c.invert_keyword }}>
+      <span class="form-check-label">Down if keyword is found</span>
+    </label>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label" for="cfg_headers">Request headers (JSON)</label>
+    <textarea class="form-control font-monospace" id="cfg_headers" name="cfg_headers" rows="2"
+              placeholder='{"Authorization": "Bearer …"}'>{{ (c.headers|tojson) if c.headers else '' }}</textarea>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label" for="cfg_body">Request body</label>
+    <textarea class="form-control font-monospace" id="cfg_body" name="cfg_body" rows="2">{{ c.body or '' }}</textarea>
+  </div>
+  <div class="col-12 d-flex gap-4">
+    <label class="form-check">
+      <input class="form-check-input" type="checkbox" name="cfg_follow_redirects" {{ 'checked' if c.follow_redirects is not defined or c.follow_redirects }}>
+      <span class="form-check-label">Follow redirects</span>
+    </label>
+    <label class="form-check">
+      <input class="form-check-input" type="checkbox" name="cfg_verify_tls" {{ 'checked' if c.verify_tls is not defined or c.verify_tls }}>
+      <span class="form-check-label">Verify TLS certificate</span>
+    </label>
+  </div>
+{% elif t == 'tcp' %}
+  <div class="col-md-4">
+    <label class="form-label required" for="cfg_port">Port</label>
+    <input type="number" class="form-control" id="cfg_port" name="cfg_port" min="1" max="65535" value="{{ c.port or '' }}" required>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label" for="cfg_degraded_threshold_ms">Degraded above (ms)</label>
+    <input type="number" class="form-control" id="cfg_degraded_threshold_ms" name="cfg_degraded_threshold_ms" min="1" value="{{ c.degraded_threshold_ms or '' }}">
+  </div>
+{% elif t == 'ping' %}
+  <div class="col-md-4">
+    <label class="form-label" for="cfg_count">Packets per check</label>
+    <input type="number" class="form-control" id="cfg_count" name="cfg_count" min="1" max="10" value="{{ c.count or 3 }}">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label" for="cfg_degraded_threshold_ms">Degraded above (ms)</label>
+    <input type="number" class="form-control" id="cfg_degraded_threshold_ms" name="cfg_degraded_threshold_ms" min="1" value="{{ c.degraded_threshold_ms or '' }}">
+  </div>
+{% elif t == 'dns' %}
+  <div class="col-md-3">
+    <label class="form-label" for="cfg_record_type">Record type</label>
+    <select class="form-select" id="cfg_record_type" name="cfg_record_type">
+      {% for r in ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT', 'SOA', 'SRV', 'CAA'] %}
+        <option {{ 'selected' if (c.record_type or 'A') == r }}>{{ r }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label" for="cfg_resolver">Resolver</label>
+    <input class="form-control" id="cfg_resolver" name="cfg_resolver" value="{{ c.resolver or '' }}" placeholder="System default">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label" for="cfg_expected_value">Expected value</label>
+    <input class="form-control" id="cfg_expected_value" name="cfg_expected_value" value="{{ c.expected_value or '' }}"
+           placeholder="Down unless an answer contains this (optional)">
+  </div>
+{% elif t == 'group' %}
+  {% set mode = c.mode or 'stack' %}
+  <div class="col-12">
+    <label class="form-label">Group type</label>
+    <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column flex-md-row gap-2">
+      <label class="form-selectgroup-item flex-fill">
+        <input type="radio" name="cfg_mode" value="stack" class="form-selectgroup-input" {{ 'checked' if mode == 'stack' }} onchange="document.getElementById('redundancy-options').hidden = this.value !== 'redundancy'">
+        <div class="form-selectgroup-label d-flex align-items-center p-3">
+          <span class="form-selectgroup-check me-3"></span>
+          <div class="text-start">
+            <div class="fw-medium"><i class="ti ti-stack-2 me-1"></i>Stack</div>
+            <div class="text-secondary small">Every member must be healthy. One member down → group down.</div>
+          </div>
+        </div>
+      </label>
+      <label class="form-selectgroup-item flex-fill">
+        <input type="radio" name="cfg_mode" value="redundancy" class="form-selectgroup-input" {{ 'checked' if mode == 'redundancy' }} onchange="document.getElementById('redundancy-options').hidden = this.value !== 'redundancy'">
+        <div class="form-selectgroup-label d-flex align-items-center p-3">
+          <span class="form-selectgroup-check me-3"></span>
+          <div class="text-start">
+            <div class="fw-medium"><i class="ti ti-arrows-split-2 me-1"></i>Redundancy</div>
+            <div class="text-secondary small">Up while at least <em>N</em> members are up (e.g. one of two nodes).</div>
+          </div>
+        </div>
+      </label>
+    </div>
+  </div>
+  {# Redundancy-only settings; shown when "Redundancy" is selected. #}
+  <div class="col-12" id="redundancy-options" {{ 'hidden' if mode != 'redundancy' }}>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label" for="cfg_min_up">Members that must be up</label>
+        <input type="number" class="form-control" id="cfg_min_up" name="cfg_min_up" min="1" value="{{ c.min_up or 1 }}">
+      </div>
+      <div class="col-md-8 d-flex align-items-end">
+        <label class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" name="cfg_degraded_on_member_failure"
+                 {{ 'checked' if c.degraded_on_member_failure is not defined or c.degraded_on_member_failure }}>
+          <span class="form-check-label">Show as <strong>degraded</strong> while some members are down (redundancy reduced)</span>
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="col-12">
+    <label class="form-label required" for="member_ids">Members</label>
+    <select class="form-select" id="member_ids" name="member_ids" multiple size="8"
+            data-dual-list data-available-label="Available monitors" data-selected-label="Members" data-noun="monitors">
+      {% for m in member_choices %}
+        <option value="{{ m.id }}" {{ 'selected' if m.id in (values.member_ids or []) }}>{{ m.name }} ({{ m.type|upper }})</option>
+      {% endfor %}
+    </select>
+    <small class="form-hint">Click a monitor to move it between the lists. Groups can contain other groups.</small>
+  </div>
+{% endif %}
+</div>

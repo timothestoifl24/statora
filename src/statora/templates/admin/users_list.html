@@ -1,0 +1,31 @@
+{% extends "admin/base.html" %}
+{% block title %}Users{% endblock %}
+{% block actions %}<a href="/admin/users/new" class="btn btn-primary"><i class="ti ti-user-plus me-1"></i>New local user</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead><tr><th>User</th><th>Role</th><th>Source</th><th>Last login</th><th></th></tr></thead>
+      <tbody>
+      {% for u in users %}
+        <tr class="{{ 'text-secondary' if not u.active }}">
+          <td>
+            <div class="d-flex align-items-center">
+              <span class="avatar avatar-sm me-2">{{ (u.display_name or u.username)[:2]|upper }}</span>
+              <div>
+                <div class="fw-medium">{{ u.display_name or u.username }} {% if not u.active %}<span class="badge bg-secondary-lt">disabled</span>{% endif %}</div>
+                <div class="small text-secondary">{{ u.username }}{% if u.email %} · {{ u.email }}{% endif %}</div>
+              </div>
+            </div>
+          </td>
+          <td><span class="badge bg-{{ {'admin': 'red', 'editor': 'blue', 'viewer': 'secondary'}[u.role] }}-lt">{{ u.role }}</span></td>
+          <td class="small">{% if u.auth_provider %}<i class="ti ti-shield-lock me-1"></i>{{ u.auth_provider.name }} ({{ u.auth_provider.type|upper }}){% elif u.auth_provider_id %}deleted provider{% else %}Local{% endif %}</td>
+          <td class="small text-secondary">{{ u.last_login_at|dt }}</td>
+          <td class="text-end"><a href="/admin/users/{{ u.id }}/edit" class="btn btn-sm">Edit</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

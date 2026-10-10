@@ -1,0 +1,151 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import monitor_target %}
+{% set status_colors = {'up': 'success', 'down': 'danger', 'degraded': 'warning', 'pending': 'secondary', 'maintenance': 'info'} %}
+{% block title %}{{ monitor.name }}{% endblock %}
+{% block pretitle %}<div class="page-pretitle">{{ monitor.type|upper }} monitor</div>{% endblock %}
+{% block heading %}
+  <span class="status-dot status-{{ monitor.status if monitor.active else 'pending' }} me-2"></span>{{ monitor.name }}
+{% endblock %}
+{% block actions %}
+  {% if user.role in ('admin', 'editor') %}
+  <div class="btn-list">
+    <form method="post" action="/admin/monitors/{{ monitor.id }}/toggle" class="d-inline">
+      {{ csrf_input(request) }}
+      <button class="btn" type="submit">
+        <i class="ti ti-player-{{ 'pause' if monitor.active else 'play' }} me-1"></i>{{ 'Pause' if monitor.active else 'Resume' }}
+      </button>
+    </form>
+    <a href="/admin/monitors/{{ monitor.id }}/edit" class="btn btn-primary"><i class="ti ti-edit me-1"></i>Edit</a>
+    <form method="post" action="/admin/monitors/{{ monitor.id }}/delete" class="d-inline"
+          data-confirm="Delete monitor “{{ monitor.name }}” and all its history?">
+      {{ csrf_input(request) }}
+      <button class="btn btn-outline-danger" type="submit" aria-label="Delete"><i class="ti ti-trash"></i></button>
+    </form>
+  </div>
+  {% endif %}
+{% endblock %}
+{% block content %}
+<div class="text-secondary mb-3 {{ '' if monitor.is_group else 'font-monospace-sm' }}">{{ monitor_target(monitor) }}</div>
+
+{% if monitor.is_group %}
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="card-title"><i class="ti ti-{{ 'arrows-split-2' if monitor.config.mode == 'redundancy' else 'stack-2' }} me-2"></i>Members</h3>
+  </div>
+  <div class="list-group list-group-flush">
+    {% for m in monitor.members %}
+      {% set st = 'paused' if not m.active else ('maintenance' if m.id in in_maintenance else m.status) %}
+      <a href="/admin/monitors/{{ m.id }}" class="list-group-item list-group-item-action">
+        <div class="row align-items-center">
+          <div class="col-auto"><span class="status-dot status-{{ 'pending' if st == 'paused' else st }}"></span></div>
+          <div class="col text-truncate">
+            <span class="fw-medium">{{ m.name }}</span>
+            <span class="badge badge-outline text-secondary ms-1">{{ m.type|upper }}</span>
+            <div class="text-secondary small text-truncate">{{ m.last_message or '' }}</div>
+          </div>
+          <div class="col-auto"><span class="badge bg-{{ status_colors.get(st, 'secondary') }}-lt">{{ st }}</span></div>
+        </div>
+      </a>
+    {% else %}
+      <div class="list-group-item text-secondary">No members.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+<div class="row row-cards mb-3">
+  <div class="col-sm-6 col-lg-3"><div class="card card-sm"><div class="card-body">
+    <div class="subheader">Status</div>
+    <div class="h2 mb-0"><span class="badge bg-{{ status_colors.get(monitor.status, 'secondary') }} text-white">{{ monitor.status if monitor.active else 'paused' }}</span></div>
+    <div class="text-secondary small mt-1">since {{ monitor.status_changed_at|dt }}</div>
+  </div></div></div>
+  <div class="col-sm-6 col-lg-3"><div class="card card-sm"><div class="card-body">
+    <div class="subheader">Uptime 24h / 30d</div>
+    <div class="h2 mb-0">{{ stats.uptime_24h|pct }} <span class="text-secondary fs-4">/ {{ stats.uptime_30d|pct }}</span></div>
+  </div></div></div>
+  <div class="col-sm-6 col-lg-3"><div class="card card-sm"><div class="card-body">
+    <div class="subheader">Avg. latency (24h)</div>
+    <div class="h2 mb-0">{{ stats.avg_latency|ms }}</div>
+  </div></div></div>
+  <div class="col-sm-6 col-lg-3"><div class="card card-sm"><div class="card-body">
+    <div class="subheader">Last check</div>
+    <div class="h2 mb-0">{{ monitor.last_latency_ms|ms }}</div>
+    <div class="text-secondary small mt-1 text-truncate" title="{{ monitor.last_message or '' }}">{{ monitor.last_message or '—' }}</div>
+  </div></div></div>
+</div>
+
+{% if not monitor.is_group %}
+<div class="card mb-3">
+  <div class="card-header"><h3 class="card-title">Response time · last 24 hours</h3></div>
+  <div class="card-body">
+    {% if chart %}<div id="latency-chart" style="min-height: 260px"></div>
+    {% else %}<p class="text-secondary mb-0">No checks yet. The first result appears within one interval ({{ monitor.interval_s }}s).</p>{% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="row row-cards">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Status changes</h3></div>
+      <div class="list-group list-group-flush">
+        {% for e in events %}
+          <div class="list-group-item">
+            <div class="row align-items-center">
+              <div class="col-auto"><span class="badge bg-{{ status_colors.get(e.status, 'secondary') }} text-white">{{ e.status }}</span></div>
+              <div class="col text-truncate">{{ e.message or '' }}</div>
+              <div class="col-auto text-secondary small">{{ e.ts|dt }}</div>
+            </div>
+          </div>
+        {% else %}
+          <div class="list-group-item text-secondary">No status changes recorded.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Configuration</h3></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5">Interval</dt><dd class="col-7">{{ monitor.interval_s }}s</dd>
+          <dt class="col-5">Timeout</dt><dd class="col-7">{{ monitor.timeout_s }}s</dd>
+          <dt class="col-5">Retries</dt><dd class="col-7">{{ monitor.retries }}</dd>
+          {% for k, v in monitor.config.items() if v not in (none, '', {}, []) %}
+            <dt class="col-5">{{ k.replace('_', ' ')|capitalize }}</dt><dd class="col-7 font-monospace-sm">{{ v|join(', ') if v is iterable and v is not string and v is not mapping else v }}</dd>
+          {% endfor %}
+        </dl>
+        {% if monitor.description %}<hr><div class="text-secondary">{{ monitor.description }}</div>{% endif %}
+        {% if parent_groups %}
+          <hr>
+          <div class="subheader mb-2">Part of groups</div>
+          {% for g in parent_groups %}<a href="/admin/monitors/{{ g.id }}" class="badge bg-blue-lt me-1 mb-1"><i class="ti ti-stack-2 me-1"></i>{{ g.name }}</a>{% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{% if chart and not monitor.is_group %}
+<script src="{{ asset('vendor/apexcharts.min.js') }}"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var dark = document.documentElement.getAttribute("data-bs-theme") === "dark";
+    new ApexCharts(document.getElementById("latency-chart"), {
+      chart: { type: "area", height: 260, toolbar: { show: false }, animations: { enabled: false },
+               background: "transparent", fontFamily: "inherit" },
+      theme: { mode: dark ? "dark" : "light" },
+      series: [{ name: "Latency (ms)", data: {{ chart|tojson }} }],
+      xaxis: { type: "datetime", labels: { datetimeUTC: false } },
+      yaxis: { labels: { formatter: function (v) { return v == null ? "" : Math.round(v) + " ms"; } } },
+      stroke: { width: 2, curve: "smooth" },
+      fill: { type: "gradient", gradient: { opacityFrom: 0.35, opacityTo: 0.05 } },
+      dataLabels: { enabled: false },
+      colors: ["#1f6feb"],
+      tooltip: { x: { format: "HH:mm:ss" } },
+      grid: { strokeDashArray: 4 }
+    }).render();
+  });
+</script>
+{% endif %}
+{% endblock %}

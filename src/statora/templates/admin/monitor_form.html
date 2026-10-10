@@ -1,0 +1,66 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ 'Edit ' ~ monitor.name if monitor else 'New monitor' }}{% endblock %}
+{% block content %}
+<form method="post" class="card" autocomplete="off">
+  {{ csrf_input(request) }}
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label required" for="name">Name</label>
+        <input class="form-control" id="name" name="name" value="{{ values.name }}" required maxlength="150">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="type">Type</label>
+        {% if monitor %}
+          <input class="form-control" value="{{ monitor.type|upper }}" disabled>
+          <input type="hidden" name="type" value="{{ monitor.type }}">
+        {% else %}
+          <select class="form-select" id="type" name="type"
+                  hx-get="/admin/monitors/config-fields" hx-target="#config-fields" hx-include="this"
+                  onchange="document.getElementById('target-row').hidden = this.value === 'group'">
+            {% for t in types %}<option value="{{ t }}" {{ 'selected' if values.type == t }}>{{ 'GROUP (stack / redundancy)' if t == 'group' else t|upper }}</option>{% endfor %}
+          </select>
+        {% endif %}
+      </div>
+      <div class="col-12" id="target-row" {{ 'hidden' if values.type == 'group' }}>
+        <label class="form-label required" for="target">Target</label>
+        <input class="form-control" id="target" name="target" value="{{ values.target }}"
+               placeholder="https://example.com · host name · IP address">
+        <small class="form-hint">URL for HTTP, host name or IP for TCP and ping, domain name for DNS.</small>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="interval_s">Check every (seconds)</label>
+        <input type="number" class="form-control" id="interval_s" name="interval_s" min="10" max="86400" value="{{ values.interval_s }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="timeout_s">Timeout (seconds)</label>
+        <input type="number" class="form-control" id="timeout_s" name="timeout_s" min="1" max="120" value="{{ values.timeout_s }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="retries">Retries before down</label>
+        <input type="number" class="form-control" id="retries" name="retries" min="0" max="10" value="{{ values.retries }}">
+      </div>
+    </div>
+
+    <h3 class="card-title mt-4">Check settings</h3>
+    <div id="config-fields">{% include "admin/_monitor_config.html" %}</div>
+
+    <div class="row g-3 mt-1">
+      <div class="col-12">
+        <label class="form-label" for="description">Description <span class="text-secondary">(internal)</span></label>
+        <textarea class="form-control" id="description" name="description" rows="2">{{ values.description or '' }}</textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" name="active" {{ 'checked' if values.active }}>
+          <span class="form-check-label">Active</span>
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer d-flex">
+    <a href="{{ '/admin/monitors/' ~ monitor.id if monitor else '/admin' }}" class="btn btn-link">Cancel</a>
+    <button type="submit" class="btn btn-primary ms-auto">{{ 'Save' if monitor else 'Create monitor' }}</button>
+  </div>
+</form>
+{% endblock %}

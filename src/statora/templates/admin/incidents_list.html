@@ -1,0 +1,42 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import ticket_ref %}
+{% set impact_colors = {'none': 'secondary', 'minor': 'warning', 'major': 'orange', 'critical': 'danger'} %}
+{% block title %}Incidents{% endblock %}
+{% block actions %}
+  {% if user.role in ('admin', 'editor') %}
+    <a href="/admin/incidents/new" class="btn btn-danger"><i class="ti ti-alert-triangle me-1"></i>Report incident</a>
+  {% endif %}
+{% endblock %}
+{% block content %}
+<div class="card">
+  {% if incidents %}
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead><tr><th>Incident</th><th>Page</th><th>Impact</th><th>Status</th><th>Ticket</th><th>Started</th><th>Resolved</th></tr></thead>
+      <tbody>
+      {% for i in incidents %}
+        <tr>
+          <td><a href="/admin/incidents/{{ i.id }}" class="text-reset fw-medium">{{ i.title }}</a></td>
+          <td class="text-secondary">{{ pages[i.page_id].title if i.page_id in pages else '—' }}</td>
+          <td><span class="badge bg-{{ impact_colors[i.impact] }}-lt">{{ i.impact }}</span></td>
+          <td>
+            {% if i.status == 'resolved' %}<span class="badge bg-success-lt">resolved</span>
+            {% else %}<span class="badge bg-danger text-white">{{ i.status }}</span>{% endif %}
+          </td>
+          <td class="small">{{ ticket_ref(i.ticket_number, i.ticket_url) }}</td>
+          <td class="text-secondary small">{{ i.started_at|dt }}</td>
+          <td class="text-secondary small">{{ i.resolved_at|dt }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <div class="empty-icon"><i class="ti ti-mood-happy fs-1"></i></div>
+    <p class="empty-title">No incidents</p>
+    <p class="empty-subtitle text-secondary">Incidents you report appear on the selected status page.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% include '_brand_head.html' %}
+  <title>Sign in · Statora</title>
+  <link rel="stylesheet" href="{{ asset('vendor/tabler.min.css') }}">
+  <link rel="stylesheet" href="{{ asset('vendor/tabler-icons.min.css') }}">
+  <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
+  <script>
+    (function () {
+      var theme = null;
+      try { theme = localStorage.getItem("statora-theme"); } catch (e) {}
+      if (!theme) theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-bs-theme", theme);
+    })();
+  </script>
+</head>
+<body class="d-flex flex-column">
+<div class="page page-center">
+  <div class="container container-tight py-4">
+    <div class="text-center mb-4">
+      <img src="{{ asset('brand/logo.svg') }}" alt="Statora" height="44" class="brand-logo brand-logo-lg brand-logo-light">
+      <img src="{{ asset('brand/logo-dark.svg') }}" alt="Statora" height="44" class="brand-logo brand-logo-lg brand-logo-dark">
+    </div>
+    <div class="card card-md">
+      <div class="card-body">
+        <h2 class="h2 text-center mb-4">Sign in</h2>
+        {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+        {% if show_password_form %}
+        <form method="post" action="/login" autocomplete="on">
+          {{ csrf_input(request) }}
+          <input type="hidden" name="next" value="{{ next }}">
+          <div class="mb-3">
+            <label class="form-label" for="username">Username</label>
+            <input class="form-control" id="username" name="username" autocomplete="username" required autofocus>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="password">Password</label>
+            <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" required>
+            {% if has_ldap %}<small class="form-hint">Local and directory (LDAP) accounts are accepted.</small>{% endif %}
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Sign in</button>
+        </form>
+        {% endif %}
+        {% if sso_providers %}
+          {% if show_password_form %}<div class="hr-text">or</div>{% endif %}
+          <div class="d-grid gap-2">
+            {% for p in sso_providers %}
+              <a class="btn" href="/auth/{{ p.type }}/{{ p.id }}/login?next={{ next|urlencode }}">
+                <i class="ti ti-{{ 'key' if p.type == 'oidc' else 'certificate' }} me-2"></i>{{ p.button_label or 'Sign in with ' ~ p.name }}
+              </a>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="text-center text-secondary mt-3"><a href="/" class="link-secondary">View status page</a></div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% include '_brand_head.html' %}
+  <title>{{ status_code }} · Statora</title>
+  <link rel="stylesheet" href="{{ asset('vendor/tabler.min.css') }}">
+</head>
+<body class="d-flex flex-column">
+  <div class="page page-center">
+    <div class="container-tight py-4">
+      <div class="text-center mb-4"><img src="{{ asset('brand/icon.svg') }}" alt="Statora" width="48" height="48"></div>
+      <div class="empty">
+        <div class="empty-header">{{ status_code }}</div>
+        <p class="empty-title">{{ detail if detail is string else 'Something went wrong' }}</p>
+        <div class="empty-action"><a href="javascript:history.back()" class="btn btn-primary">Go back</a></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

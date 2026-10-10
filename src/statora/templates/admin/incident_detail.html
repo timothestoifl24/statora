@@ -1,0 +1,115 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import ticket_ref %}
+{% set impact_colors = {'none': 'secondary', 'minor': 'warning', 'major': 'orange', 'critical': 'danger'} %}
+{% block title %}{{ incident.title }}{% endblock %}
+{% block pretitle %}<div class="page-pretitle">Incident on {{ page.title if page else '—' }}</div>{% endblock %}
+{% block actions %}
+  {% if user.role in ('admin', 'editor') %}
+  <form method="post" action="/admin/incidents/{{ incident.id }}/delete" data-confirm="Delete this incident permanently?">
+    {{ csrf_input(request) }}
+    <button class="btn btn-outline-danger" type="submit"><i class="ti ti-trash me-1"></i>Delete</button>
+  </form>
+  {% endif %}
+{% endblock %}
+{% block content %}
+<div class="row row-cards">
+  <div class="col-lg-8">
+    {% if user.role in ('admin', 'editor') and not incident.is_resolved %}
+    <form method="post" action="/admin/incidents/{{ incident.id }}/updates" class="card mb-3">
+      {{ csrf_input(request) }}
+      <div class="card-header"><h3 class="card-title">Post an update</h3></div>
+      <div class="card-body">
+        <div class="form-selectgroup mb-3">
+          {% for s in statuses %}
+            <label class="form-selectgroup-item">
+              <input type="radio" name="status" value="{{ s }}" class="form-selectgroup-input" {{ 'checked' if incident.status == s }}>
+              <span class="form-selectgroup-label">{{ s|capitalize }}</span>
+            </label>
+          {% endfor %}
+        </div>
+        <textarea class="form-control" name="body" rows="3" required placeholder="What changed? (Markdown)"></textarea>
+      </div>
+      <div class="card-footer text-end"><button type="submit" class="btn btn-primary">Post update</button></div>
+    </form>
+    {% elif user.role in ('admin', 'editor') %}
+    <form method="post" action="/admin/incidents/{{ incident.id }}/updates" class="alert alert-success d-flex align-items-center">
+      {{ csrf_input(request) }}
+      <input type="hidden" name="status" value="investigating">
+      <input type="hidden" name="body" value="We are investigating this issue again.">
+      <div><i class="ti ti-circle-check me-1"></i>Resolved {{ incident.resolved_at|dt }}</div>
+      <button type="submit" class="btn btn-sm ms-auto">Reopen</button>
+    </form>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Timeline</h3></div>
+      <div class="card-body">
+        <ul class="timeline">
+          {% for u in incident.updates %}
+            <li class="timeline-event">
+              <div class="timeline-event-icon bg-{{ 'success' if u.status == 'resolved' else 'warning' }}-lt">
+                <i class="ti ti-{{ 'check' if u.status == 'resolved' else 'message' }}"></i>
+              </div>
+              <div class="card timeline-event-card">
+                <div class="card-body">
+                  <div class="text-secondary float-end small">{{ u.created_at|dt }}</div>
+                  <h4>{{ u.status|capitalize }}</h4>
+                  <div class="timeline-body">{{ u.body|markdown }}</div>
+                </div>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5">Impact</dt><dd class="col-7"><span class="badge bg-{{ impact_colors[incident.impact] }}-lt">{{ incident.impact }}</span></dd>
+          <dt class="col-5">Status</dt><dd class="col-7">{{ incident.status }}</dd>
+          <dt class="col-5">Started</dt><dd class="col-7">{{ incident.started_at|dt }}</dd>
+          <dt class="col-5">Resolved</dt><dd class="col-7">{{ incident.resolved_at|dt }}</dd>
+          <dt class="col-5">Affected</dt>
+          <dd class="col-7">{% for m in incident.monitors %}<a href="/admin/monitors/{{ m.id }}">{{ m.name }}</a>{{ ', ' if not loop.last }}{% else %}—{% endfor %}</dd>
+          <dt class="col-5">Ticket</dt>
+          <dd class="col-7">{{ ticket_ref(incident.ticket_number, incident.ticket_url) }}</dd>
+        </dl>
+        {% if page %}<a href="/s/{{ page.slug }}" target="_blank" rel="noopener" class="btn btn-sm w-100 mt-3">View public page <i class="ti ti-external-link ms-1"></i></a>{% endif %}
+      </div>
+    </div>
+
+    {% if user.role in ('admin', 'editor') %}
+    <form method="post" action="/admin/incidents/{{ incident.id }}/edit" class="card mt-3">
+      {{ csrf_input(request) }}
+      <div class="card-header"><h3 class="card-title">Edit details</h3></div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label required" for="title">Title</label>
+          <input class="form-control" id="title" name="title" value="{{ details.title }}" required maxlength="255">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="impact">Impact</label>
+          <select class="form-select" id="impact" name="impact">
+            {% for i in impacts %}<option value="{{ i }}" {{ 'selected' if details.impact == i }}>{{ i|capitalize }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="ticket_number">Ticket number</label>
+          <input class="form-control" id="ticket_number" name="ticket_number" value="{{ details.ticket_number or '' }}"
+                 maxlength="100" placeholder="e.g. INC0012345">
+        </div>
+        <div>
+          <label class="form-label" for="ticket_url">Ticket / documentation URL</label>
+          <input type="url" class="form-control" id="ticket_url" name="ticket_url" value="{{ details.ticket_url or '' }}"
+                 maxlength="2048" placeholder="https://itsm.example.com/…" pattern="https?://.+">
+          <small class="form-hint">Internal; not shown on the public page.</small>
+        </div>
+      </div>
+      <div class="card-footer text-end"><button type="submit" class="btn btn-primary">Save details</button></div>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{# One-line description of what a monitor checks (groups have no target). #}
+{% macro monitor_target(m) -%}
+  {%- if m.type == 'group' -%}
+    {%- set n = m.members|length -%}
+    {%- if m.config.mode == 'redundancy' -%}
+      Redundancy · {{ [m.config.min_up, n]|min }} of {{ n }} must be up
+    {%- else -%}
+      Stack · all {{ n }} member{{ 's' if n != 1 }} must be up
+    {%- endif -%}
+  {%- else -%}
+    {{ m.target }}{% if m.type == 'tcp' %}:{{ m.config.port }}{% endif %}
+  {%- endif -%}
+{%- endmacro %}
+
+{# ITSM ticket reference: number linked to the URL when both exist. #}
+{% macro ticket_ref(number, url) -%}
+  {%- if url -%}
+    <a href="{{ url }}" target="_blank" rel="noopener noreferrer" class="text-nowrap">{{ number or 'Open ticket' }} <i class="ti ti-external-link"></i></a>
+  {%- elif number -%}
+    <span class="font-monospace-sm">{{ number }}</span>
+  {%- else -%}
+    <span class="text-secondary">—</span>
+  {%- endif -%}
+{%- endmacro %}

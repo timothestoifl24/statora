@@ -1,0 +1,46 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import ticket_ref %}
+{% block title %}Maintenance{% endblock %}
+{% block actions %}
+  {% if user.role in ('admin', 'editor') %}
+    <a href="/admin/maintenance/new" class="btn btn-primary"><i class="ti ti-calendar-plus me-1"></i>Schedule maintenance</a>
+  {% endif %}
+{% endblock %}
+{% block content %}
+<div class="card">
+  {% if items %}
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead><tr><th>Title</th><th>Window (UTC)</th><th>Monitors</th><th>Pages</th><th>Change</th><th></th></tr></thead>
+      <tbody>
+      {% for m in items %}
+        <tr>
+          <td>
+            <div class="fw-medium">{{ m.title }}</div>
+            {% if m.is_active(now) %}<span class="badge bg-info text-white">in progress</span>
+            {% elif m.ends_at <= now %}<span class="badge bg-secondary-lt">completed</span>
+            {% else %}<span class="badge bg-blue-lt">scheduled</span>{% endif %}
+          </td>
+          <td class="small">{{ m.starts_at|dt('%Y-%m-%d %H:%M') }} → {{ m.ends_at|dt('%Y-%m-%d %H:%M') }}</td>
+          <td class="small text-secondary">{{ m.monitors|map(attribute='name')|join(', ') or '—' }}</td>
+          <td class="small text-secondary">{{ m.pages|map(attribute='title')|join(', ') or '—' }}</td>
+          <td class="small">{{ ticket_ref(m.change_number, m.change_url) }}</td>
+          <td class="text-end">
+            {% if user.role in ('admin', 'editor') %}
+            <a href="/admin/maintenance/{{ m.id }}/edit" class="btn btn-sm">Edit</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <div class="empty-icon"><i class="ti ti-tool fs-1"></i></div>
+    <p class="empty-title">No maintenance windows</p>
+    <p class="empty-subtitle text-secondary">During maintenance, affected monitors show as “under maintenance” and don't count as downtime.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
