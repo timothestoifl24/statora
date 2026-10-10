@@ -7,6 +7,21 @@
 
 <p align="center"><strong>Self-hosted uptime monitoring and public status pages.</strong></p>
 
+<p align="center">
+  <a href="https://github.com/timothestoifl24/statora/actions/workflows/ci.yml"><img src="https://github.com/timothestoifl24/statora/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/timothestoifl24/statora/actions/workflows/docker.yml"><img src="https://github.com/timothestoifl24/statora/actions/workflows/docker.yml/badge.svg" alt="Container image"></a>
+  <a href="https://statora.stoifl.app"><img src="https://img.shields.io/badge/docs-statora.stoifl.app-1f6feb" alt="Documentation"></a>
+</p>
+
+<p align="center">
+  <a href="https://statora.stoifl.app">Website</a> ·
+  <a href="https://statora.stoifl.app/setup/">Installation</a> ·
+  <a href="https://statora.stoifl.app/guide/">Guide</a> ·
+  <a href="https://statora.stoifl.app/screenshots">Screenshots</a>
+</p>
+
+<p align="center"><img src="docs/public/screenshots/status-page-light.webp" alt="Statora status page" width="820"></p>
+
 - **Monitors:** HTTP(S) (status codes, keyword, headers/body, TLS verification), TCP port, ICMP ping, DNS (any record type, expected value). Each has an interval, a timeout, retries before going down, and a "degraded" latency threshold.
 - **Groups:** combine monitors into one component.
   - **Stack:** every member must be healthy.
@@ -27,6 +42,24 @@ Stack:
 - Python 3.12+, FastAPI and SQLAlchemy 2 (async)
 - PostgreSQL for storage, Redis for caching and coordination
 - One container image for the app
+
+## Installation
+
+Statora is one container image, `ghcr.io/timothestoifl24/statora`, plus PostgreSQL and Redis. The quickest start uses Docker Compose:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/timothestoifl24/statora/main/docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/timothestoifl24/statora/main/.env.example -o .env
+# set STATORA_SECRET_KEY, POSTGRES_PASSWORD and STATORA_BASE_URL in .env
+docker compose up -d
+docker compose exec app statora create-admin
+```
+
+Step-by-step guides:
+
+- [Docker Compose](https://statora.stoifl.app/setup/docker-compose): recommended for a single host, including HTTPS behind Caddy, nginx or Traefik, and backups.
+- [Docker](https://statora.stoifl.app/setup/docker): plain `docker run`, or an existing PostgreSQL.
+- [Kubernetes](https://statora.stoifl.app/setup/kubernetes): Kustomize manifests in [`deploy/kubernetes`](deploy/kubernetes).
 
 ## Quick start (development)
 
@@ -60,11 +93,7 @@ uv run statora dev                               # http://localhost:8000
 
 The app ships as **one container image**. PostgreSQL and Redis run as separate containers.
 
-```bash
-cp .env.example .env    # set STATORA_SECRET_KEY, POSTGRES_PASSWORD, STATORA_BASE_URL
-docker compose up -d --build
-docker compose exec app statora create-admin
-```
+See [Installation](#installation) above. The full configuration reference is at [statora.stoifl.app/reference/configuration](https://statora.stoifl.app/reference/configuration).
 
 Notes:
 - Put a TLS-terminating reverse proxy in front of the app and set `STATORA_SECURE_COOKIES=true`. The app trusts `X-Forwarded-*` headers.
@@ -177,6 +206,9 @@ src/statora/
   static/brand/  logo, favicons, app icons, web manifest (generated from branding/)
   migrations/    Alembic
 branding/        brand kit: logo/icon SVG sources, PNG/ICO exports, generator script
+deploy/          Kubernetes (Kustomize) manifests
+docs/            website and documentation (VitePress), published to statora.stoifl.app
+.github/         CI, container image and GitHub Pages workflows
 ```
 
 ## Brand
