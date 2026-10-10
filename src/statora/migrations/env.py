@@ -1,6 +1,7 @@
 import asyncio
 
 from alembic import context
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from statora import db  # noqa: F401
@@ -22,9 +23,17 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+# Arbitrary constant identifying Statora's migration lock.
+MIGRATION_LOCK_ID = 7_382_910_221
+
+
 def _do_run(connection) -> None:
     context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
     with context.begin_transaction():
+        if connection.dialect.name == "postgresql":
+            # Several replicas may start at once (e.g. a Kubernetes rollout); run migrations one at a
+            # time. The lock is released when the transaction ends.
+            connection.execute(text("SELECT pg_advisory_xact_lock(:id)"), {"id": MIGRATION_LOCK_ID})
         context.run_migrations()
 
 
