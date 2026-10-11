@@ -20,6 +20,10 @@ on:
       - CHANGELOG.md
   workflow_dispatch:
 
+# Read-only by default; the jobs that publish or release ask for more themselves.
+permissions:
+  contents: read
+
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/statora
 
