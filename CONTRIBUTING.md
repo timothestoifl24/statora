@@ -2,7 +2,18 @@
 
 Thanks for helping. Bug reports, fixes, documentation and ideas are all welcome. This page explains how to get a change merged without surprises.
 
-By taking part, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+**Please read these guidelines before you open a pull request.** Every pull request has to confirm that you've read and accept them (see [Accepting these guidelines](#accepting-these-guidelines)). By taking part, you also agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Branches
+
+| Branch | Purpose |
+|---|---|
+| `main` | **Production.** Every commit is a released state; the `latest` image is built from it. |
+| `develop` | **Integration.** Reviewed pull requests are merged here first and published as the `edge` image for testing. |
+| `feature/…`, `fix/…`, `docs/…` | Your work, branched from `develop`. |
+| `hotfix/…` | Urgent production fixes, branched from `main` (maintainers only). |
+
+Open your pull requests against **`develop`**. Pull requests from other branches into `main` are rejected by CI.
 
 ## Before you start
 
@@ -27,7 +38,7 @@ On Python 3.15, SAML's `xmlsec` is compiled from source and needs system librari
 
 ## Making a change
 
-1. **Fork and branch** from `main`, for example `fix/ping-timeout` or `feature/smtp-monitor`.
+1. **Fork and branch** from `develop`, for example `fix/ping-timeout` or `feature/smtp-monitor`.
 2. **Keep the scope small:** one topic per pull request.
 3. **Add or update tests** for any change in behaviour. Tests live in `tests/`. Integration tests use the dev PostgreSQL and Redis; LDAP tests need `docker compose -f docker-compose.dev.yml --profile sso up -d openldap`.
 4. **Update the docs** in `docs/` when something users see changes, and add a line to `docs/reference/changelog.md`.
@@ -49,17 +60,33 @@ On Python 3.15, SAML's `xmlsec` is compiled from source and needs system librari
 - **Templates and front end:** no build step; plain Jinja2, HTMX and small vanilla JavaScript. New static assets go through `asset()` so browsers pick up changes.
 - **Commit messages:** a short summary in the imperative mood ("Add DNS-over-HTTPS monitor"), with a body explaining *why* when it isn't obvious.
 
-## Contributor License Agreement
+## Accepting these guidelines
 
-Before your first pull request can be merged, you need to accept the [Contributor License Agreement](CLA.md). A bot will comment on your pull request; reply with the sentence it asks for. You only do this once.
+The pull request template ends with this checkbox:
 
-The CLA lets the project offer Statora under other terms in the future, alongside the MIT License. You keep the copyright in your work.
+> - [x] I have read and accept the contributing guidelines, including that my contribution is licensed under the MIT License.
+
+Tick it when you open the pull request. The **Guidelines accepted** check stays red, and the pull request can't be merged, until it is; editing the description re-runs the check.
+
+By ticking it, you confirm that:
+
+1. you have read these guidelines and the [Code of Conduct](CODE_OF_CONDUCT.md), and will follow them;
+2. your contribution is your own work, or you have the right to submit it, and any third-party code in it is identified together with its license;
+3. your contribution is licensed under the project's [MIT License](LICENSE), the same license everyone else receives Statora under. You keep the copyright in your work.
 
 ## Review
 
 - A maintainer will review your pull request. Expect questions and suggestions; they're part of getting good code in, not a judgement of you.
-- CI must be green: lint, tests, and the container image and docs builds when they're affected.
-- Pull requests are usually squash-merged, so feel free to push fix-up commits while the review is going on.
+- CI must be green: lint, tests, the guidelines check, and the container image and docs builds when they're affected.
+- Pull requests into `develop` are usually squash-merged, so feel free to push fix-up commits while the review is going on.
+
+## Releases (maintainers)
+
+1. Changes collect on `develop` and are tried out with the `edge` image.
+2. For a release, update the version in `pyproject.toml` and the date in `docs/reference/changelog.md` on `develop`.
+3. Open a pull request from `develop` to `main` and merge it with a merge commit (not squash), so both branches share their history.
+4. Tag the merge commit on `main`, for example `git tag v0.2.0 && git push origin v0.2.0`. CI publishes the version images and creates the GitHub release.
+5. Hotfixes branch from `main`, go back to `main` through a pull request, and are then merged into `develop` as well.
 
 ## Reporting bugs and requesting features
 

@@ -1,0 +1,39 @@
+name: Contributing guidelines
+
+# Pull requests must confirm that the author has read and accepts CONTRIBUTING.md
+# (a ticked checkbox in the pull request template). Make "Guidelines accepted" a
+# required status check for main and develop so unconfirmed pull requests can't be merged.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  accepted:
+    name: Guidelines accepted
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check the acceptance box
+        env:
+          # Passed via the environment, never interpolated into the script.
+          BODY: ${{ github.event.pull_request.body }}
+          AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [ "$AUTHOR_TYPE" = "Bot" ]; then
+            echo "Pull request opened by a bot; nothing to accept."
+            exit 0
+          fi
+          if [ "$BASE" = "main" ] && [ "$HEAD" != "develop" ] && [ "${HEAD#hotfix/}" = "$HEAD" ]; then
+            echo "::error::Please open your pull request against the develop branch. main only receives releases from develop (and hotfix/* branches)."
+            exit 1
+          fi
+          if printf '%s' "$BODY" | grep -qiE '^\s*[-*] \[[xX]\] I have read and accept the .*contributing guidelines'; then
+            echo "Contributing guidelines accepted."
+          else
+            echo "::error::Please read CONTRIBUTING.md and tick \"I have read and accept the contributing guidelines\" in the pull request description. The check reruns when you edit the description."
+            exit 1
+          fi

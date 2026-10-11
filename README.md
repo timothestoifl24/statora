@@ -217,7 +217,7 @@ The logo, icon and colour palette are documented in [branding/README.md](brandin
 
 ## Contributing
 
-Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first. Contributors sign the [CLA](CLA.md) once, and everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+Contributions are welcome. Pull requests go to the `develop` branch; `main` is production. Please read and accept [CONTRIBUTING.md](CONTRIBUTING.md) before opening one, and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Security
 
