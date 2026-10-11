@@ -6,6 +6,17 @@ Changes collect under the upcoming version while it's being developed, and you c
 
 ## [1.0.0] - 2026-10-11
 
+First stable release.
+
+### Changed
+
+- **Releases:** a stable release deletes the betas it supersedes, so the `X.Y.Z-beta.N` images, pre-releases and tags up to that version disappear once `X.Y.Z` is out. Pin a stable tag, or follow `beta`, rather than a specific beta.
+
+### Security
+
+- **Redirects:** sign-in return targets (the login `next` parameter, OIDC and SAML) and admin redirects only accept paths on the same site. Previously a target such as `/\t/evil.example` could send users to another host after signing in.
+- **SAML:** when the service-provider metadata can't be generated, the reason is logged instead of returned in the response, so key and certificate details are no longer exposed.
+
 ## [0.1.0] - 2026-10-11
 
 First public release.
@@ -22,4 +33,5 @@ First public release.
 - **Deployment:** single container image, Docker Compose and Kubernetes manifests, horizontal scaling with a scheduler leader lock, and serialized migrations.
 - **Releases:** stable images (`X.Y.Z`, `X.Y`, `latest`) from `main`, beta images (`X.Y.Z-beta.N`, `beta`) from `develop`, and GitHub releases whose notes come from this changelog.
 
+[1.0.0]: https://github.com/timothestoifl24/statora/releases/tag/v1.0.0
 [0.1.0]: https://github.com/timothestoifl24/statora/releases/tag/v0.1.0
