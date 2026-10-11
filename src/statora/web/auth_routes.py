@@ -15,19 +15,13 @@ from statora.auth.providers.base import AuthError
 from statora.auth.service import authenticate_password, enabled_providers, provision_user
 from statora.config import get_settings
 from statora.db.models import AuthProvider, AuthProviderType
-from statora.web.deps import get_session, login_user, not_found, optional_user, verify_csrf
+from statora.web.deps import get_session, local_path, login_user, not_found, optional_user, verify_csrf
 from statora.web.templating import templates
 
 log = logging.getLogger(__name__)
 router = APIRouter(include_in_schema=False)
 
 RELAY_MAX_AGE = 600
-
-
-def _safe_next(target: str | None) -> str:
-    if target and target.startswith("/") and not target.startswith("//") and "\\" not in target:
-        return target
-    return "/admin"
 
 
 def _relay_key(relay: str) -> str:
@@ -41,7 +35,7 @@ async def _render_login(request: Request, session: AsyncSession, error: str | No
         "auth/login.html",
         {
             "error": error,
-            "next": _safe_next(request.query_params.get("next")),
+            "next": local_path(request.query_params.get("next")),
             "show_password_form": not get_settings().disable_local_login
             or any(p.type == AuthProviderType.LDAP for p in providers),
             "sso_providers": [p for p in providers if p.type != AuthProviderType.LDAP],
@@ -56,7 +50,7 @@ async def login_page(
     request: Request, session: AsyncSession = Depends(get_session), user=Depends(optional_user)
 ):
     if user is not None:
-        return RedirectResponse(_safe_next(request.query_params.get("next")), status_code=303)
+        return RedirectResponse(local_path(request.query_params.get("next")), status_code=303)
     return await _render_login(request, session)
 
 
@@ -81,7 +75,7 @@ async def login_submit(
         return await _render_login(request, session, str(exc), 401)
     await ratelimit.reset(keys[1])
     login_user(request, user)
-    return RedirectResponse(_safe_next(next), status_code=303)
+    return RedirectResponse(local_path(next), status_code=303)
 
 
 @router.post("/logout", dependencies=[Depends(verify_csrf)])
@@ -109,7 +103,7 @@ async def oidc_login(provider_id: int, request: Request, session: AsyncSession =
     except Exception as exc:
         log.warning("OIDC login start failed for provider %s: %s", provider_id, exc)
         return await _render_login(request, session, f"{provider.name} is not reachable right now", 502)
-    flow["next"] = _safe_next(request.query_params.get("next"))
+    flow["next"] = local_path(request.query_params.get("next"))
     request.session[f"oidc:{provider_id}"] = flow
     return RedirectResponse(url, status_code=303)
 
@@ -125,7 +119,7 @@ async def oidc_callback(provider_id: int, request: Request, session: AsyncSessio
         return await _render_login(request, session, str(exc), 401)
     await session.commit()
     login_user(request, user)
-    return RedirectResponse(_safe_next(flow.get("next") if flow else None), status_code=303)
+    return RedirectResponse(local_path(flow.get("next") if flow else None), status_code=303)
 
 
 # ---------------------------------------------------------------- SAML
@@ -141,7 +135,7 @@ async def saml_login(provider_id: int, request: Request, session: AsyncSession =
         url, request_id = await saml.begin_login(provider, relay_state=relay)
     except AuthError as exc:
         return await _render_login(request, session, str(exc), 502)
-    state = {"rid": request_id, "next": _safe_next(request.query_params.get("next")), "pid": provider_id}
+    state = {"rid": request_id, "next": local_path(request.query_params.get("next")), "pid": provider_id}
     await cache.set_json(_relay_key(relay), state, RELAY_MAX_AGE)
     return RedirectResponse(url, status_code=303)
 
@@ -164,7 +158,7 @@ async def saml_acs(provider_id: int, request: Request, session: AsyncSession = D
         return await _render_login(request, session, str(exc), 401)
     await session.commit()
     login_user(request, user)
-    return RedirectResponse(_safe_next(state.get("next")), status_code=303)
+    return RedirectResponse(local_path(state.get("next")), status_code=303)
 
 
 @router.get("/auth/saml/{provider_id}/metadata")
@@ -175,5 +169,7 @@ async def saml_metadata(provider_id: int, session: AsyncSession = Depends(get_se
     try:
         xml = await saml.metadata(provider)
     except AuthError as exc:
-        return Response(str(exc), status_code=500, media_type="text/plain")
+        # The reason can name keys or certificate details, so it goes to the log, not the response.
+        log.warning("SAML metadata failed for provider %s: %s", provider_id, exc)
+        return Response("SAML metadata is not available", status_code=500, media_type="text/plain")
     return Response(xml, media_type="application/samlmetadata+xml")

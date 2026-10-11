@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-<p align="center"><strong>Self-hosted uptime monitoring and public status pages.</strong></p>
+<p align="center"><strong>Self-hosted uptime monitoring and status pages.</strong></p>
 
 <p align="center">
   <a href="https://github.com/timothestoifl24/statora/actions/workflows/ci.yml"><img src="https://github.com/timothestoifl24/statora/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -17,7 +17,8 @@
   <a href="https://statora.stoifl.app">Website</a> ·
   <a href="https://statora.stoifl.app/setup/">Installation</a> ·
   <a href="https://statora.stoifl.app/guide/">Guide</a> ·
-  <a href="https://statora.stoifl.app/screenshots">Screenshots</a>
+  <a href="https://statora.stoifl.app/screenshots">Screenshots</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
 </p>
 
 <p align="center"><img src="docs/public/screenshots/status-page-light.webp" alt="Statora status page" width="820"></p>
@@ -45,7 +46,14 @@ Stack:
 
 ## Installation
 
-Statora is one container image, `ghcr.io/timothestoifl24/statora`, plus PostgreSQL and Redis. The quickest start uses Docker Compose:
+Statora is one container image, `ghcr.io/timothestoifl24/statora`, plus PostgreSQL and Redis.
+
+| Image tag | Channel |
+|---|---|
+| `0.1.0`, `0.1`, `latest` | **Stable** releases from `main`, for production |
+| `0.2.0-beta.N`, `beta` | **Beta** builds from `develop`, previews of the next release |
+
+See [container images](https://statora.stoifl.app/reference/images) for details. The quickest start uses Docker Compose:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/timothestoifl24/statora/main/docker-compose.yml

@@ -4,8 +4,8 @@ title: Self-hosted uptime monitoring and status pages
 
 hero:
   name: Statora
-  text: Know it's up. Tell everyone when it isn't.
-  tagline: Uptime checks, public status pages, incidents and maintenance in one self-hosted container, with LDAP, OIDC and SAML sign-in and an API you can drive from Terraform.
+  text: Uptime monitoring and status pages, on your own infrastructure
+  tagline: Statora checks your websites, APIs and servers around the clock, rolls them up into the services your users care about, and keeps everyone informed with branded status pages, incident updates and maintenance notices, all from a single container you run yourself.
   image:
     src: /brand/icon.svg
     alt: Statora
@@ -88,7 +88,11 @@ The [setup guide](/setup/) covers TLS, reverse proxies, plain Docker and Kuberne
 
 ## What this is, and what it is not
 
-**Statora is** a self-hosted service for watching the things you run and telling people how they're doing. It checks your services from where you install it, keeps the history, and publishes status pages that you control. It also gives your automation a complete API.
+**Statora is** uptime monitoring and status pages that you host yourself.
+- **Watches your services:** it checks websites, APIs, servers and DNS from wherever you install it, and groups the checks into the services your users actually depend on.
+- **Keeps people informed:** it publishes branded status pages, with incident updates and planned maintenance, and keeps 90 days of history.
+- **Fits your setup:** your team signs in with the accounts it already has (LDAP, OIDC or SAML), and your automation gets a complete REST API.
+- **Your infrastructure, your data:** one container, plus your own PostgreSQL and Redis.
 
 **Statora is not** a metrics or APM platform. It doesn't scrape Prometheus, trace requests or store logs. It also doesn't check from many locations around the world on its own, though you can run more than one instance. If you need to know *whether* something works and *who should be told*, Statora is a good fit. If you need to know *why* it's slow, pair it with your observability stack.
 

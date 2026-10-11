@@ -1,9 +1,12 @@
 name: Container image
 
+# main (production): merging a new version from pyproject.toml publishes X.Y.Z, X.Y, latest and
+#   creates the release vX.Y.Z.
+# develop (pre-release): every push publishes X.Y.Z-beta.N and beta and creates a pre-release.
+# Pull requests: build and smoke test only. See .github/scripts/release_version.py for the rules.
 on:
   push:
     branches: [main, develop]
-    tags: ["v*.*.*"]
   pull_request:
     paths:
       - Dockerfile
@@ -12,7 +15,14 @@ on:
       - uv.lock
       - "src/**"
       - .github/workflows/docker.yml
+      - .github/scripts/release_version.py
+      - .github/scripts/changelog.py
+      - CHANGELOG.md
   workflow_dispatch:
+
+# Read-only by default; the jobs that publish or release ask for more themselves.
+permissions:
+  contents: read
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/statora
@@ -22,8 +32,39 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-24.04
+    outputs:
+      channel: ${{ steps.version.outputs.channel }}
+      publish: ${{ steps.version.outputs.publish }}
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      image_tags: ${{ steps.version.outputs.image_tags }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # tags decide the next beta number and whether a version is released
+      - name: Decide version and tags
+        id: version
+        run: python3 .github/scripts/release_version.py
+      - name: Summary
+        env:
+          CHANNEL: ${{ steps.version.outputs.channel }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PUBLISH: ${{ steps.version.outputs.publish }}
+          IMAGE_TAGS: ${{ steps.version.outputs.image_tags }}
+        run: |
+          {
+            echo "### ${CHANNEL}: ${VERSION}"
+            echo "Publish: ${PUBLISH}"
+            echo
+            for t in $IMAGE_TAGS; do echo "- \`$t\`"; done
+          } >> "$GITHUB_STEP_SUMMARY"
+
   smoke-test:
     name: Smoke test
+    needs: version
     runs-on: ubuntu-24.04
     services:
       postgres:
@@ -38,10 +79,12 @@ jobs:
         image: redis:8.8-alpine
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
       - name: Build image
-        run: docker build -t statora:test .
+        run: docker build --build-arg STATORA_BUILD_VERSION="$VERSION" -t statora:test .
       - name: Start hardened container and wait for /healthz
         run: |
           docker run -d --name statora --network ${{ job.services.postgres.network }} -p 8000:8000 \
@@ -53,11 +96,13 @@ jobs:
             statora:test
           for _ in $(seq 1 60); do curl -sf http://localhost:8000/healthz && exit 0; sleep 2; done
           exit 1
-      - name: Seed demo data and render the status page
+      - name: Seed demo data, render the status page, check the version
         run: |
           docker exec statora statora seed
           curl -sf http://localhost:8000/s/demo | grep -q "Demo Status"
-          curl -sf http://localhost:8000/api/openapi.json > /dev/null
+          reported=$(curl -sf http://localhost:8000/api/openapi.json | jq -r .info.version)
+          echo "API reports version $reported"
+          test "$reported" = "$VERSION"
       - name: Container logs
         if: always()
         run: docker logs statora 2>&1 | tail -100 || true
@@ -68,8 +113,8 @@ jobs:
 
   build:
     name: Build ${{ matrix.platform }}
-    # Only publish images that passed the smoke test.
-    needs: smoke-test
+    # Only images that passed the smoke test are published.
+    needs: [version, smoke-test]
     strategy:
       fail-fast: true
       matrix:
@@ -83,6 +128,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      PUBLISH: ${{ needs.version.outputs.publish }}
     steps:
       - name: Platform slug
         run: |
@@ -100,11 +147,12 @@ jobs:
             org.opencontainers.image.title=Statora
             org.opencontainers.image.description=Self-hosted uptime monitoring and status pages
             org.opencontainers.image.url=https://statora.stoifl.app
+            org.opencontainers.image.version=${{ needs.version.outputs.version }}
 
       - uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
+        if: env.PUBLISH == 'true'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -117,22 +165,23 @@ jobs:
         with:
           context: .
           platforms: ${{ matrix.platform }}
+          build-args: STATORA_BUILD_VERSION=${{ needs.version.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
           sbom: true
           outputs: >-
-            type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
+            type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=${{ env.PUBLISH }}
           cache-from: type=gha,scope=${{ env.PLATFORM_PAIR }}
           cache-to: type=gha,mode=max,scope=${{ env.PLATFORM_PAIR }}
 
       - name: Export digest
-        if: github.event_name != 'pull_request'
+        if: env.PUBLISH == 'true'
         run: |
           mkdir -p "${{ runner.temp }}/digests"
           digest="${{ steps.build.outputs.digest }}"
           touch "${{ runner.temp }}/digests/${digest#sha256:}"
 
       - name: Upload digest
-        if: github.event_name != 'pull_request'
+        if: env.PUBLISH == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: digests-${{ env.PLATFORM_PAIR }}
@@ -141,9 +190,9 @@ jobs:
           retention-days: 1
 
   publish:
-    name: Publish multi-arch image
-    needs: build
-    if: github.event_name != 'pull_request'
+    name: Publish ${{ needs.version.outputs.version }}
+    needs: [version, build]
+    if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -167,34 +216,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Image tags
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.IMAGE }}
-          tags: |
-            # main is production: every push updates "latest"; release tags add version numbers.
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
-            # develop collects merged changes before they go to production.
-            type=edge,branch=develop
-            type=sha,prefix=sha-
-
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
+        env:
+          IMAGE_TAGS: ${{ needs.version.outputs.image_tags }}
         run: |
-          # shellcheck disable=SC2046
-          docker buildx imagetools create \
-            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+          args=()
+          for t in $IMAGE_TAGS; do args+=(-t "$t"); done
+          sources=()
+          for d in *; do sources+=("${IMAGE}@sha256:${d}"); done
+          docker buildx imagetools create "${args[@]}" "${sources[@]}"
 
       - name: Manifest digest
         id: manifest
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
-          tag=$(jq -r '.tags[0]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
-          docker buildx imagetools inspect "$tag"
-          echo "digest=$(docker buildx imagetools inspect "$tag" --format '{{json .Manifest}}' | jq -r .digest)" >> "$GITHUB_OUTPUT"
+          docker buildx imagetools inspect "${IMAGE}:${VERSION}"
+          echo "digest=$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" --format '{{json .Manifest}}' | jq -r .digest)" >> "$GITHUB_OUTPUT"
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v4
@@ -204,17 +243,56 @@ jobs:
           push-to-registry: true
 
   release:
-    name: GitHub release
-    needs: publish
-    if: startsWith(github.ref, 'refs/tags/v')
+    name: Release ${{ needs.version.outputs.tag }}
+    needs: [version, publish]
+    if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CHANNEL: ${{ needs.version.outputs.channel }}
+      TAG: ${{ needs.version.outputs.tag }}
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
-      - name: Create release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Release notes from CHANGELOG.md
         run: |
-          gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --title "Statora $GITHUB_REF_NAME" \
-            --notes "Container image: \`ghcr.io/${{ github.repository_owner }}/statora:${GITHUB_REF_NAME#v}\`"
+          {
+            if [ "$CHANNEL" = "beta" ]; then
+              echo "> **Pre-release** built from \`develop\` for testing upcoming features. Not intended for production."
+              echo
+              echo "Container image: \`${IMAGE}:${VERSION}\` (or \`${IMAGE}:beta\` for the newest beta)."
+              echo
+              echo "## Changes in the upcoming ${VERSION%%-*} so far"
+            else
+              echo "Container image: \`${IMAGE}:${VERSION}\` (also \`${IMAGE}:latest\`)."
+              echo
+              echo "## What's new"
+            fi
+            echo
+            python3 .github/scripts/changelog.py section "$VERSION" || echo "_No changelog entry for this version._"
+          } > notes.md
+          cat notes.md
+      - name: Create tag and GitHub release
+        # The tag is created here, on the commit that was built and published. GitHub appends the list
+        # of merged pull requests after the changelog section.
+        run: |
+          if [ "$CHANNEL" = "beta" ]; then
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "Statora $VERSION" \
+              --prerelease --latest=false --generate-notes --notes-file notes.md
+          else
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "Statora $VERSION" \
+              --latest --generate-notes --notes-file notes.md
+          fi
+
+  cleanup-betas:
+    name: Clean up betas up to ${{ needs.version.outputs.version }}
+    needs: [version, release]
+    if: needs.version.outputs.channel == 'stable'
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/cleanup-betas.yml
+    with:
+      version: ${{ needs.version.outputs.version }}

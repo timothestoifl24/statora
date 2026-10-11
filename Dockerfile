@@ -53,7 +53,12 @@ WORKDIR /app
 COPY --from=build /opt/python /opt/python
 COPY --from=build /app/.venv /app/.venv
 
+# Full release name shown in the UI and API, e.g. "0.2.0" or "0.2.0-beta.3" (set by CI).
+ARG STATORA_BUILD_VERSION=""
+LABEL org.opencontainers.image.version="${STATORA_BUILD_VERSION}"
+
 ENV PATH="/app/.venv/bin:$PATH" \
+    STATORA_BUILD_VERSION="${STATORA_BUILD_VERSION}" \
     PYTHONUNBUFFERED=1 \
     STATORA_HOST=0.0.0.0 \
     STATORA_PORT=8000 \

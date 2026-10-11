@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress'
 const repo = 'https://github.com/timothestoifl24/statora'
 const site = 'https://statora.stoifl.app'
 const description =
-  'Self-hosted uptime monitoring and public status pages: HTTP, TCP, ping and DNS checks, stack and redundancy groups, incidents, maintenance, LDAP/OIDC/SAML sign-in and a Terraform-ready API.'
+  'Self-hosted uptime monitoring and status pages: HTTP, TCP, ping and DNS checks, service groups, incidents, maintenance and SSO in one container.'
 
 export default defineConfig({
   lang: 'en-US',
@@ -33,8 +33,7 @@ export default defineConfig({
 
     nav: [
       { text: 'Guide', link: '/guide/', activeMatch: '/guide/' },
-      { text: 'Setup', link: '/setup/', activeMatch: '/setup/(index|docker|docker-compose)?$' },
-      { text: 'Kubernetes', link: '/setup/kubernetes' },
+      { text: 'Setup', link: '/setup/', activeMatch: '/setup/' },
       { text: 'Screenshots', link: '/screenshots' },
       {
         text: 'Reference',

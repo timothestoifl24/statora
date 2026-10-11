@@ -8,8 +8,8 @@ Thanks for helping. Bug reports, fixes, documentation and ideas are all welcome.
 
 | Branch | Purpose |
 |---|---|
-| `main` | **Production.** Every commit is a released state; the `latest` image is built from it. |
-| `develop` | **Integration.** Reviewed pull requests are merged here first and published as the `edge` image for testing. |
+| `main` | **Production.** Every new version merged here becomes a release, published as `X.Y.Z`, `X.Y` and `latest` images. |
+| `develop` | **Integration.** Reviewed pull requests are merged here first and published as `X.Y.Z-beta.N` and `beta` images for testing. |
 | `feature/…`, `fix/…`, `docs/…` | Your work, branched from `develop`. |
 | `hotfix/…` | Urgent production fixes, branched from `main` (maintainers only). |
 
@@ -41,7 +41,7 @@ On Python 3.15, SAML's `xmlsec` is compiled from source and needs system librari
 1. **Fork and branch** from `develop`, for example `fix/ping-timeout` or `feature/smtp-monitor`.
 2. **Keep the scope small:** one topic per pull request.
 3. **Add or update tests** for any change in behaviour. Tests live in `tests/`. Integration tests use the dev PostgreSQL and Redis; LDAP tests need `docker compose -f docker-compose.dev.yml --profile sso up -d openldap`.
-4. **Update the docs** in `docs/` when something users see changes, and add a line to `docs/reference/changelog.md`.
+4. **Update the docs** in `docs/` when something users see changes.
 5. **Run the checks:**
 
    ```bash
@@ -60,13 +60,24 @@ On Python 3.15, SAML's `xmlsec` is compiled from source and needs system librari
 - **Templates and front end:** no build step; plain Jinja2, HTMX and small vanilla JavaScript. New static assets go through `asset()` so browsers pick up changes.
 - **Commit messages:** a short summary in the imperative mood ("Add DNS-over-HTTPS monitor"), with a body explaining *why* when it isn't obvious.
 
+## Describing your pull request
+
+The pull request template asks two short questions. Tick every box that applies:
+
+- **Type of change** (at least one): bug fix, new feature, breaking change, documentation, refactoring, API changes, performance, tests.
+- **AI usage:** whether AI was used to write or to review the change. Leave both empty if it wasn't. Using AI is fine; we just want to know, so reviews can take it into account.
+
+The pull request is **labelled automatically** from these boxes (`bug`, `enhancement`, `breaking-change`, …, `ai-written`, `ai-reviewed`), and the labels follow when you change the boxes later. The labels sort your change into the right section of the release notes, so please pick carefully, especially **Breaking change** for anything that needs action when upgrading. You don't need to edit the changelog; the maintainer writes it when releasing.
+
+Other labels are added for you, so you don't need to set any: `area: …` and `chore` from the files you change, `security` from a `security/…` branch or a title that mentions security or a CVE, and `hotfix` / `release` from the branch.
+
 ## Accepting these guidelines
 
 The pull request template ends with this checkbox:
 
 > - [x] I have read and accept the contributing guidelines, including that my contribution is licensed under the MIT License.
 
-Tick it when you open the pull request. The **Guidelines accepted** check stays red, and the pull request can't be merged, until it is; editing the description re-runs the check.
+Tick it when you open the pull request, together with at least one **Type of change**. The **Guidelines accepted** check stays red, and the pull request can't be merged, until both are done; editing the description re-runs the check.
 
 By ticking it, you confirm that:
 
@@ -78,15 +89,8 @@ By ticking it, you confirm that:
 
 - A maintainer will review your pull request. Expect questions and suggestions; they're part of getting good code in, not a judgement of you.
 - CI must be green: lint, tests, the guidelines check, and the container image and docs builds when they're affected.
+- Releases from `develop` to `main` are done by the maintainer; see [RELEASING.md](RELEASING.md) if you're curious how.
 - Pull requests into `develop` are usually squash-merged, so feel free to push fix-up commits while the review is going on.
-
-## Releases (maintainers)
-
-1. Changes collect on `develop` and are tried out with the `edge` image.
-2. For a release, update the version in `pyproject.toml` and the date in `docs/reference/changelog.md` on `develop`.
-3. Open a pull request from `develop` to `main` and merge it with a merge commit (not squash), so both branches share their history.
-4. Tag the merge commit on `main`, for example `git tag v0.2.0 && git push origin v0.2.0`. CI publishes the version images and creates the GitHub release.
-5. Hotfixes branch from `main`, go back to `main` through a pull request, and are then merged into `develop` as well.
 
 ## Reporting bugs and requesting features
 
