@@ -2,6 +2,7 @@
 
 - main (production): a new version in pyproject.toml becomes release vX.Y.Z with the image
   tags X.Y.Z, X.Y, latest (and X from 1.0 on). If vX.Y.Z already exists, nothing is published.
+  CHANGELOG.md must have a dated section for the version.
 - develop (pre-release): every push becomes vX.Y.Z-beta.N with the image tags X.Y.Z-beta.N and
   beta. Fails if vX.Y.Z is already released, because develop must hold the next version.
 - anything else (pull requests, other branches): build and test only.
@@ -15,6 +16,8 @@ import re
 import subprocess
 import sys
 import tomllib
+
+import changelog  # same directory, which Python puts on sys.path for scripts
 
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 
@@ -50,6 +53,8 @@ def main() -> None:
             print(f"::notice::{tag} is already released; nothing to publish. Bump the version to release.")
             result["version"] = version
         else:
+            if message := changelog.problem(version, released=True):
+                fail(message)
             names = [version, f"{major}.{minor}", "latest", f"sha-{sha}"]
             if major >= 1:
                 names.insert(2, str(major))
@@ -61,6 +66,8 @@ def main() -> None:
                 f"v{version} is already released. Bump project.version in pyproject.toml on develop "
                 "to the next version, so betas are labelled for the upcoming release."
             )
+        if message := changelog.problem(version, released=False):
+            print(f"::warning::{message}")
         numbers = [
             int(m.group(1)) for t in existing if (m := re.fullmatch(rf"v{re.escape(version)}-beta\.(\d+)", t))
         ]

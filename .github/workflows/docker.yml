@@ -16,6 +16,8 @@ on:
       - "src/**"
       - .github/workflows/docker.yml
       - .github/scripts/release_version.py
+      - .github/scripts/changelog.py
+      - CHANGELOG.md
   workflow_dispatch:
 
 env:
@@ -250,19 +252,32 @@ jobs:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
+      - name: Release notes from CHANGELOG.md
+        run: |
+          {
+            if [ "$CHANNEL" = "beta" ]; then
+              echo "> **Pre-release** built from \`develop\` for testing upcoming features. Not intended for production."
+              echo
+              echo "Container image: \`${IMAGE}:${VERSION}\` (or \`${IMAGE}:beta\` for the newest beta)."
+              echo
+              echo "## Changes in the upcoming ${VERSION%%-*} so far"
+            else
+              echo "Container image: \`${IMAGE}:${VERSION}\` (also \`${IMAGE}:latest\`)."
+              echo
+              echo "## What's new"
+            fi
+            echo
+            python3 .github/scripts/changelog.py section "$VERSION" || echo "_No changelog entry for this version._"
+          } > notes.md
+          cat notes.md
       - name: Create tag and GitHub release
-        # The tag is created here, on the commit that was built and published.
+        # The tag is created here, on the commit that was built and published. GitHub appends the list
+        # of merged pull requests after the changelog section.
         run: |
           if [ "$CHANNEL" = "beta" ]; then
-            printf '%s\n\n%s\n' \
-              "Pre-release built from \`develop\` for testing upcoming features. Not intended for production." \
-              "Container image: \`${IMAGE}:${VERSION}\` (or \`${IMAGE}:beta\` for the newest beta)." > notes.md
             gh release create "$TAG" --target "$GITHUB_SHA" --title "Statora $VERSION" \
               --prerelease --latest=false --generate-notes --notes-file notes.md
           else
-            printf '%s\n\n%s\n' \
-              "Container image: \`${IMAGE}:${VERSION}\` (also \`${IMAGE}:latest\`)." \
-              "Changelog: https://statora.stoifl.app/reference/changelog" > notes.md
             gh release create "$TAG" --target "$GITHUB_SHA" --title "Statora $VERSION" \
               --latest --generate-notes --notes-file notes.md
           fi
