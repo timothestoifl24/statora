@@ -41,7 +41,7 @@ On Python 3.15, SAML's `xmlsec` is compiled from source and needs system librari
 1. **Fork and branch** from `develop`, for example `fix/ping-timeout` or `feature/smtp-monitor`.
 2. **Keep the scope small:** one topic per pull request.
 3. **Add or update tests** for any change in behaviour. Tests live in `tests/`. Integration tests use the dev PostgreSQL and Redis; LDAP tests need `docker compose -f docker-compose.dev.yml --profile sso up -d openldap`.
-4. **Update the docs** in `docs/` when something users see changes, and add an entry to [`CHANGELOG.md`](CHANGELOG.md) (see [Changelog](#changelog)).
+4. **Update the docs** in `docs/` when something users see changes.
 5. **Run the checks:**
 
    ```bash
@@ -60,18 +60,14 @@ On Python 3.15, SAML's `xmlsec` is compiled from source and needs system librari
 - **Templates and front end:** no build step; plain Jinja2, HTMX and small vanilla JavaScript. New static assets go through `asset()` so browsers pick up changes.
 - **Commit messages:** a short summary in the imperative mood ("Add DNS-over-HTTPS monitor"), with a body explaining *why* when it isn't obvious.
 
-## Changelog
+## Describing your pull request
 
-[`CHANGELOG.md`](CHANGELOG.md) follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Add your entry under the upcoming version at the top (`## [X.Y.Z] - Unreleased`), in the group that fits:
+The pull request template asks two short questions. Tick every box that applies:
 
-- **Added:** new features
-- **Changed:** changes to existing behaviour
-- **Deprecated:** features that will be removed
-- **Removed:** features that were removed
-- **Fixed:** bug fixes
-- **Security:** vulnerability fixes
+- **Type of change** (at least one): bug fix, new feature, breaking change, documentation, refactoring, API changes, performance, tests.
+- **AI usage:** whether AI was used to write or to review the change. Leave both empty if it wasn't. Using AI is fine; we just want to know, so reviews can take it into account.
 
-Write for people who run Statora: what changed for them, not how the code changed. Mark changes that need action when upgrading with **Breaking:**. The section is copied into the GitHub release for every beta and for the final release, and the website shows the same file.
+The pull request is **labelled automatically** from these boxes (`bug`, `enhancement`, `breaking-change`, …, `ai-written`, `ai-reviewed`), and the labels follow when you change the boxes later. The labels sort your change into the right section of the release notes, so please pick carefully, especially **Breaking change** for anything that needs action when upgrading. You don't need to edit the changelog; the maintainer writes it when releasing.
 
 ## Accepting these guidelines
 
@@ -79,7 +75,7 @@ The pull request template ends with this checkbox:
 
 > - [x] I have read and accept the contributing guidelines, including that my contribution is licensed under the MIT License.
 
-Tick it when you open the pull request. The **Guidelines accepted** check stays red, and the pull request can't be merged, until it is; editing the description re-runs the check.
+Tick it when you open the pull request, together with at least one **Type of change**. The **Guidelines accepted** check stays red, and the pull request can't be merged, until both are done; editing the description re-runs the check.
 
 By ticking it, you confirm that:
 
@@ -91,25 +87,8 @@ By ticking it, you confirm that:
 
 - A maintainer will review your pull request. Expect questions and suggestions; they're part of getting good code in, not a judgement of you.
 - CI must be green: lint, tests, the guidelines check, and the container image and docs builds when they're affected.
+- Releases from `develop` to `main` are done by the maintainer; see [RELEASING.md](RELEASING.md) if you're curious how.
 - Pull requests into `develop` are usually squash-merged, so feel free to push fix-up commits while the review is going on.
-
-## Releases (maintainers)
-
-Releases are automated; the version in `pyproject.toml` decides everything. On `develop` it always holds the **next** version to be released.
-
-| Event | Result |
-|---|---|
-| Merge into `develop` | Beta images `X.Y.Z-beta.N` and `beta`, and a GitHub pre-release `vX.Y.Z-beta.N` |
-| Merge into `main` with a new version | Images `X.Y.Z`, `X.Y` and `latest`, and the GitHub release `vX.Y.Z` |
-| Merge into `main` with an already released version | Nothing is published |
-
-To release:
-
-1. On `develop`, change the heading of the upcoming version in `CHANGELOG.md` from `- Unreleased` to today's date, for example `## [0.2.0] - 2026-11-03`. CI refuses to release from `main` without a dated, non-empty section.
-2. Open a pull request from `develop` to `main`, and merge it with a **merge commit** (not squash), so both branches share their history. CI creates the tag, the images and the release; there's nothing to tag by hand.
-3. Straight afterwards, on `develop`, bump `project.version` in `pyproject.toml` to the next version (for example `0.3.0`) and add a new `## [0.3.0] - Unreleased` section at the top of `CHANGELOG.md`. Until you do, the beta builds on `develop` fail with a reminder.
-
-Hotfixes branch from `main` as `hotfix/…`, bump the patch version (for example `0.2.1`), go into `main` through a pull request, and are then merged back into `develop`.
 
 ## Reporting bugs and requesting features
 
