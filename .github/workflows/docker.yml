@@ -285,3 +285,14 @@ jobs:
             gh release create "$TAG" --target "$GITHUB_SHA" --title "Statora $VERSION" \
               --latest --generate-notes --notes-file notes.md
           fi
+
+  cleanup-betas:
+    name: Clean up betas up to ${{ needs.version.outputs.version }}
+    needs: [version, release]
+    if: needs.version.outputs.channel == 'stable'
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/cleanup-betas.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
