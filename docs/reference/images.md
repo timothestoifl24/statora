@@ -9,8 +9,8 @@ ghcr.io/timothestoifl24/statora
 | Tag | Updated | Use |
 |---|---|---|
 | `0.1.0`, `0.1` | on each release | **Production**: pin a full version, or a minor version to get patch updates. |
-| `latest` | on each release | Quick starts and trying things out. |
-| `edge` | on every push to `main` | Testing unreleased changes. |
+| `latest` | on every push to `main` (production) | Quick starts, and following production without pinning. |
+| `edge` | on every push to `develop` | Testing changes before they reach production. |
 | `sha-<commit>` | on every build | Reproducing a specific build. |
 
 Each image comes with build provenance and an SBOM attestation. Verify an image with the GitHub CLI:

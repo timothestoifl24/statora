@@ -112,7 +112,7 @@ export default defineConfig({
 
     socialLinks: [{ icon: 'github', link: repo }],
     search: { provider: 'local' },
-    editLink: { pattern: `${repo}/edit/main/docs/:path`, text: 'Edit this page on GitHub' },
+    editLink: { pattern: `${repo}/edit/develop/docs/:path`, text: 'Edit this page on GitHub' },
     outline: { level: [2, 3] },
     footer: {
       message: 'Released under the <a href="https://github.com/timothestoifl24/statora/blob/main/LICENSE">MIT License</a>.',

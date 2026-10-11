@@ -22,6 +22,10 @@ uv run statora init --seed                       # migrate, create admin, demo d
 uv run statora dev                               # http://localhost:8000, auto-reload
 ```
 
+## Branches
+
+`main` is production and `develop` is the integration branch: pull requests go to `develop`, and `develop` is merged into `main` for a release. The [contributing guidelines](https://github.com/timothestoifl24/statora/blob/develop/CONTRIBUTING.md) describe the flow, and every pull request has to confirm that its author has read and accepts them.
+
 ## Tests and linting
 
 ```bash
