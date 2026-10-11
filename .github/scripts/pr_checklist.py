@@ -1,11 +1,14 @@
 """Read the pull request checklist: acceptance of the guidelines, type of change and AI usage.
 
-Input (environment): BODY, AUTHOR_TYPE, BASE, HEAD and LABELS (JSON list of the current label names).
+Input (environment): BODY, TITLE, AUTHOR_TYPE, BASE, HEAD and LABELS (JSON list of the current label names).
 Output: key=value lines for GITHUB_OUTPUT (or stdout):
   errors         problems to fix, separated by " | " (empty when the checklist is complete)
   labels_add     comma-separated labels to add
   labels_remove  comma-separated managed labels to remove (boxes that were unticked)
   skip           "true" for bots and release pull requests (develop → main)
+
+Besides the checkboxes, some labels are set from the branch and title alone, so contributors never
+have to pick them: security, hotfix and release.
 """
 
 import json
@@ -27,19 +30,36 @@ AI = {
     "AI was used to write this": ("ai-written", "ededed", "Written with the help of AI"),
     "AI was used to review this": ("ai-reviewed", "ededed", "Reviewed with the help of AI"),
 }
-MANAGED = {label for label, _, _ in [*TYPES.values(), *AI.values()]}
+# Set without a checkbox, from the branch name and title.
+AUTO = {
+    "security": ("security", "ee0701", "Fixes a vulnerability or hardens security"),
+    "hotfix": ("hotfix", "d93f0b", "Urgent fix released straight to main"),
+    "release": ("release", "0e8a16", "Release from develop to main"),
+}
+MANAGED = {label for label, _, _ in [*TYPES.values(), *AI.values(), *AUTO.values()]}
 CHECKED = re.compile(r"^\s*[-*]\s+\[[xX]\]\s+(.+?)\s*$", re.MULTILINE)
 ACCEPTED = re.compile(r"I have read and accept the .*contributing guidelines", re.IGNORECASE)
+SECURITY = re.compile(r"security|vulnerab|CVE-\d", re.IGNORECASE)
 
 
-def evaluate(body: str, author_type: str, base: str, head: str, current: list[str]) -> dict[str, str]:
+def evaluate(
+    body: str, author_type: str, base: str, head: str, current: list[str], title: str = ""
+) -> dict[str, str]:
     result = {"errors": "", "labels_add": "", "labels_remove": "", "skip": "false"}
-    if author_type == "Bot" or (base == "main" and head == "develop"):
+    if author_type == "Bot":
         result["skip"] = "true"
+        return result
+    if base == "main" and head == "develop":
+        result["skip"] = "true"
+        result["labels_add"] = "" if "release" in current else "release"
         return result
 
     checked = [text.replace("**", "") for text in CHECKED.findall(body or "")]
     wanted = {spec[0] for text in checked for prefix, spec in {**TYPES, **AI}.items() if text.startswith(prefix)}
+    if head.startswith("security/") or SECURITY.search(title or ""):
+        wanted.add("security")
+    if head.startswith("hotfix/"):
+        wanted.add("hotfix")
     picked_type = any(text.startswith(prefix) for text in checked for prefix in TYPES)
 
     errors = []
@@ -63,7 +83,8 @@ def evaluate(body: str, author_type: str, base: str, head: str, current: list[st
 
 
 def label_specs() -> dict[str, tuple[str, str]]:
-    return {label: (colour, description) for label, colour, description in [*TYPES.values(), *AI.values()]}
+    specs = [*TYPES.values(), *AI.values(), *AUTO.values()]
+    return {label: (colour, description) for label, colour, description in specs}
 
 
 def main() -> None:
@@ -73,6 +94,7 @@ def main() -> None:
         os.environ.get("BASE", ""),
         os.environ.get("HEAD", ""),
         json.loads(os.environ.get("LABELS") or "[]"),
+        os.environ.get("TITLE", ""),
     )
     specs = label_specs()
     # Colour and description for each label to add, so the workflow can create missing labels.

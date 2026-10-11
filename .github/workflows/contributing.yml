@@ -4,6 +4,8 @@ name: PR checklist
 #   - the author accepted CONTRIBUTING.md (required),
 #   - at least one "Type of change" is ticked (required) → labels such as bug, enhancement,
 #   - "AI usage" boxes → labels ai-written / ai-reviewed,
+#   - without any checkbox: security (security/* branch or title), hotfix (hotfix/* branch) and
+#     release (develop → main),
 #   - pull requests into main only come from develop or hotfix/* branches.
 # Keep "Guidelines accepted" a required status check for main and develop.
 #
@@ -34,6 +36,7 @@ jobs:
         id: check
         env:
           BODY: ${{ github.event.pull_request.body }}
+          TITLE: ${{ github.event.pull_request.title }}
           AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
           BASE: ${{ github.event.pull_request.base.ref }}
           HEAD: ${{ github.event.pull_request.head.ref }}
@@ -41,7 +44,7 @@ jobs:
         run: python3 .github/scripts/pr_checklist.py
 
       - name: Apply labels
-        if: steps.check.outputs.skip != 'true' && (steps.check.outputs.labels_add != '' || steps.check.outputs.labels_remove != '')
+        if: steps.check.outputs.labels_add != '' || steps.check.outputs.labels_remove != ''
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

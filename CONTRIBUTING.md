@@ -69,6 +69,8 @@ The pull request template asks two short questions. Tick every box that applies:
 
 The pull request is **labelled automatically** from these boxes (`bug`, `enhancement`, `breaking-change`, …, `ai-written`, `ai-reviewed`), and the labels follow when you change the boxes later. The labels sort your change into the right section of the release notes, so please pick carefully, especially **Breaking change** for anything that needs action when upgrading. You don't need to edit the changelog; the maintainer writes it when releasing.
 
+Other labels are added for you, so you don't need to set any: `area: …` and `chore` from the files you change, `security` from a `security/…` branch or a title that mentions security or a CVE, and `hotfix` / `release` from the branch.
+
 ## Accepting these guidelines
 
 The pull request template ends with this checkbox:

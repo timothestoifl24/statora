@@ -1,0 +1,45 @@
+# Labels a pull request by the files it changes; used by .github/workflows/labeler.yml.
+# Labels listed here are removed again when the files no longer match.
+"area: checks":
+  - changed-files:
+      - any-glob-to-any-file: src/statora/checks/**
+
+"area: web":
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/statora/web/**
+          - src/statora/templates/**
+          - src/statora/static/**
+
+"area: auth":
+  - changed-files:
+      - any-glob-to-any-file: src/statora/auth/**
+
+"area: database":
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/statora/db/**
+          - src/statora/migrations/**
+          - alembic.ini
+
+"area: deploy":
+  - changed-files:
+      - any-glob-to-any-file:
+          - Dockerfile
+          - docker-compose*.yml
+          - deploy/**
+
+"area: ci":
+  - changed-files:
+      - any-glob-to-any-file: .github/**
+
+# Only tooling and housekeeping files changed, nothing users would notice.
+chore:
+  - changed-files:
+      - any-glob-to-all-files:
+          - .github/**
+          - pyproject.toml
+          - uv.lock
+          - .gitignore
+          - docs/package.json
+          - docs/package-lock.json
