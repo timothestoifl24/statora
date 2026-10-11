@@ -123,6 +123,7 @@ def test_redirect_targets_stay_on_this_site():
         "",
         "admin",
         "//evil.example",
+        "///evil.example",
         "/\\evil.example",
         "/\t/evil.example",
         "https://evil.example",
