@@ -112,3 +112,21 @@ def test_version_comes_from_build_or_package_metadata(monkeypatch):
 
     monkeypatch.delenv("STATORA_BUILD_VERSION")
     assert importlib.reload(statora).__version__ == version("statora")
+
+
+def test_redirect_targets_stay_on_this_site():
+    from statora.web.deps import local_path
+
+    assert local_path("/admin/pages?tab=1") == "/admin/pages?tab=1"
+    for target in (
+        None,
+        "",
+        "admin",
+        "//evil.example",
+        "///evil.example",
+        "/\\evil.example",
+        "/\t/evil.example",
+        "https://evil.example",
+        "javascript:alert(1)",
+    ):
+        assert local_path(target) == "/admin"

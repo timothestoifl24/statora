@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import ValidationError
 
 from statora.db.models import User
+from statora.web.deps import local_path
 from statora.web.templating import templates
 
 
@@ -33,7 +34,7 @@ def flash(request: Request, message: str, kind: str = "success") -> None:
 
 
 def redirect(url: str) -> RedirectResponse:
-    return RedirectResponse(url, status_code=303)
+    return RedirectResponse(local_path(url), status_code=303)
 
 
 def error_messages(exc: Exception) -> list[str]:
