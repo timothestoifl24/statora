@@ -17,7 +17,8 @@
   <a href="https://statora.stoifl.app">Website</a> ·
   <a href="https://statora.stoifl.app/setup/">Installation</a> ·
   <a href="https://statora.stoifl.app/guide/">Guide</a> ·
-  <a href="https://statora.stoifl.app/screenshots">Screenshots</a>
+  <a href="https://statora.stoifl.app/screenshots">Screenshots</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
 </p>
 
 <p align="center"><img src="docs/public/screenshots/status-page-light.webp" alt="Statora status page" width="820"></p>

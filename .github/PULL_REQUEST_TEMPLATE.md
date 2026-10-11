@@ -17,7 +17,7 @@ https://github.com/timothestoifl24/statora/blob/develop/CONTRIBUTING.md
 - [ ] `uv run ruff check src tests` and `uv run ruff format src tests` pass
 - [ ] `uv run pytest` passes, and new behaviour has tests
 - [ ] Docs in `docs/` are updated if users see a difference
-- [ ] `docs/reference/changelog.md` has an entry
+- [ ] `CHANGELOG.md` has an entry under the upcoming version (if users notice the change)
 - [ ] Database changes come with a new Alembic migration (released migrations are unchanged)
 - [ ] No breaking changes to the REST API, or they're discussed in the linked issue
 

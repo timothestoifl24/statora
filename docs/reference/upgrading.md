@@ -35,7 +35,7 @@ kubectl -n statora rollout status deployment/statora
 
 ## Before you upgrade
 
-1. Read the [changelog](./changelog) for anything marked **breaking**.
+1. Read the [changelog](./changelog), or the notes of the [GitHub release](https://github.com/timothestoifl24/statora/releases), for anything marked **Breaking**.
 2. Take a database backup: `pg_dump -U statora statora > backup.sql`.
 
 ## Upgrading PostgreSQL to a new major version

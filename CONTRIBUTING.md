@@ -41,7 +41,7 @@ On Python 3.15, SAML's `xmlsec` is compiled from source and needs system librari
 1. **Fork and branch** from `develop`, for example `fix/ping-timeout` or `feature/smtp-monitor`.
 2. **Keep the scope small:** one topic per pull request.
 3. **Add or update tests** for any change in behaviour. Tests live in `tests/`. Integration tests use the dev PostgreSQL and Redis; LDAP tests need `docker compose -f docker-compose.dev.yml --profile sso up -d openldap`.
-4. **Update the docs** in `docs/` when something users see changes, and add a line to `docs/reference/changelog.md`.
+4. **Update the docs** in `docs/` when something users see changes, and add an entry to [`CHANGELOG.md`](CHANGELOG.md) (see [Changelog](#changelog)).
 5. **Run the checks:**
 
    ```bash
@@ -59,6 +59,19 @@ On Python 3.15, SAML's `xmlsec` is compiled from source and needs system librari
 - **REST API:** keep existing paths, fields and operation IDs stable; automation and the Terraform workflow depend on them. Additive changes are fine; breaking ones need discussion first.
 - **Templates and front end:** no build step; plain Jinja2, HTMX and small vanilla JavaScript. New static assets go through `asset()` so browsers pick up changes.
 - **Commit messages:** a short summary in the imperative mood ("Add DNS-over-HTTPS monitor"), with a body explaining *why* when it isn't obvious.
+
+## Changelog
+
+[`CHANGELOG.md`](CHANGELOG.md) follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Add your entry under the upcoming version at the top (`## [X.Y.Z] - Unreleased`), in the group that fits:
+
+- **Added:** new features
+- **Changed:** changes to existing behaviour
+- **Deprecated:** features that will be removed
+- **Removed:** features that were removed
+- **Fixed:** bug fixes
+- **Security:** vulnerability fixes
+
+Write for people who run Statora: what changed for them, not how the code changed. Mark changes that need action when upgrading with **Breaking:**. The section is copied into the GitHub release for every beta and for the final release, and the website shows the same file.
 
 ## Accepting these guidelines
 
@@ -92,9 +105,9 @@ Releases are automated; the version in `pyproject.toml` decides everything. On `
 
 To release:
 
-1. On `develop`, replace "unreleased" with today's date in `docs/reference/changelog.md`.
+1. On `develop`, change the heading of the upcoming version in `CHANGELOG.md` from `- Unreleased` to today's date, for example `## [0.2.0] - 2026-11-03`. CI refuses to release from `main` without a dated, non-empty section.
 2. Open a pull request from `develop` to `main`, and merge it with a **merge commit** (not squash), so both branches share their history. CI creates the tag, the images and the release; there's nothing to tag by hand.
-3. Straight afterwards, on `develop`, bump `project.version` in `pyproject.toml` to the next version (for example `0.3.0`) and add a new "unreleased" section to the changelog. Until you do, the beta builds on `develop` fail with a reminder.
+3. Straight afterwards, on `develop`, bump `project.version` in `pyproject.toml` to the next version (for example `0.3.0`) and add a new `## [0.3.0] - Unreleased` section at the top of `CHANGELOG.md`. Until you do, the beta builds on `develop` fail with a reminder.
 
 Hotfixes branch from `main` as `hotfix/…`, bump the patch version (for example `0.2.1`), go into `main` through a pull request, and are then merged back into `develop`.
 
