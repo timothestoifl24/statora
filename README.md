@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-<p align="center"><strong>Self-hosted uptime monitoring and public status pages.</strong></p>
+<p align="center"><strong>Self-hosted uptime monitoring and status pages.</strong></p>
 
 <p align="center">
   <a href="https://github.com/timothestoifl24/statora/actions/workflows/ci.yml"><img src="https://github.com/timothestoifl24/statora/actions/workflows/ci.yml/badge.svg" alt="CI"></a>

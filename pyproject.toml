@@ -1,7 +1,7 @@
 [project]
 name = "statora"
 version = "0.1.0"
-description = "Self-hosted uptime monitoring and public status pages"
+description = "Self-hosted uptime monitoring and status pages"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
