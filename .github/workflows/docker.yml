@@ -61,6 +61,10 @@ jobs:
       - name: Container logs
         if: always()
         run: docker logs statora 2>&1 | tail -100 || true
+      - name: Remove container
+        # Detach it from the service network, or GitHub's network cleanup fails with a warning.
+        if: always()
+        run: docker rm -f statora || true
 
   build:
     name: Build ${{ matrix.platform }}
