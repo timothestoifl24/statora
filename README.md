@@ -45,7 +45,14 @@ Stack:
 
 ## Installation
 
-Statora is one container image, `ghcr.io/timothestoifl24/statora`, plus PostgreSQL and Redis. The quickest start uses Docker Compose:
+Statora is one container image, `ghcr.io/timothestoifl24/statora`, plus PostgreSQL and Redis.
+
+| Image tag | Channel |
+|---|---|
+| `0.1.0`, `0.1`, `latest` | **Stable** releases from `main`, for production |
+| `0.2.0-beta.N`, `beta` | **Beta** builds from `develop`, previews of the next release |
+
+See [container images](https://statora.stoifl.app/reference/images) for details. The quickest start uses Docker Compose:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/timothestoifl24/statora/main/docker-compose.yml

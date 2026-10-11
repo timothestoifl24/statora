@@ -8,8 +8,8 @@ Thanks for helping. Bug reports, fixes, documentation and ideas are all welcome.
 
 | Branch | Purpose |
 |---|---|
-| `main` | **Production.** Every commit is a released state; the `latest` image is built from it. |
-| `develop` | **Integration.** Reviewed pull requests are merged here first and published as the `edge` image for testing. |
+| `main` | **Production.** Every new version merged here becomes a release, published as `X.Y.Z`, `X.Y` and `latest` images. |
+| `develop` | **Integration.** Reviewed pull requests are merged here first and published as `X.Y.Z-beta.N` and `beta` images for testing. |
 | `feature/…`, `fix/…`, `docs/…` | Your work, branched from `develop`. |
 | `hotfix/…` | Urgent production fixes, branched from `main` (maintainers only). |
 
@@ -82,11 +82,21 @@ By ticking it, you confirm that:
 
 ## Releases (maintainers)
 
-1. Changes collect on `develop` and are tried out with the `edge` image.
-2. For a release, update the version in `pyproject.toml` and the date in `docs/reference/changelog.md` on `develop`.
-3. Open a pull request from `develop` to `main` and merge it with a merge commit (not squash), so both branches share their history.
-4. Tag the merge commit on `main`, for example `git tag v0.2.0 && git push origin v0.2.0`. CI publishes the version images and creates the GitHub release.
-5. Hotfixes branch from `main`, go back to `main` through a pull request, and are then merged into `develop` as well.
+Releases are automated; the version in `pyproject.toml` decides everything. On `develop` it always holds the **next** version to be released.
+
+| Event | Result |
+|---|---|
+| Merge into `develop` | Beta images `X.Y.Z-beta.N` and `beta`, and a GitHub pre-release `vX.Y.Z-beta.N` |
+| Merge into `main` with a new version | Images `X.Y.Z`, `X.Y` and `latest`, and the GitHub release `vX.Y.Z` |
+| Merge into `main` with an already released version | Nothing is published |
+
+To release:
+
+1. On `develop`, replace "unreleased" with today's date in `docs/reference/changelog.md`.
+2. Open a pull request from `develop` to `main`, and merge it with a **merge commit** (not squash), so both branches share their history. CI creates the tag, the images and the release; there's nothing to tag by hand.
+3. Straight afterwards, on `develop`, bump `project.version` in `pyproject.toml` to the next version (for example `0.3.0`) and add a new "unreleased" section to the changelog. Until you do, the beta builds on `develop` fail with a reminder.
+
+Hotfixes branch from `main` as `hotfix/…`, bump the patch version (for example `0.2.1`), go into `main` through a pull request, and are then merged back into `develop`.
 
 ## Reporting bugs and requesting features
 
