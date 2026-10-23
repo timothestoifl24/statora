@@ -13,7 +13,7 @@ Statora is configured with environment variables, all prefixed with `STATORA_`. 
 | `STATORA_SECURE_COOKIES` | `false` | Mark the session cookie `Secure`. Turn on behind HTTPS. |
 | `STATORA_ROLE` | `all` | `all`, `web` (UI + API only) or `worker` (checks only). The same image does all three. |
 | `STATORA_HOST` / `STATORA_PORT` | `0.0.0.0` / `8000` | Listen address. |
-| `STATORA_HEARTBEAT_RETENTION_DAYS` | `30` | How long raw check results are kept. Daily rollups (the 90-day bars) are kept indefinitely. |
+| `STATORA_HEARTBEAT_RETENTION_DAYS` | `30` | How long raw check results are kept. Minute and hour uptime bars need at least 5 days. Daily rollups (the daily bars) are kept indefinitely. |
 | `STATORA_PAGE_CACHE_TTL` | `30` | Seconds a status page summary stays cached. Changes clear it immediately. |
 | `STATORA_SESSION_MAX_AGE` | `43200` | Admin session lifetime in seconds (12 h). |
 | `STATORA_DISABLE_LOCAL_LOGIN` | `false` | Hide password login for everyone except local admins, for SSO-only setups. |

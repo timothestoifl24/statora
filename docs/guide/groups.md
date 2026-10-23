@@ -38,7 +38,7 @@ A group is evaluated on its own interval, and also **immediately whenever one of
 
 ## On status pages
 
-A group appears as one component with its own uptime bars. Visitors can expand it to see each member's status and 90-day uptime. Paused members are hidden.
+A group appears as one component with its own uptime bars. Visitors can expand it to see each member's status and uptime over the page's history window. Paused members are hidden.
 
 ::: tip Member names are public
 Expanded groups show monitor names as they are. If those names contain internal hostnames, rename the monitors before adding the group to a public page.

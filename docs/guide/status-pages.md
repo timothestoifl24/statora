@@ -6,6 +6,15 @@ Status pages are public, need no login, and are built under **Status pages** in 
 
 - **Title, slug and description**: the page lives at `/s/<slug>`. The description and footer accept Markdown.
 - **Components**: add groups (such as "Websites" or "Infrastructure") and fill them with monitors, each with an optional public name. Drag groups and monitors by their grip handle to reorder them, or drag a monitor into another group. The arrow buttons do the same from the keyboard.
+- **Uptime bars**: how much history each component shows. Every option draws 120 bars:
+
+  | Setting | One bar per | Covers |
+  |---|---|---|
+  | Per minute | minute | the last 2 hours |
+  | Per hour | hour | the last 5 days |
+  | Per day (default) | day | the last 120 days (about 4 months) |
+
+  Minute and hour bars are calculated from raw check results, so they reach back only as far as `STATORA_HEARTBEAT_RETENTION_DAYS` (default 30 days). Keep it at 5 days or more for hourly bars. A monitor that checks less often than once a minute (or hour) has bars without a check of their own. They continue the previous result, and their tooltip says so.
 - **Accent colour and logo**: shown in the header and used for links.
 - **Published**: unpublished pages return 404.
 - **Default page**: served at `/` as well.
@@ -17,7 +26,7 @@ The **View status page** button at the top of the editor opens the live page.
 
 - An overall banner: *All Systems Operational*, *Degraded Performance*, *Partial* or *Major System Outage*, or *Under Maintenance*. It's derived from component states and the impact of active incidents.
 - Active incidents with their full timeline, and upcoming or ongoing maintenance.
-- Every component with 90 daily uptime bars. Hovering a bar shows that day's uptime and failed checks.
+- Every component with 120 uptime bars, per minute, hour or day depending on the page. Hovering a bar shows its uptime and failed checks.
 - Groups that expand to show their members.
 - Incidents from the last 14 days.
 - A light/dark toggle. The page follows the visitor's system setting until they choose, then remembers the choice.

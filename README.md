@@ -28,7 +28,7 @@
   - **Stack:** every member must be healthy.
   - **Redundancy:** at least *N* members must be up, e.g. one of two nodes. While enough nodes are up, losing one shows as *degraded*.
   - Groups can contain other groups. A group re-evaluates as soon as a member changes status, and it appears on status pages, in uptime history and in the API like any other monitor.
-- **Status pages:** as many public pages as you like. Each has grouped components, 90-day uptime bars, active incidents, scheduled maintenance and past incidents. Pages are server-rendered (Jinja2 + HTMX), work without JavaScript, refresh themselves, and have a light/dark toggle that remembers each visitor's choice. Each page has its own accent colour, and the "Powered by Statora" footer can be switched off.
+- **Status pages:** as many public pages as you like. Each has grouped components, uptime bars (per minute, hour or day), active incidents, scheduled maintenance and past incidents. Pages are server-rendered (Jinja2 + HTMX), work without JavaScript, refresh themselves, and have a light/dark toggle that remembers each visitor's choice. Each page has its own accent colour, and the "Powered by Statora" footer can be switched off.
 - **Incidents & maintenance:** incidents have an impact level and a timeline of updates written in Markdown. Monitors inside a maintenance window show as *under maintenance*, and that time doesn't count as downtime. Incidents can carry an ITSM ticket number and link, and maintenance windows a change number and link. These are internal and never appear on the public page.
 - **Admin panel:** themed with [Tabler](https://tabler.io). It covers the dashboard, latency charts, the status-page builder, users, authentication providers and API tokens.
 - **Authentication:**
@@ -107,7 +107,7 @@ Notes:
 - Put a TLS-terminating reverse proxy in front of the app and set `STATORA_SECURE_COOKIES=true`. The app trusts `X-Forwarded-*` headers.
 - **Ping** needs unprivileged ICMP. `docker-compose.yml` sets `net.ipv4.ping_group_range`. If your platform forbids that sysctl, add `cap_add: [NET_RAW]` instead.
 - **Scaling:** every replica serves the web UI and API. A Redis leader lock makes sure only one replica runs checks at a time. To split the roles, use `STATORA_ROLE=web` or `STATORA_ROLE=worker`; the same image does both.
-- **Data retention:** raw heartbeats are kept for `STATORA_HEARTBEAT_RETENTION_DAYS` (default 30). Daily rollups for the 90-day bars are kept indefinitely.
+- **Data retention:** raw heartbeats are kept for `STATORA_HEARTBEAT_RETENTION_DAYS` (default 30). Daily rollups for the daily uptime bars are kept indefinitely; minute and hour bars use the raw heartbeats.
 
 ### Configuration
 

@@ -1,10 +1,11 @@
 """Builds the public status page payload (cached in Redis as JSON)."""
 
-from datetime import date, timedelta
+from dataclasses import dataclass
+from datetime import UTC, datetime, time, timedelta
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, literal_column, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -12,6 +13,8 @@ from statora import cache
 from statora.config import get_settings
 from statora.db.base import utcnow
 from statora.db.models import (
+    Heartbeat,
+    HistoryResolution,
     Incident,
     IncidentImpact,
     IncidentStatus,
@@ -23,10 +26,51 @@ from statora.db.models import (
 )
 from statora.services import crud
 from statora.services.markdown import render_markdown
-from statora.services.monitoring import monitors_in_maintenance
+from statora.services.monitoring import STATUS_COUNTER, monitors_in_maintenance
 
-HISTORY_DAYS = 90
 PAST_INCIDENT_DAYS = 14
+
+
+@dataclass(frozen=True)
+class Window:
+    step: timedelta
+    bars: int
+    span_label: str  # left end of the bar legend
+    end_label: str  # right end of the bar legend
+    label_format: str  # bar tooltip
+
+
+HISTORY_WINDOWS = {
+    HistoryResolution.MINUTE: Window(timedelta(minutes=1), 120, "2 hours ago", "Now", "%d %b %H:%M UTC"),
+    HistoryResolution.HOUR: Window(timedelta(hours=1), 120, "5 days ago", "Now", "%d %b %H:00 UTC"),
+    HistoryResolution.DAY: Window(timedelta(days=1), 120, "120 days ago", "Today", "%Y-%m-%d"),
+}
+
+
+@dataclass
+class Counts:
+    """Heartbeats in one bar, by status (the same counters as MonitorDailyStat)."""
+
+    up_count: int = 0
+    degraded_count: int = 0
+    down_count: int = 0
+    maintenance_count: int = 0
+    last_status: str | None = None
+    last_ts: datetime | None = None
+
+    @property
+    def total(self) -> int:
+        return self.up_count + self.degraded_count + self.down_count
+
+    @property
+    def uptime(self) -> float | None:
+        return (self.up_count + self.degraded_count) / self.total if self.total else None
+
+    def add(self, status: str, count: int, last_ts: datetime) -> None:
+        counter = STATUS_COUNTER[MonitorStatus(status)]
+        setattr(self, counter, getattr(self, counter) + count)
+        if self.last_ts is None or last_ts > self.last_ts:
+            self.last_status, self.last_ts = status, last_ts
 
 
 class Overall(StrEnum):
@@ -84,14 +128,99 @@ def overall_status(
     return result
 
 
-def day_level(stat: MonitorDailyStat | None) -> str:
-    """Bucket a day for the uptime bar colour."""
+def bar_level(stat: Counts | MonitorDailyStat | None) -> str:
+    """Bucket a bar (a day, hour or minute) for its colour."""
     if stat is None or stat.total == 0:
         return "maintenance" if stat and stat.maintenance_count else "none"
     ratio = stat.uptime or 0
     if stat.down_count == 0:
         return "degraded" if stat.degraded_count > stat.total * 0.1 else "up"
     return "partial" if ratio >= 0.95 else "down"
+
+
+def bar_starts(resolution: HistoryResolution, now: datetime) -> list[datetime]:
+    """Start of every bar in the window, oldest first; the last bar contains `now`."""
+    window = HISTORY_WINDOWS[resolution]
+    if resolution == HistoryResolution.DAY:
+        last = datetime.combine(now.date(), time(), tzinfo=UTC)
+    elif resolution == HistoryResolution.HOUR:
+        last = now.replace(minute=0, second=0, microsecond=0)
+    else:
+        last = now.replace(second=0, microsecond=0)
+    return [last - window.step * (window.bars - 1 - i) for i in range(window.bars)]
+
+
+def build_bars(
+    resolution: HistoryResolution, starts: list[datetime], buckets: dict[datetime, Counts], interval_s: int
+) -> tuple[list[dict[str, Any]], float | None]:
+    """Uptime bars and the uptime percentage over the window for one monitor.
+
+    A minute or hour without any check (the monitor checks less often than that) continues the
+    previous result, as long as that result is at most one check interval (plus one bar) old.
+    Only real checks count towards the uptime percentage.
+    """
+    window = HISTORY_WINDOWS[resolution]
+    earlier = [start for start in buckets if start < starts[0]]
+    last = buckets[max(earlier)] if earlier else None
+    bars, ok, total = [], 0, 0
+    for start in starts:
+        counts = buckets.get(start)
+        bar = {
+            "day": start.date().isoformat(),
+            "start": start.isoformat(),
+            "label": start.strftime(window.label_format),
+            "level": bar_level(counts),
+            "uptime": round(counts.uptime * 100, 2) if counts and counts.uptime is not None else None,
+            "down": counts.down_count if counts else 0,
+        }
+        if counts and (counts.total or counts.maintenance_count):
+            last = counts
+            ok += counts.up_count + counts.degraded_count
+            total += counts.total
+        elif (
+            resolution != HistoryResolution.DAY
+            and last is not None
+            and last.last_ts is not None
+            and start - last.last_ts < timedelta(seconds=interval_s) + window.step
+        ):
+            # Pending counts as up, like in the daily rollup; other statuses are their own colour.
+            bar["level"] = "up" if last.last_status == MonitorStatus.PENDING else last.last_status
+            bar["note"] = f"no check · last result {last.last_status} at {last.last_ts:%H:%M} UTC"
+        bars.append(bar)
+    return bars, round(ok / total * 100, 3) if total else None
+
+
+async def _history(
+    session: AsyncSession, resolution: HistoryResolution, monitors: list, starts: list[datetime]
+) -> dict[int, dict[datetime, Counts]]:
+    """Counts per monitor and bar start: daily from the rollup, minutes and hours from heartbeats."""
+    result: dict[int, dict[datetime, Counts]] = {m.id: {} for m in monitors}
+    if not monitors:
+        return result
+    ids = list(result)
+    if resolution == HistoryResolution.DAY:
+        rows = await session.scalars(
+            select(MonitorDailyStat).where(
+                MonitorDailyStat.monitor_id.in_(ids), MonitorDailyStat.day >= starts[0].date()
+            )
+        )
+        for stat in rows:
+            result[stat.monitor_id][datetime.combine(stat.day, time(), tzinfo=UTC)] = Counts(
+                stat.up_count, stat.degraded_count, stat.down_count, stat.maintenance_count
+            )
+        return result
+    # Look back one check interval before the window, so its first bars can continue that result.
+    lookback = timedelta(seconds=min(max(m.interval_s for m in monitors), 86_400))
+    # Literal arguments: bound parameters would make GROUP BY see a different expression.
+    bucket = func.date_trunc(literal_column(f"'{resolution.value}'"), Heartbeat.ts, literal_column("'UTC'"))
+    rows = await session.execute(
+        select(Heartbeat.monitor_id, bucket, Heartbeat.status, func.count(), func.max(Heartbeat.ts))
+        .where(Heartbeat.monitor_id.in_(ids), Heartbeat.ts >= starts[0] - lookback)
+        .group_by(Heartbeat.monitor_id, bucket, Heartbeat.status)
+    )
+    for monitor_id, start, status, count, last_ts in rows:
+        result[monitor_id].setdefault(start.astimezone(UTC), Counts()).add(status, count, last_ts)
+    return result
 
 
 def _incident_dict(incident: Incident) -> dict[str, Any]:
@@ -122,22 +251,14 @@ def _maintenance_dict(m: Maintenance, now) -> dict[str, Any]:
 
 async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[str, Any]:
     now = utcnow()
-    today = now.date()
-    first_day = today - timedelta(days=HISTORY_DAYS - 1)
-    monitor_ids = [item.monitor_id for group in page.groups for item in group.items]
+    resolution = HistoryResolution(page.history_resolution)
+    window = HISTORY_WINDOWS[resolution]
+    starts = bar_starts(resolution, now)
+    monitors = {item.monitor.id: item.monitor for group in page.groups for item in group.items}
     # Members of group monitors are listed (expandable) under their group, so load their history too.
-    monitor_ids += [m.id for group in page.groups for item in group.items for m in item.monitor.members]
-
-    stats: dict[tuple[int, date], MonitorDailyStat] = {}
-    if monitor_ids:
-        rows = await session.scalars(
-            select(MonitorDailyStat).where(
-                MonitorDailyStat.monitor_id.in_(monitor_ids), MonitorDailyStat.day >= first_day
-            )
-        )
-        stats = {(s.monitor_id, s.day): s for s in rows}
+    monitors |= {m.id: m for group in page.groups for item in group.items for m in item.monitor.members}
+    history = await _history(session, resolution, list(monitors.values()), starts)
     in_maintenance = await monitors_in_maintenance(session, now)
-    days = [first_day + timedelta(days=i) for i in range(HISTORY_DAYS)]
 
     def effective_status(monitor) -> MonitorStatus:
         if not monitor.active:
@@ -146,13 +267,8 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
             return MonitorStatus.MAINTENANCE
         return MonitorStatus(monitor.status)
 
-    def uptime_pct(monitor_id: int) -> float | None:
-        ok = total = 0
-        for day in days:
-            if stat := stats.get((monitor_id, day)):
-                ok += stat.up_count + stat.degraded_count
-                total += stat.total
-        return round(ok / total * 100, 3) if total else None
+    def bars_and_uptime(monitor) -> tuple[list[dict[str, Any]], float | None]:
+        return build_bars(resolution, starts, history[monitor.id], monitor.interval_s)
 
     groups, statuses = [], []
     for group in page.groups:
@@ -161,24 +277,14 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
             monitor = item.monitor
             status = effective_status(monitor)
             statuses.append(status)
-            bars = []
-            for day in days:
-                stat = stats.get((monitor.id, day))
-                bars.append(
-                    {
-                        "day": day.isoformat(),
-                        "level": day_level(stat),
-                        "uptime": round(stat.uptime * 100, 2) if stat and stat.uptime is not None else None,
-                        "down": stat.down_count if stat else 0,
-                    }
-                )
+            bars, uptime = bars_and_uptime(monitor)
             components.append(
                 {
                     "id": item.id,
                     "name": item.label,
                     "status": status,
                     "status_label": COMPONENT_LABELS.get(status, "Unknown"),
-                    "uptime": uptime_pct(monitor.id),
+                    "uptime": uptime,
                     "bars": bars,
                     "group_mode": monitor.config.get("mode") if monitor.is_group else None,
                     "members": [
@@ -186,7 +292,7 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
                             "name": member.name,
                             "status": (member_status := effective_status(member)),
                             "status_label": COMPONENT_LABELS.get(member_status, "Unknown"),
-                            "uptime": uptime_pct(member.id),
+                            "uptime": bars_and_uptime(member)[1],
                         }
                         for member in monitor.members
                         if member.active
@@ -240,6 +346,7 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
             "show_powered_by": page.show_powered_by,
         },
         "overall": {"status": overall, "label": OVERALL_LABELS[overall]},
+        "history": {"resolution": resolution, "span_label": window.span_label, "end_label": window.end_label},
         "groups": groups,
         "active_incidents": [_incident_dict(i) for i in active],
         "past_incidents": [_incident_dict(i) for i in past],

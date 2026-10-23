@@ -120,12 +120,16 @@ async def test_create_monitor_and_page_via_forms(client):
             "slug": "public",
             "accent_color": "#ff0000",
             "published": "on",
+            "history_resolution": "hour",
             "groups_json": '[{"name": "APIs", "items": [{"monitor_id": 1, "display_name": "Public API"}]}]',
         },
     )
     assert page.status_code == 303
     public = await client.get("/s/public")
     assert public.status_code == 200 and "Public API" in public.text and "#ff0000" in public.text
+    assert "5 days ago" in public.text and public.text.count('class="bar ') == 120
+    editor = await client.get("/admin/pages/1/edit")
+    assert '<option value="hour" selected>' in editor.text
 
 
 async def test_viewer_cannot_open_editor_pages(client):

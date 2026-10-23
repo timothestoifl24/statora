@@ -52,6 +52,14 @@
             <label class="form-label" for="footer_text">Footer <span class="text-secondary">(Markdown)</span></label>
             <textarea class="form-control" id="footer_text" name="footer_text" rows="2">{{ values.footer_text or '' }}</textarea>
           </div>
+          <div class="mb-3">
+            <label class="form-label" for="history_resolution">Uptime bars</label>
+            <select class="form-select" id="history_resolution" name="history_resolution">
+              {% for value, label in [('minute', 'Per minute, last 2 hours'), ('hour', 'Per hour, last 5 days'), ('day', 'Per day, last 4 months')] %}
+                <option value="{{ value }}" {{ 'selected' if values.history_resolution == value }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
           <label class="form-check form-switch">
             <input class="form-check-input" type="checkbox" name="published" {{ 'checked' if values.published }}>
             <span class="form-check-label">Published</span>

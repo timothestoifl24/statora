@@ -39,6 +39,14 @@ class MonitorStatus(StrEnum):
     MAINTENANCE = "maintenance"
 
 
+class HistoryResolution(StrEnum):
+    """Size of one uptime bar on a status page."""
+
+    MINUTE = "minute"
+    HOUR = "hour"
+    DAY = "day"
+
+
 class IncidentImpact(StrEnum):
     NONE = "none"
     MINOR = "minor"
