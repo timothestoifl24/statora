@@ -8,7 +8,12 @@
       Stack · all {{ n }} member{{ 's' if n != 1 }} must be up
     {%- endif -%}
   {%- else -%}
-    {{ m.target }}{% if m.type == 'tcp' %}:{{ m.config.port }}{% endif %}
+    {%- if m.type == 'sql' -%}
+      {%- set ports = {'postgresql': 5432, 'mysql': 3306, 'mssql': 1433, 'oracle': 1521} -%}
+      {{ m.config.engine }}://{{ m.target }}:{{ m.config.port or ports.get(m.config.engine) }}{% if m.config.database %}/{{ m.config.database }}{% endif %}
+    {%- else -%}
+      {{ m.target }}{% if m.type == 'tcp' %}:{{ m.config.port }}{% endif %}
+    {%- endif -%}
   {%- endif -%}
 {%- endmacro %}
 

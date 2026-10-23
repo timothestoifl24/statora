@@ -86,6 +86,78 @@
     <input class="form-control" id="cfg_expected_value" name="cfg_expected_value" value="{{ c.expected_value or '' }}"
            placeholder="Down unless an answer contains this (optional)">
   </div>
+{% elif t == 'sql' %}
+  {% set engine = c.engine or 'postgresql' %}
+  {% set ports = {'postgresql': 5432, 'mysql': 3306, 'mssql': 1433, 'oracle': 1521} %}
+  {% set stored_password = monitor is defined and monitor and monitor.type == 'sql' and (monitor.config or {}).get('password') %}
+  <div class="col-md-5">
+    <label class="form-label required" for="cfg_engine">Database engine</label>
+    <select class="form-select" id="cfg_engine" name="cfg_engine"
+            onchange="document.getElementById('cfg_port').placeholder = this.selectedOptions[0].dataset.port;
+                      document.getElementById('cfg_database_hint').hidden = this.value !== 'oracle';
+                      document.getElementById('cfg_query').placeholder = this.value === 'oracle' ? 'SELECT 1 FROM DUAL' : 'SELECT 1'">
+      {% for value, label in [('postgresql', 'PostgreSQL'), ('mysql', 'MySQL / MariaDB'), ('mssql', 'Microsoft SQL Server'), ('oracle', 'Oracle')] %}
+        <option value="{{ value }}" data-port="{{ ports[value] }}" {{ 'selected' if engine == value }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label class="form-label" for="cfg_port">Port</label>
+    <input type="number" class="form-control" id="cfg_port" name="cfg_port" min="1" max="65535"
+           value="{{ c.port or '' }}" placeholder="{{ ports[engine] }}">
+  </div>
+  <div class="col-md-5">
+    <label class="form-label" for="cfg_database">Database</label>
+    <input class="form-control" id="cfg_database" name="cfg_database" value="{{ c.database or '' }}">
+    <small class="form-hint" id="cfg_database_hint" {{ 'hidden' if engine != 'oracle' }}>The service name, e.g. FREEPDB1.</small>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label" for="cfg_username">User name</label>
+    <input class="form-control" id="cfg_username" name="cfg_username" value="{{ c.username or '' }}" autocomplete="off">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label" for="cfg_password">Password</label>
+    <input type="password" class="form-control" id="cfg_password" name="cfg_password" value="" autocomplete="new-password"
+           placeholder="{{ 'Stored — leave empty to keep' if stored_password else '' }}">
+  </div>
+  <div class="col-12">
+    <label class="form-label" for="cfg_query">Query</label>
+    <textarea class="form-control font-monospace" id="cfg_query" name="cfg_query" rows="2"
+              placeholder="{{ 'SELECT 1 FROM DUAL' if engine == 'oracle' else 'SELECT 1' }}">{{ c.query or '' }}</textarea>
+    <small class="form-hint">Runs in a read-only transaction that is rolled back. Use a database user that can only read.</small>
+  </div>
+  <div class="col-md-5">
+    <label class="form-label" for="cfg_expected_value">Expected value</label>
+    <input class="form-control" id="cfg_expected_value" name="cfg_expected_value" value="{{ c.expected_value if c.expected_value is not none else '' }}"
+           placeholder="First column of the first row (optional)">
+  </div>
+  <div class="col-md-3">
+    <label class="form-label" for="cfg_match">Comparison</label>
+    <select class="form-select" id="cfg_match" name="cfg_match">
+      <option value="equals" {{ 'selected' if (c.match or 'equals') == 'equals' }}>Equals</option>
+      <option value="contains" {{ 'selected' if c.match == 'contains' }}>Contains</option>
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label class="form-label" for="cfg_min_rows">Minimum rows</label>
+    <input type="number" class="form-control" id="cfg_min_rows" name="cfg_min_rows" min="0" max="1000"
+           value="{{ c.min_rows if c.min_rows is not none else '' }}" placeholder="optional">
+  </div>
+  <div class="col-md-2">
+    <label class="form-label" for="cfg_degraded_threshold_ms">Degraded above (ms)</label>
+    <input type="number" class="form-control" id="cfg_degraded_threshold_ms" name="cfg_degraded_threshold_ms" min="1"
+           value="{{ c.degraded_threshold_ms or '' }}" placeholder="optional">
+  </div>
+  <div class="col-12 d-flex gap-4">
+    <label class="form-check">
+      <input class="form-check-input" type="checkbox" name="cfg_tls" {{ 'checked' if c.tls }}>
+      <span class="form-check-label">Encrypt the connection (TLS)</span>
+    </label>
+    <label class="form-check">
+      <input class="form-check-input" type="checkbox" name="cfg_verify_tls" {{ 'checked' if c.verify_tls is not defined or c.verify_tls }}>
+      <span class="form-check-label">Verify TLS certificate</span>
+    </label>
+  </div>
 {% elif t == 'group' %}
   {% set mode = c.mode or 'stack' %}
   <div class="col-12">
