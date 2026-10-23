@@ -5,7 +5,7 @@ Status pages are public, need no login, and are built under **Status pages** in 
 ## Building a page
 
 - **Title, slug and description**: the page lives at `/s/<slug>`. The description and footer accept Markdown.
-- **Components**: add groups (such as "Websites" or "Infrastructure") and fill them with monitors, each with an optional public name. Use the arrows to reorder.
+- **Components**: add groups (such as "Websites" or "Infrastructure") and fill them with monitors, each with an optional public name. Drag groups and monitors by their grip handle to reorder them, or drag a monitor into another group. The arrow buttons do the same from the keyboard.
 - **Accent colour and logo**: shown in the header and used for links.
 - **Published**: unpublished pages return 404.
 - **Default page**: served at `/` as well.
