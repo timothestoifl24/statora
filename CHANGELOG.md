@@ -10,6 +10,10 @@ Changes collect under the upcoming version while it's being developed, and you c
 
 - **Dependencies:** updated FastAPI, Pydantic, pydantic-settings, Markdown and fakeredis to their latest patch and minor releases.
 
+### Fixed
+
+- **Monitor page:** a newly created monitor no longer stays on "pending" until you reload. The monitor's page now refreshes itself: every few seconds until the first check is in, then every 15 seconds like the dashboard.
+
 ## [1.0.0] - 2026-10-11
 
 First stable release.

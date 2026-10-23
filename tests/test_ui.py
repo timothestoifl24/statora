@@ -109,6 +109,8 @@ async def test_create_monitor_and_page_via_forms(client):
     assert created.status_code == 303
     detail = await client.get(created.headers["location"])
     assert detail.status_code == 200 and ">https://api.example</div>" in detail.text
+    # Not checked yet: the page polls quickly so the first result shows up without a reload.
+    assert 'hx-trigger="every 3s"' in detail.text
 
     page = await client.post(
         "/admin/pages/new",

@@ -4,7 +4,7 @@
 {% block title %}{{ monitor.name }}{% endblock %}
 {% block pretitle %}<div class="page-pretitle">{{ monitor.type|upper }} monitor</div>{% endblock %}
 {% block heading %}
-  <span class="status-dot status-{{ monitor.status if monitor.active else 'pending' }} me-2"></span>{{ monitor.name }}
+  <span id="monitor-heading-dot" class="status-dot status-{{ monitor.status if monitor.active else 'pending' }} me-2"></span>{{ monitor.name }}
 {% endblock %}
 {% block actions %}
   {% if user.role in ('admin', 'editor') %}
@@ -25,6 +25,10 @@
   {% endif %}
 {% endblock %}
 {% block content %}
+{# Refreshed in place: quickly until the first check of a new monitor arrives, then like the dashboard. #}
+<div id="monitor-live" hx-get="/admin/monitors/{{ monitor.id }}"
+     hx-trigger="every {{ '3s' if monitor.active and monitor.last_checked_at is none else '15s' }}"
+     hx-select="#monitor-live" hx-swap="outerHTML" hx-select-oob="#monitor-heading-dot">
 <div class="text-secondary mb-3 {{ '' if monitor.is_group else 'font-monospace-sm' }}">{{ monitor_target(monitor) }}</div>
 
 {% if monitor.is_group %}
@@ -78,6 +82,7 @@
   <div class="card-header"><h3 class="card-title">Response time · last 24 hours</h3></div>
   <div class="card-body">
     {% if chart %}<div id="latency-chart" style="min-height: 260px"></div>
+    <script type="application/json" id="latency-data">{{ chart|tojson }}</script>
     {% else %}<p class="text-secondary mb-0">No checks yet. The first result appears within one interval ({{ monitor.interval_s }}s).</p>{% endif %}
   </div>
 </div>
@@ -124,28 +129,41 @@
     </div>
   </div>
 </div>
+</div>
 {% endblock %}
 {% block scripts %}
-{% if chart and not monitor.is_group %}
+{% if not monitor.is_group %}
 <script src="{{ asset('vendor/apexcharts.min.js') }}"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    var dark = document.documentElement.getAttribute("data-bs-theme") === "dark";
-    new ApexCharts(document.getElementById("latency-chart"), {
-      chart: { type: "area", height: 260, toolbar: { show: false }, animations: { enabled: false },
-               background: "transparent", fontFamily: "inherit" },
-      theme: { mode: dark ? "dark" : "light" },
-      series: [{ name: "Latency (ms)", data: {{ chart|tojson }} }],
-      xaxis: { type: "datetime", labels: { datetimeUTC: false } },
-      yaxis: { labels: { formatter: function (v) { return v == null ? "" : Math.round(v) + " ms"; } } },
-      stroke: { width: 2, curve: "smooth" },
-      fill: { type: "gradient", gradient: { opacityFrom: 0.35, opacityTo: 0.05 } },
-      dataLabels: { enabled: false },
-      colors: ["#1f6feb"],
-      tooltip: { x: { format: "HH:mm:ss" } },
-      grid: { strokeDashArray: 4 }
-    }).render();
-  });
+  (function () {
+    var chart = null, chartEl = null;
+    // (Re)draws the chart after the first load and after every refresh of #monitor-live.
+    function render() {
+      var el = document.getElementById("latency-chart");
+      var data = document.getElementById("latency-data");
+      if (chart && chartEl !== el) { chart.destroy(); chart = null; }
+      if (!el || !data || chart) return;
+      var dark = document.documentElement.getAttribute("data-bs-theme") === "dark";
+      chartEl = el;
+      chart = new ApexCharts(el, {
+        chart: { type: "area", height: 260, toolbar: { show: false }, animations: { enabled: false },
+                 background: "transparent", fontFamily: "inherit" },
+        theme: { mode: dark ? "dark" : "light" },
+        series: [{ name: "Latency (ms)", data: JSON.parse(data.textContent) }],
+        xaxis: { type: "datetime", labels: { datetimeUTC: false } },
+        yaxis: { labels: { formatter: function (v) { return v == null ? "" : Math.round(v) + " ms"; } } },
+        stroke: { width: 2, curve: "smooth" },
+        fill: { type: "gradient", gradient: { opacityFrom: 0.35, opacityTo: 0.05 } },
+        dataLabels: { enabled: false },
+        colors: ["#1f6feb"],
+        tooltip: { x: { format: "HH:mm:ss" } },
+        grid: { strokeDashArray: 4 }
+      });
+      chart.render();
+    }
+    document.addEventListener("DOMContentLoaded", render);
+    document.addEventListener("htmx:afterSettle", render);
+  })();
 </script>
 {% endif %}
 {% endblock %}
