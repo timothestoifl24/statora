@@ -1,7 +1,7 @@
 {% extends "admin/base.html" %}
-{% block title %}{{ 'Edit ' ~ monitor.name if monitor else 'New monitor' }}{% endblock %}
+{% block title %}{{ 'Edit ' ~ monitor.name if monitor else ('Clone ' ~ clone_of.name if clone_of else 'New monitor') }}{% endblock %}
 {% block content %}
-<form method="post" class="card" autocomplete="off">
+<form method="post" action="{{ '/admin/monitors/' ~ monitor.id ~ '/edit' if monitor else '/admin/monitors/new' }}" class="card" autocomplete="off">
   {{ csrf_input(request) }}
   <div class="card-body">
     <div class="row g-3">

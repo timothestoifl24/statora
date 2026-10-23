@@ -6,7 +6,8 @@
   {% endif %}
 {% endblock %}
 {% block content %}
-<div hx-get="/admin" hx-trigger="every 15s" hx-swap="innerHTML">
+{# Skips a refresh while a row's options menu is open, so the menu doesn't close under the pointer. #}
+<div hx-get="/admin" hx-trigger="every 15s [!document.querySelector('.dropdown-menu.show')]" hx-swap="innerHTML">
   {% include "admin/_monitor_rows.html" %}
 </div>
 {% endblock %}

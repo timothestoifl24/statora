@@ -11,7 +11,7 @@ from statora.db.models import Heartbeat, Monitor, MonitorType, User, UserRole, m
 from statora.schemas.monitor import CONFIG_MODELS, MonitorCreate, MonitorUpdate
 from statora.services import crud
 from statora.services.monitoring import monitors_in_maintenance, uptime_days, uptime_since
-from statora.web.deps import current_user, get_session, not_found, ui_role
+from statora.web.deps import current_user, get_session, local_path, not_found, ui_role
 
 from .common import checkbox, error_messages, flash, int_list, opt, redirect, render, rollback
 
@@ -73,6 +73,21 @@ async def _member_choices(session: AsyncSession, exclude_id: int | None) -> list
     return list((await session.scalars(query)).all())
 
 
+def _monitor_values(monitor: Monitor | None) -> dict:
+    return {
+        "name": monitor.name if monitor else "",
+        "description": monitor.description if monitor else "",
+        "type": monitor.type if monitor else MonitorType.HTTP,
+        "target": monitor.target if monitor else "",
+        "interval_s": monitor.interval_s if monitor else 60,
+        "timeout_s": monitor.timeout_s if monitor else 10,
+        "retries": monitor.retries if monitor else 1,
+        "active": monitor.active if monitor else True,
+        "config": dict(monitor.config) if monitor else {},
+        "member_ids": monitor.member_ids if monitor else [],
+    }
+
+
 async def _form_context(
     session: AsyncSession,
     monitor: Monitor | None,
@@ -80,18 +95,7 @@ async def _form_context(
     errors: list[str] | None = None,
 ) -> dict:
     if values is None:
-        values = {
-            "name": monitor.name if monitor else "",
-            "description": monitor.description if monitor else "",
-            "type": monitor.type if monitor else MonitorType.HTTP,
-            "target": monitor.target if monitor else "",
-            "interval_s": monitor.interval_s if monitor else 60,
-            "timeout_s": monitor.timeout_s if monitor else 10,
-            "retries": monitor.retries if monitor else 1,
-            "active": monitor.active if monitor else True,
-            "config": dict(monitor.config) if monitor else {},
-            "member_ids": monitor.member_ids if monitor else [],
-        }
+        values = _monitor_values(monitor)
     return {
         "monitor": monitor,
         "values": values,
@@ -144,6 +148,25 @@ async def new_monitor(
     request: Request, user: User = Depends(editor), session: AsyncSession = Depends(get_session)
 ):
     return render(request, "admin/monitor_form.html", user, **await _form_context(session, None))
+
+
+@router.get("/monitors/{monitor_id}/clone")
+async def clone_monitor(
+    monitor_id: int,
+    request: Request,
+    user: User = Depends(editor),
+    session: AsyncSession = Depends(get_session),
+):
+    """The new-monitor form, prefilled from an existing monitor. Nothing is saved until it's submitted."""
+    source = await _get(session, monitor_id)
+    values = _monitor_values(source) | {"name": f"{source.name} (copy)"[:150], "active": True}
+    return render(
+        request,
+        "admin/monitor_form.html",
+        user,
+        clone_of=source,
+        **await _form_context(session, None, values),
+    )
 
 
 @router.get("/monitors/config-fields")
@@ -302,11 +325,13 @@ async def toggle_monitor(
     session: AsyncSession = Depends(get_session),
 ):
     monitor = await _get(session, monitor_id)
+    # The monitor list sends next=/admin to come back to the list; anything off-site is ignored.
+    target = local_path(str((await request.form()).get("next") or ""), f"/admin/monitors/{monitor.id}")
     await crud.update_monitor(session, monitor, MonitorUpdate(active=not monitor.active))
     await session.commit()
     await crud.notify_monitor_changed(monitor.id)
-    flash(request, f"Monitor {'resumed' if monitor.active else 'paused'}")
-    return redirect(f"/admin/monitors/{monitor.id}")
+    flash(request, f"Monitor “{monitor.name}” {'resumed' if monitor.active else 'paused'}")
+    return redirect(target)
 
 
 @router.post("/monitors/{monitor_id}/delete")

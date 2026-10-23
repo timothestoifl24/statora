@@ -260,3 +260,56 @@ async def test_redundancy_options_only_for_redundancy_groups(client):
     stack = (await client.get("/admin/monitors/config-fields", params={"type": "group"})).text
     assert 'id="redundancy-options" hidden' in stack  # new groups default to "stack"
     assert "Members that must be up" in stack  # present for the client-side toggle
+
+
+async def test_monitor_list_options_pause_resume_and_clone(client, auth):
+    monitor = (
+        await client.post(
+            "/api/v1/monitors",
+            json={"name": "Shop", "type": "http", "target": "https://shop.example", "interval_s": 120},
+            headers=auth,
+        )
+    ).json()
+    await make_user("viewer", UserRole.VIEWER)
+    await login(client, "viewer")
+    assert "Options for Shop" not in (await client.get("/admin")).text
+    assert (await client.get(f"/admin/monitors/{monitor['id']}/clone")).status_code == 403
+
+    await make_user("editor", UserRole.EDITOR)
+    client.cookies.clear()
+    await login(client, "editor")
+    dashboard = await client.get("/admin")
+    assert "Options for Shop" in dashboard.text and f"/admin/monitors/{monitor['id']}/clone" in dashboard.text
+    token = csrf_from(dashboard.text)
+
+    paused = await client.post(
+        f"/admin/monitors/{monitor['id']}/toggle", data={"csrf_token": token, "next": "/admin"}
+    )
+    assert paused.status_code == 303 and paused.headers["location"] == "/admin"
+    assert "paused</span>" in (await client.get("/admin")).text
+    resumed = await client.post(
+        f"/admin/monitors/{monitor['id']}/toggle", data={"csrf_token": token, "next": "https://evil.example"}
+    )
+    assert resumed.headers["location"] == f"/admin/monitors/{monitor['id']}"
+
+    clone = await client.get(f"/admin/monitors/{monitor['id']}/clone")
+    assert clone.status_code == 200 and 'action="/admin/monitors/new"' in clone.text
+    assert 'value="Shop (copy)"' in clone.text and 'value="https://shop.example"' in clone.text
+    assert 'value="120"' in clone.text
+    created = await client.post(
+        "/admin/monitors/new",
+        data={
+            "csrf_token": token,
+            "name": "Shop (copy)",
+            "type": "http",
+            "target": "https://shop.example",
+            "interval_s": "120",
+            "timeout_s": "10",
+            "retries": "1",
+            "active": "on",
+            "cfg_method": "GET",
+        },
+    )
+    assert created.status_code == 303
+    dashboard = await client.get("/admin")
+    assert "Options for Shop (copy)" in dashboard.text and 'Options for Shop"' in dashboard.text
