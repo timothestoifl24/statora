@@ -6,7 +6,7 @@ Statora watches your services, keeps their history and publishes what it sees on
 
 | Concept | What it is |
 |---|---|
-| **Monitor** | One check against one target: an HTTP endpoint, a TCP port, a host to ping, or a DNS record. |
+| **Monitor** | One check against one target: an HTTP endpoint, a TCP port, a host to ping, a DNS record, or a database query. |
 | **Group** | A monitor whose status comes from other monitors: a *stack* (all must be healthy) or a *redundancy group* (enough must be up). |
 | **Status page** | A public page made of component groups, each listing monitors under public names. |
 | **Incident** | A human-written account of a problem, with a timeline of updates, shown on a status page. |

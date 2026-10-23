@@ -23,7 +23,7 @@
 
 <p align="center"><img src="docs/public/screenshots/status-page-light.webp" alt="Statora status page" width="820"></p>
 
-- **Monitors:** HTTP(S) (status codes, keyword, headers/body, TLS verification), TCP port, ICMP ping, DNS (any record type, expected value). Each has an interval, a timeout, retries before going down, and a "degraded" latency threshold.
+- **Monitors:** HTTP(S) (status codes, keyword, headers/body, TLS verification), TCP port, ICMP ping, DNS (any record type, expected value), SQL queries against PostgreSQL, MySQL/MariaDB, SQL Server and Oracle (expected value, minimum rows). Each has an interval, a timeout, retries before going down, and a "degraded" latency threshold.
 - **Groups:** combine monitors into one component.
   - **Stack:** every member must be healthy.
   - **Redundancy:** at least *N* members must be up, e.g. one of two nodes. While enough nodes are up, losing one shows as *degraded*.
@@ -205,7 +205,7 @@ uv run alembic revision --autogenerate -m "describe change"
 
 ```
 src/statora/
-  checks/        HTTP, TCP, ping, DNS checks → CheckResult
+  checks/        HTTP, TCP, ping, DNS, SQL checks → CheckResult
   scheduler.py   per-monitor asyncio loops, Redis leader lock, periodic resync
   services/      state machine + daily rollups, status page summary, shared CRUD
   auth/          passwords, API tokens, rate limiting, LDAP/OIDC/SAML providers, provisioning
