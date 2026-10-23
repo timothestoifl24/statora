@@ -256,3 +256,37 @@ async def test_redundancy_options_only_for_redundancy_groups(client):
     stack = (await client.get("/admin/monitors/config-fields", params={"type": "group"})).text
     assert 'id="redundancy-options" hidden' in stack  # new groups default to "stack"
     assert "Members that must be up" in stack  # present for the client-side toggle
+
+
+async def test_sql_monitor_form_never_shows_the_password(client):
+    await make_user("admin", UserRole.ADMIN)
+    await login(client)
+    fields = (await client.get("/admin/monitors/config-fields", params={"type": "sql"})).text
+    assert 'name="cfg_engine"' in fields and 'name="cfg_password"' in fields and "Stored" not in fields
+
+    token = csrf_from((await client.get("/admin/monitors/new")).text)
+    created = await client.post(
+        "/admin/monitors/new",
+        data={
+            "csrf_token": token,
+            "name": "Orders DB",
+            "type": "sql",
+            "target": "db.internal",
+            "interval_s": "60",
+            "timeout_s": "10",
+            "retries": "0",
+            "active": "on",
+            "cfg_engine": "mysql",
+            "cfg_database": "orders",
+            "cfg_username": "probe",
+            "cfg_password": "hunter22",
+            "cfg_verify_tls": "on",
+        },
+    )
+    assert created.status_code == 303, created.text
+    detail = (await client.get(created.headers["location"])).text
+    assert "mysql://db.internal:3306/orders" in detail
+    assert "hunter22" not in detail and "enc:" not in detail and ">Password<" not in detail
+
+    edit = (await client.get(created.headers["location"] + "/edit")).text
+    assert "Stored — leave empty to keep" in edit and "hunter22" not in edit and "enc:" not in edit

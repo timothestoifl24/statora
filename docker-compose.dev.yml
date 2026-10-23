@@ -2,6 +2,7 @@
 #   docker compose -f docker-compose.dev.yml up -d
 #   uv run statora init --seed && uv run statora dev
 # Optional SSO test IdPs: docker compose -f docker-compose.dev.yml --profile sso up -d
+# Optional databases for SQL monitors: docker compose -f docker-compose.dev.yml --profile sql up -d
 name: statora-dev
 
 services:
@@ -48,6 +49,40 @@ services:
       LDAP_GROUP: statora-admins
     ports:
       - "1389:1389"
+
+  # Targets for SQL monitors (user "statora", password "statora", database "statora";
+  # SQL Server: user "sa", Oracle: service name "FREEPDB1").
+  mariadb:
+    profiles: ["sql"]
+    image: docker.io/library/mariadb:11
+    environment:
+      MARIADB_USER: statora
+      MARIADB_PASSWORD: statora
+      MARIADB_DATABASE: statora
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+    ports:
+      - "3306:3306"
+
+  mssql:
+    profiles: ["sql"]
+    # SQL Server is amd64-only and crashes under emulation on Apple silicon. There, use
+    # STATORA_MSSQL_IMAGE=mcr.microsoft.com/azure-sql-edge:latest (same protocol, native arm64).
+    image: ${STATORA_MSSQL_IMAGE:-mcr.microsoft.com/mssql/server:2022-latest}
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: Statora-dev-1
+    ports:
+      - "1433:1433"
+
+  oracle:
+    profiles: ["sql"]
+    image: docker.io/gvenzl/oracle-free:23-slim-faststart
+    environment:
+      ORACLE_RANDOM_PASSWORD: "true"
+      APP_USER: statora
+      APP_USER_PASSWORD: statora
+    ports:
+      - "1521:1521"
 
 volumes:
   pgdata-dev-18:
