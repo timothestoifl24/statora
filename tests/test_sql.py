@@ -30,6 +30,13 @@ SLOW_QUERIES = {
     "mssql": "WAITFOR DELAY '00:00:05'; SELECT 1",
     "oracle": "SELECT COUNT(*) FROM all_objects a, all_objects b, all_objects c",
 }
+# Queries that take a few dozen milliseconds, well above a 1 ms degraded threshold.
+BRIEF_QUERIES = {
+    "postgresql": "SELECT pg_sleep(0.05)",
+    "mysql": "SELECT SLEEP(0.05)",
+    "mssql": "WAITFOR DELAY '00:00:00.050'; SELECT 1",
+    "oracle": "SELECT COUNT(*) FROM all_objects",
+}
 
 
 def _server(engine: str) -> dict:
@@ -135,8 +142,8 @@ async def test_query_and_expectations(engine):
     too_few = await run_check(sql_target(engine, min_rows=2))
     assert too_few.status == MonitorStatus.DOWN and "at least 2 rows" in too_few.message
 
-    # Connecting alone takes longer than 1 ms.
-    degraded = await run_check(sql_target(engine, degraded_threshold_ms=1))
+    # A local server can answer "SELECT 1" in under 1 ms, so wait a little on the server side.
+    degraded = await run_check(sql_target(engine, degraded_threshold_ms=1, query=BRIEF_QUERIES[engine]))
     assert degraded.status == MonitorStatus.DEGRADED, degraded.message
 
 
