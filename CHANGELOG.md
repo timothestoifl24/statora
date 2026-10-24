@@ -21,6 +21,10 @@ Changes collect under the upcoming version while it's being developed, and you c
 
 - **Monitor page:** a newly created monitor no longer stays on "pending" until you reload. The monitor's page now refreshes itself: every few seconds until the first check is in, then every 15 seconds like the dashboard.
 
+### Security
+
+- **certifi 2026.10.23:** the bundled CA certificates no longer trust the emSign root CAs, whose intermediate CA keys were compromised ([GHSA-6q48-6c7w-9gw2](https://github.com/advisories/GHSA-6q48-6c7w-9gw2)). This affects HTTPS checks and outgoing connections such as OIDC; the container image picks up the new bundle.
+
 ## [1.0.0] - 2026-10-11
 
 First stable release.
