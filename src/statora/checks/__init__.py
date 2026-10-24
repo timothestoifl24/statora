@@ -4,6 +4,7 @@ from .base import Check, CheckResult, CheckTarget
 from .dns import check_dns
 from .http import check_http
 from .ping import check_ping
+from .sql import check_sql
 from .tcp import check_tcp
 
 CHECKS: dict[MonitorType, Check] = {
@@ -11,6 +12,7 @@ CHECKS: dict[MonitorType, Check] = {
     MonitorType.TCP: check_tcp,
     MonitorType.PING: check_ping,
     MonitorType.DNS: check_dns,
+    MonitorType.SQL: check_sql,
 }
 
 

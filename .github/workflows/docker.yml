@@ -1,7 +1,7 @@
 name: Container image
 
 # main (production): merging a new version from pyproject.toml publishes X.Y.Z, X.Y, latest and
-#   creates the release vX.Y.Z.
+#   creates the release vX.Y.Z, then opens a pull request moving develop on to X.Y.Z+1.
 # develop (pre-release): every push publishes X.Y.Z-beta.N and beta and creates a pre-release.
 # Pull requests: build and smoke test only. See .github/scripts/release_version.py for the rules.
 on:
@@ -296,3 +296,55 @@ jobs:
     uses: ./.github/workflows/cleanup-betas.yml
     with:
       version: ${{ needs.version.outputs.version }}
+
+  bump-develop:
+    name: Open the next version on develop
+    # A release leaves develop on the version that was just released, which blocks its betas.
+    needs: [version, release]
+    if: needs.version.outputs.channel == 'stable'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # push the branch
+      pull-requests: write # open the pull request
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: develop
+      - name: Bump pyproject.toml and CHANGELOG.md
+        id: bump
+        env:
+          RELEASED_VERSION: ${{ needs.version.outputs.version }}
+        run: python3 .github/scripts/open_next_version.py
+      - name: Open the pull request
+        if: steps.bump.outputs.bump == 'true'
+        env:
+          RELEASED: ${{ needs.version.outputs.version }}
+          VERSION: ${{ steps.bump.outputs.version }}
+          BRANCH: ${{ steps.bump.outputs.branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git commit -am "Open $VERSION for development"
+          # Fetch first, so --force-with-lease sees any branch a previous attempt left behind.
+          git fetch --no-tags origin "$BRANCH" || true
+          git push --force-with-lease origin "$BRANCH"
+
+          cat > body.md <<EOF
+          $RELEASED is released, so develop moves on to $VERSION and its betas become \`$VERSION-beta.N\`.
+
+          Bump \`pyproject.toml\` again and rename the changelog section if the next release is a minor or
+          major one. Notes collect under the \`Unreleased\` section in \`CHANGELOG.md\`; the date is set
+          when the version is released.
+          EOF
+
+          if [ -n "$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[].number')" ]; then
+            echo "::notice::A pull request for $BRANCH is already open; it has the new commit."
+            exit 0
+          fi
+          if ! gh pr create --base develop --head "$BRANCH" --title "Open $VERSION for development" --body-file body.md; then
+            echo "::error::Could not open the pull request; $BRANCH is pushed. If this is a permission error, turn on Settings -> Actions -> General -> 'Allow GitHub Actions to create and approve pull requests'."
+            exit 1
+          fi

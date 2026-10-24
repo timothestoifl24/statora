@@ -27,6 +27,7 @@
 </article>
 {% endfor %}
 
+{% set history = s.history or {'span_label': '90 days ago', 'end_label': 'Today'} %}
 {% for g in s.groups %}
 <section class="group">
   <h2 class="group-title">{{ g.name }}</h2>
@@ -37,12 +38,12 @@
         <span class="component-name">{{ c.name }}</span>
         <span class="component-status st-{{ c.status }}">{{ c.status_label }}</span>
       </div>
-      <div class="bars" role="img" aria-label="Uptime of {{ c.name }} over the last 90 days: {{ '%.2f'|format(c.uptime) ~ '%' if c.uptime is not none else 'no data' }}">
+      <div class="bars" role="img" aria-label="Uptime of {{ c.name }} from {{ history.span_label }} until {{ history.end_label|lower }}: {{ '%.2f'|format(c.uptime) ~ '%' if c.uptime is not none else 'no data' }}">
         {% for b in c.bars %}
-          <span class="bar lv-{{ b.level }}" data-tip="{{ b.day }} · {{ ('%.2f'|format(b.uptime) ~ '% uptime') if b.uptime is not none else ('maintenance' if b.level == 'maintenance' else 'no data') }}{{ (' · ' ~ b.down ~ ' failed checks') if b.down }}"></span>
+          <span class="bar lv-{{ b.level }}" data-tip="{{ b.label or b.day }} · {{ ('%.2f'|format(b.uptime) ~ '% uptime') if b.uptime is not none else (b.note or ('maintenance' if b.level == 'maintenance' else 'no data')) }}{{ (' · ' ~ b.down ~ ' failed checks') if b.down }}"></span>
         {% endfor %}
       </div>
-      <div class="bars-legend"><span>90 days ago</span><span class="rule"></span><span>{{ ('%.2f'|format(c.uptime) ~ '% uptime') if c.uptime is not none else 'No data yet' }}</span><span class="rule"></span><span>Today</span></div>
+      <div class="bars-legend"><span>{{ history.span_label }}</span><span class="rule"></span><span>{{ ('%.2f'|format(c.uptime) ~ '% uptime') if c.uptime is not none else 'No data yet' }}</span><span class="rule"></span><span>{{ history.end_label }}</span></div>
       {% if c.members %}
       <details class="members" data-key="component-{{ c.id }}">
         <summary>

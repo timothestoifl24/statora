@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress'
 const repo = 'https://github.com/timothestoifl24/statora'
 const site = 'https://statora.stoifl.app'
 const description =
-  'Self-hosted uptime monitoring and status pages: HTTP, TCP, ping and DNS checks, service groups, incidents, maintenance and SSO in one container.'
+  'Self-hosted uptime monitoring and status pages: HTTP, TCP, ping, DNS and SQL checks, service groups, incidents, maintenance and SSO in one container.'
 
 export default defineConfig({
   lang: 'en-US',

@@ -59,10 +59,29 @@ jobs:
           LDAP_PASSWORDS: alicepassword,bobpassword
           LDAP_GROUP: statora-admins
         ports: ["1389:1389"]
+      # Targets for SQL monitors (Oracle tests only run locally: its image is large and slow to start).
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_USER: statora
+          MARIADB_PASSWORD: statora
+          MARIADB_DATABASE: statora
+          MARIADB_RANDOM_ROOT_PASSWORD: "1"
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-timeout 3s --health-retries 30
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: Statora-ci-1
+        ports: ["1433:1433"]
     env:
       STATORA_TEST_DATABASE_URL: postgresql+asyncpg://statora:statora@localhost:5432/statora_test
       STATORA_TEST_REDIS_URL: redis://localhost:6379/15
       STATORA_TEST_LDAP_URL: ldap://localhost:1389
+      STATORA_TEST_MYSQL_URL: mysql://statora:statora@localhost:3306/statora
+      STATORA_TEST_MSSQL_URL: mssql://sa:Statora-ci-1@localhost:1433
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0  # setup-uv publishes exact version tags only
@@ -80,4 +99,18 @@ jobs:
         run: |
           for _ in $(seq 1 60); do (echo > /dev/tcp/localhost/1389) 2>/dev/null && exit 0; sleep 1; done
           echo "OpenLDAP did not start" && exit 1
+      - name: Wait for SQL Server
+        # It accepts connections a while before logins work; SQL tests skip unreachable servers.
+        run: |
+          uv run python - <<'PY'
+          import time, pytds
+          for _ in range(90):
+              try:
+                  pytds.connect(dsn="localhost", user="sa", password="Statora-ci-1", login_timeout=2).close()
+                  break
+              except Exception:
+                  time.sleep(2)
+          else:
+              raise SystemExit("SQL Server did not start")
+          PY
       - run: uv run pytest -q -rs

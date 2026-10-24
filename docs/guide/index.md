@@ -6,7 +6,7 @@ Statora watches your services, keeps their history and publishes what it sees on
 
 | Concept | What it is |
 |---|---|
-| **Monitor** | One check against one target: an HTTP endpoint, a TCP port, a host to ping, or a DNS record. |
+| **Monitor** | One check against one target: an HTTP endpoint, a TCP port, a host to ping, a DNS record, or a database query. |
 | **Group** | A monitor whose status comes from other monitors: a *stack* (all must be healthy) or a *redundancy group* (enough must be up). |
 | **Status page** | A public page made of component groups, each listing monitors under public names. |
 | **Incident** | A human-written account of a problem, with a timeline of updates, shown on a status page. |
@@ -28,7 +28,7 @@ Every monitor is in one of these states:
 
 1. The scheduler runs each active monitor on its interval.
 2. A failure becomes **down** only after `retries` failures in a row. Before that, it's pending.
-3. Every result is stored as a heartbeat and rolled up into daily statistics, which feed the 90-day bars.
+3. Every result is stored as a heartbeat and rolled up into daily statistics. Status pages draw their uptime bars from these, or from the raw heartbeats for minute and hour bars.
 4. When a monitor changes status, every group containing it is re-evaluated immediately, and status pages are refreshed.
 
 ## Roles

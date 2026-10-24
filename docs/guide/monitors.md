@@ -37,7 +37,46 @@ Resolves a name and optionally checks the answer.
 - **Resolver**: a specific nameserver IP, or the system resolver if left empty.
 - **Expected value**: the monitor is down unless one of the answers contains this text. It catches records that changed without anyone noticing.
 
+## SQL
+
+Connects to a database, runs a query and optionally checks the result. The target is the database server's host name or IP.
+
+| Engine | Default port | Notes |
+|---|---|---|
+| PostgreSQL | 5432 | |
+| MySQL / MariaDB | 3306 | |
+| Microsoft SQL Server | 1433 | Also Azure SQL. |
+| Oracle | 1521 | **Database** is the service name, for example `FREEPDB1`. No Oracle Client needed. |
+
+- **Database, user name, password**: the password is stored encrypted. After saving it is never shown again or returned by the API; leave the field empty when editing to keep it.
+- **Query**: `SELECT 1` by default (`SELECT 1 FROM DUAL` on Oracle). At most 1,000 rows are read.
+- **Expected value**: compared with the first column of the first row as text, either *equals* or *contains*. Booleans read as `true` and `false`; enter `NULL` to expect a NULL value.
+- **Minimum rows**: down when the query returns fewer rows, for example to alert when a queue table is empty.
+- **TLS**: *Encrypt the connection* turns on TLS; *Verify TLS certificate* (on by default) checks the server's certificate against the system's trusted CAs. Turn verification off only for servers with self-signed certificates.
+- The latency includes connecting and logging in, so set *Degraded above* with that in mind.
+
+Some examples:
+
+```sql
+-- PostgreSQL: is the replica less than 30 seconds behind?
+SELECT extract(epoch FROM now() - pg_last_xact_replay_timestamp()) < 30
+-- expected value: true
+
+-- MySQL: jobs waiting for more than ten minutes (down if there are any)
+SELECT COUNT(*) FROM jobs WHERE status = 'queued' AND created_at < NOW() - INTERVAL 10 MINUTE
+-- expected value: 0
+```
+
+::: warning Use a read-only database user
+The query runs in a read-only transaction that is always rolled back: PostgreSQL and MySQL reject writes, and SQL Server undoes them. Oracle can't block statements like `CREATE TABLE` this way, so Oracle queries must start with `SELECT` or `WITH`. Still, give Statora its own user that can only read what the query needs.
+:::
+
 ## What you see
 
 - The **dashboard** shows every monitor with its last 30 checks, 24-hour uptime and latency, and refreshes itself every 15 seconds.
-- The **detail page** adds a 24-hour latency chart, the list of status changes, uptime over 24 h and 30 days, and the groups the monitor belongs to.
+- Each row on the dashboard has an options menu (<kbd>⋮</kbd>, for editors and admins) to **pause or resume** the monitor without leaving the list, **clone** it, or edit it.
+- The **detail page** adds a 24-hour latency chart, the list of status changes, uptime over 24 h and 30 days, and the groups the monitor belongs to. It refreshes itself too.
+
+## Cloning
+
+**Clone** opens the new-monitor form filled in from the original: same type, target, interval, timeout, retries, check settings and (for groups) members, with "(copy)" added to the name. Nothing is saved until you click **Create monitor**, so you can change the name or target first. A stored SQL password is carried over (still encrypted) unless you type a new one. History, status-page placements and memberships in other groups are not copied.

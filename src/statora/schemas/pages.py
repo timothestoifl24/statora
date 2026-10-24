@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from statora.db.models import IncidentImpact, IncidentStatus
+from statora.db.models import HistoryResolution, IncidentImpact, IncidentStatus
 
 Slug = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9][a-z0-9-]*$")
 Color = Field(pattern=r"^#[0-9a-fA-F]{6}$")
@@ -56,6 +56,10 @@ class StatusPageBase(BaseModel):
     published: bool = True
     is_default: bool = False
     show_powered_by: bool = Field(default=True, description='Show "Powered by Statora" in the page footer')
+    history_resolution: HistoryResolution = Field(
+        default=HistoryResolution.DAY,
+        description="Uptime bars per minute (last 2 hours), per hour (last 5 days) or per day (last 120 days)",
+    )
 
 
 class StatusPageCreate(StatusPageBase):
@@ -74,6 +78,7 @@ class StatusPageUpdate(BaseModel):
     published: bool | None = None
     is_default: bool | None = None
     show_powered_by: bool | None = None
+    history_resolution: HistoryResolution | None = None
     groups: list[StatusPageGroupIn] | None = Field(
         default=None, description="When given, replaces all groups and their items"
     )

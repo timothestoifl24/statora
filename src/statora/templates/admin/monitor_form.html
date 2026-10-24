@@ -1,8 +1,9 @@
 {% extends "admin/base.html" %}
-{% block title %}{{ 'Edit ' ~ monitor.name if monitor else 'New monitor' }}{% endblock %}
+{% block title %}{{ 'Edit ' ~ monitor.name if monitor else ('Clone ' ~ clone_of.name if clone_of else 'New monitor') }}{% endblock %}
 {% block content %}
-<form method="post" class="card" autocomplete="off">
+<form method="post" action="{{ '/admin/monitors/' ~ monitor.id ~ '/edit' if monitor else '/admin/monitors/new' }}" class="card" autocomplete="off">
   {{ csrf_input(request) }}
+  {% if clone_of is defined and clone_of %}<input type="hidden" name="clone_of" value="{{ clone_of.id }}">{% endif %}
   <div class="card-body">
     <div class="row g-3">
       <div class="col-md-6">
@@ -26,7 +27,7 @@
         <label class="form-label required" for="target">Target</label>
         <input class="form-control" id="target" name="target" value="{{ values.target }}"
                placeholder="https://example.com · host name · IP address">
-        <small class="form-hint">URL for HTTP, host name or IP for TCP and ping, domain name for DNS.</small>
+        <small class="form-hint">URL for HTTP, host name or IP for TCP, ping and SQL, domain name for DNS.</small>
       </div>
       <div class="col-md-4">
         <label class="form-label" for="interval_s">Check every (seconds)</label>

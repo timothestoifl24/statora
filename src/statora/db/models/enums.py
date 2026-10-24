@@ -27,6 +27,7 @@ class MonitorType(StrEnum):
     TCP = "tcp"
     PING = "ping"
     DNS = "dns"
+    SQL = "sql"
     # Status derived from member monitors (stack or redundancy group); no network check.
     GROUP = "group"
 
@@ -37,6 +38,14 @@ class MonitorStatus(StrEnum):
     DEGRADED = "degraded"
     PENDING = "pending"
     MAINTENANCE = "maintenance"
+
+
+class HistoryResolution(StrEnum):
+    """Size of one uptime bar on a status page."""
+
+    MINUTE = "minute"
+    HOUR = "hour"
+    DAY = "day"
 
 
 class IncidentImpact(StrEnum):
