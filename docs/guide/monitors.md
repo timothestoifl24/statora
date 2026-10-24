@@ -79,4 +79,4 @@ The query runs in a read-only transaction that is always rolled back: PostgreSQL
 
 ## Cloning
 
-**Clone** opens the new-monitor form filled in from the original: same type, target, interval, timeout, retries, check settings and (for groups) members, with "(copy)" added to the name. Nothing is saved until you click **Create monitor**, so you can change the name or target first. History, status-page placements and memberships in other groups are not copied.
+**Clone** opens the new-monitor form filled in from the original: same type, target, interval, timeout, retries, check settings and (for groups) members, with "(copy)" added to the name. Nothing is saved until you click **Create monitor**, so you can change the name or target first. A stored SQL password is carried over (still encrypted) unless you type a new one. History, status-page placements and memberships in other groups are not copied.

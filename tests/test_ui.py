@@ -1,6 +1,7 @@
 import re
 
-from statora.db.models import UserRole
+from statora.auth import crypto
+from statora.db.models import Monitor, UserRole
 
 from .conftest import make_user, needs_services
 
@@ -348,3 +349,41 @@ async def test_sql_monitor_form_never_shows_the_password(client):
     edit = (await client.get(created.headers["location"] + "/edit")).text
     assert "Stored — leave empty to keep" in edit and "hunter22" not in edit and "enc:" not in edit
 
+
+async def test_clone_keeps_the_stored_sql_password(client, auth, session):
+    config = {"engine": "postgresql", "database": "orders", "username": "probe", "password": "hunter22"}
+    source = (
+        await client.post(
+            "/api/v1/monitors",
+            json={"name": "Orders DB", "type": "sql", "target": "db.internal", "config": config},
+            headers=auth,
+        )
+    ).json()
+    await make_user("editor", UserRole.EDITOR)
+    await login(client, "editor")
+
+    form = (await client.get(f"/admin/monitors/{source['id']}/clone")).text
+    assert f'name="clone_of" value="{source["id"]}"' in form
+    assert "Stored — leave empty to keep" in form and "hunter22" not in form and "enc:" not in form
+
+    created = await client.post(
+        "/admin/monitors/new",
+        data={
+            "csrf_token": csrf_from(form),
+            "clone_of": str(source["id"]),
+            "name": "Orders DB (copy)",
+            "type": "sql",
+            "target": "db2.internal",
+            "interval_s": "60",
+            "timeout_s": "10",
+            "retries": "0",
+            "active": "on",
+            "cfg_engine": "postgresql",
+            "cfg_database": "orders",
+            "cfg_username": "probe",
+            "cfg_password": "",
+        },
+    )
+    assert created.status_code == 303, created.text
+    copy = await session.get(Monitor, int(created.headers["location"].rsplit("/", 1)[1]))
+    assert crypto.decrypt(copy.config["password"]) == "hunter22"

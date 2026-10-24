@@ -191,8 +191,16 @@ async def create_monitor(
 ):
     form = await request.form()
     values = _values_from_form(form)
+    clone_id = str(form.get("clone_of") or "")
+    clone_of = await session.get(Monitor, int(clone_id)) if clone_id.isdigit() else None
     try:
         values["config"] = _config_from_form(form, values["type"])
+        if clone_of is not None and clone_of.type == values["type"]:
+            # The form never shows stored secrets, so an empty one is copied (still encrypted)
+            # from the original, as editing a monitor keeps it.
+            for name in SECRET_FIELDS.get(MonitorType(values["type"]), ()):
+                if not values["config"].get(name) and (clone_of.config or {}).get(name):
+                    values["config"][name] = clone_of.config[name]
         monitor = await crud.create_monitor(session, MonitorCreate.model_validate(values))
     except (ValidationError, ValueError) as exc:
         values.setdefault("config", {})
@@ -201,6 +209,7 @@ async def create_monitor(
             "admin/monitor_form.html",
             user,
             422,
+            clone_of=clone_of,
             **await _form_context(session, None, values, error_messages(exc)),
         )
     await session.commit()
