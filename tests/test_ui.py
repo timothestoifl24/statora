@@ -1,6 +1,7 @@
 import re
 
-from statora.db.models import UserRole
+from statora.auth import crypto
+from statora.db.models import Monitor, UserRole
 
 from .conftest import make_user, needs_services
 
@@ -120,12 +121,16 @@ async def test_create_monitor_and_page_via_forms(client):
             "slug": "public",
             "accent_color": "#ff0000",
             "published": "on",
+            "history_resolution": "hour",
             "groups_json": '[{"name": "APIs", "items": [{"monitor_id": 1, "display_name": "Public API"}]}]',
         },
     )
     assert page.status_code == 303
     public = await client.get("/s/public")
     assert public.status_code == 200 and "Public API" in public.text and "#ff0000" in public.text
+    assert "5 days ago" in public.text and public.text.count('class="bar ') == 120
+    editor = await client.get("/admin/pages/1/edit")
+    assert '<option value="hour" selected>' in editor.text
 
 
 async def test_viewer_cannot_open_editor_pages(client):
@@ -258,6 +263,59 @@ async def test_redundancy_options_only_for_redundancy_groups(client):
     assert "Members that must be up" in stack  # present for the client-side toggle
 
 
+async def test_monitor_list_options_pause_resume_and_clone(client, auth):
+    monitor = (
+        await client.post(
+            "/api/v1/monitors",
+            json={"name": "Shop", "type": "http", "target": "https://shop.example", "interval_s": 120},
+            headers=auth,
+        )
+    ).json()
+    await make_user("viewer", UserRole.VIEWER)
+    await login(client, "viewer")
+    assert "Options for Shop" not in (await client.get("/admin")).text
+    assert (await client.get(f"/admin/monitors/{monitor['id']}/clone")).status_code == 403
+
+    await make_user("editor", UserRole.EDITOR)
+    client.cookies.clear()
+    await login(client, "editor")
+    dashboard = await client.get("/admin")
+    assert "Options for Shop" in dashboard.text and f"/admin/monitors/{monitor['id']}/clone" in dashboard.text
+    token = csrf_from(dashboard.text)
+
+    paused = await client.post(
+        f"/admin/monitors/{monitor['id']}/toggle", data={"csrf_token": token, "next": "/admin"}
+    )
+    assert paused.status_code == 303 and paused.headers["location"] == "/admin"
+    assert "paused</span>" in (await client.get("/admin")).text
+    resumed = await client.post(
+        f"/admin/monitors/{monitor['id']}/toggle", data={"csrf_token": token, "next": "https://evil.example"}
+    )
+    assert resumed.headers["location"] == f"/admin/monitors/{monitor['id']}"
+
+    clone = await client.get(f"/admin/monitors/{monitor['id']}/clone")
+    assert clone.status_code == 200 and 'action="/admin/monitors/new"' in clone.text
+    assert 'value="Shop (copy)"' in clone.text and 'value="https://shop.example"' in clone.text
+    assert 'value="120"' in clone.text
+    created = await client.post(
+        "/admin/monitors/new",
+        data={
+            "csrf_token": token,
+            "name": "Shop (copy)",
+            "type": "http",
+            "target": "https://shop.example",
+            "interval_s": "120",
+            "timeout_s": "10",
+            "retries": "1",
+            "active": "on",
+            "cfg_method": "GET",
+        },
+    )
+    assert created.status_code == 303
+    dashboard = await client.get("/admin")
+    assert "Options for Shop (copy)" in dashboard.text and 'Options for Shop"' in dashboard.text
+
+
 async def test_sql_monitor_form_never_shows_the_password(client):
     await make_user("admin", UserRole.ADMIN)
     await login(client)
@@ -290,3 +348,42 @@ async def test_sql_monitor_form_never_shows_the_password(client):
 
     edit = (await client.get(created.headers["location"] + "/edit")).text
     assert "Stored — leave empty to keep" in edit and "hunter22" not in edit and "enc:" not in edit
+
+
+async def test_clone_keeps_the_stored_sql_password(client, auth, session):
+    config = {"engine": "postgresql", "database": "orders", "username": "probe", "password": "hunter22"}
+    source = (
+        await client.post(
+            "/api/v1/monitors",
+            json={"name": "Orders DB", "type": "sql", "target": "db.internal", "config": config},
+            headers=auth,
+        )
+    ).json()
+    await make_user("editor", UserRole.EDITOR)
+    await login(client, "editor")
+
+    form = (await client.get(f"/admin/monitors/{source['id']}/clone")).text
+    assert f'name="clone_of" value="{source["id"]}"' in form
+    assert "Stored — leave empty to keep" in form and "hunter22" not in form and "enc:" not in form
+
+    created = await client.post(
+        "/admin/monitors/new",
+        data={
+            "csrf_token": csrf_from(form),
+            "clone_of": str(source["id"]),
+            "name": "Orders DB (copy)",
+            "type": "sql",
+            "target": "db2.internal",
+            "interval_s": "60",
+            "timeout_s": "10",
+            "retries": "0",
+            "active": "on",
+            "cfg_engine": "postgresql",
+            "cfg_database": "orders",
+            "cfg_username": "probe",
+            "cfg_password": "",
+        },
+    )
+    assert created.status_code == 303, created.text
+    copy = await session.get(Monitor, int(created.headers["location"].rsplit("/", 1)[1]))
+    assert crypto.decrypt(copy.config["password"]) == "hunter22"

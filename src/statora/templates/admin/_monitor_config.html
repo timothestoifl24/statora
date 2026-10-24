@@ -89,7 +89,8 @@
 {% elif t == 'sql' %}
   {% set engine = c.engine or 'postgresql' %}
   {% set ports = {'postgresql': 5432, 'mysql': 3306, 'mssql': 1433, 'oracle': 1521} %}
-  {% set stored_password = monitor is defined and monitor and monitor.type == 'sql' and (monitor.config or {}).get('password') %}
+  {% set source = monitor if monitor is defined and monitor else (clone_of if clone_of is defined else none) %}
+  {% set stored_password = source and source.type == 'sql' and (source.config or {}).get('password') %}
   <div class="col-md-5">
     <label class="form-label required" for="cfg_engine">Database engine</label>
     <select class="form-select" id="cfg_engine" name="cfg_engine"

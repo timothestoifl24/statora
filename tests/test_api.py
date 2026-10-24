@@ -3,9 +3,12 @@ from datetime import timedelta
 import pytest
 from openapi_spec_validator import validate
 
+from statora import cache
 from statora.auth import crypto
+from statora.checks import CheckResult
 from statora.db.base import utcnow
 from statora.db.models import Monitor, TokenScope, UserRole
+from statora.services.monitoring import record_result
 
 from .conftest import make_token, make_user, needs_services
 
@@ -305,6 +308,52 @@ async def test_itsm_references_on_incidents_and_maintenance(client, auth):
     # ITSM references are internal: they never reach the public summary.
     summary = (await client.get("/api/v1/public/pages/itsm/summary")).text
     assert "INC00" not in summary and "CHG0004567" not in summary and "itsm.example.com" not in summary
+
+
+async def test_history_resolution_round_trip_and_bars(client, auth, session):
+    monitor = (await client.post("/api/v1/monitors", json=HTTP_MONITOR, headers=auth)).json()
+    page = await client.post(
+        "/api/v1/status-pages",
+        json={
+            "slug": "minutes",
+            "title": "Minutes",
+            "history_resolution": "minute",
+            "groups": [{"name": "Web", "items": [{"monitor_id": monitor["id"]}]}],
+        },
+        headers=auth,
+    )
+    assert page.status_code == 201 and page.json()["history_resolution"] == "minute"
+    page_id = page.json()["id"]
+
+    db_monitor = await session.get(Monitor, monitor["id"])
+    now = utcnow()
+    await record_result(session, db_monitor, CheckResult.up(5.0), now=now - timedelta(minutes=5))
+    await record_result(session, db_monitor, CheckResult.up(5.0), now=now)
+    await session.commit()
+    await cache.invalidate_pages()
+
+    summary = (await client.get("/api/v1/public/pages/minutes/summary")).json()
+    assert summary["history"] == {"resolution": "minute", "span_label": "2 hours ago", "end_label": "Now"}
+    component = summary["groups"][0]["components"][0]
+    checked = [bar for bar in component["bars"] if bar["uptime"] is not None]
+    assert len(component["bars"]) == 120 and len(checked) == 2 and component["uptime"] == 100.0
+
+    patched = await client.patch(
+        f"/api/v1/status-pages/{page_id}", json={"history_resolution": "hour"}, headers=auth
+    )
+    assert patched.status_code == 200 and patched.json()["history_resolution"] == "hour"
+    summary = (await client.get("/api/v1/public/pages/minutes/summary")).json()
+    assert (
+        summary["history"]["resolution"] == "hour"
+        and len(summary["groups"][0]["components"][0]["bars"]) == 120
+    )
+
+    invalid = await client.patch(
+        f"/api/v1/status-pages/{page_id}", json={"history_resolution": "week"}, headers=auth
+    )
+    assert invalid.status_code == 422
+    default = await client.post("/api/v1/status-pages", json={"slug": "days", "title": "Days"}, headers=auth)
+    assert default.json()["history_resolution"] == "day"
 
 
 async def test_sql_monitor_password_is_write_only(client, auth, session):

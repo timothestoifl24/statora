@@ -28,7 +28,7 @@ Every monitor is in one of these states:
 
 1. The scheduler runs each active monitor on its interval.
 2. A failure becomes **down** only after `retries` failures in a row. Before that, it's pending.
-3. Every result is stored as a heartbeat and rolled up into daily statistics, which feed the 90-day bars.
+3. Every result is stored as a heartbeat and rolled up into daily statistics. Status pages draw their uptime bars from these, or from the raw heartbeats for minute and hour bars.
 4. When a monitor changes status, every group containing it is re-evaluated immediately, and status pages are refreshed.
 
 ## Roles

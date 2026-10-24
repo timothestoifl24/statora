@@ -153,8 +153,8 @@ a { color: var(--accent); }
 .dot-maintenance { background: var(--maintenance); }
 @media (max-width: 600px) { .member-uptime { display: none; } }
 @media (max-width: 600px) {
-  /* Show the most recent 45 days on phones so bars stay tappable. */
-  .bar:nth-child(-n+45) { display: none; }
+  /* Show the most recent 45 of the 120 bars on phones so they stay tappable. */
+  .bar:nth-child(-n+75) { display: none; }
   .bars-legend span:first-child { visibility: hidden; }
 }
 

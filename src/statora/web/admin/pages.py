@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from statora import cache
-from statora.db.models import Monitor, StatusPage, User, UserRole
+from statora.db.models import HistoryResolution, Monitor, StatusPage, User, UserRole
 from statora.schemas.pages import StatusPageCreate, StatusPageUpdate
 from statora.services import crud
 from statora.web.deps import current_user, get_session, not_found, ui_role
@@ -42,6 +42,7 @@ def _values(page: StatusPage | None) -> dict:
             "published": True,
             "is_default": False,
             "show_powered_by": True,
+            "history_resolution": HistoryResolution.DAY,
             "groups": [],
         }
     return {
@@ -54,6 +55,7 @@ def _values(page: StatusPage | None) -> dict:
         "published": page.published,
         "is_default": page.is_default,
         "show_powered_by": page.show_powered_by,
+        "history_resolution": page.history_resolution,
         "groups": [
             {
                 "name": g.name,
@@ -79,6 +81,7 @@ def _from_form(form) -> dict:
         "published": checkbox(form, "published"),
         "is_default": checkbox(form, "is_default"),
         "show_powered_by": checkbox(form, "show_powered_by"),
+        "history_resolution": form.get("history_resolution") or HistoryResolution.DAY,
         "groups": groups,
     }
 

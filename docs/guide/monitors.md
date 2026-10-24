@@ -74,4 +74,9 @@ The query runs in a read-only transaction that is always rolled back: PostgreSQL
 ## What you see
 
 - The **dashboard** shows every monitor with its last 30 checks, 24-hour uptime and latency, and refreshes itself every 15 seconds.
-- The **detail page** adds a 24-hour latency chart, the list of status changes, uptime over 24 h and 30 days, and the groups the monitor belongs to.
+- Each row on the dashboard has an options menu (<kbd>⋮</kbd>, for editors and admins) to **pause or resume** the monitor without leaving the list, **clone** it, or edit it.
+- The **detail page** adds a 24-hour latency chart, the list of status changes, uptime over 24 h and 30 days, and the groups the monitor belongs to. It refreshes itself too.
+
+## Cloning
+
+**Clone** opens the new-monitor form filled in from the original: same type, target, interval, timeout, retries, check settings and (for groups) members, with "(copy)" added to the name. Nothing is saved until you click **Create monitor**, so you can change the name or target first. A stored SQL password is carried over (still encrypted) unless you type a new one. History, status-page placements and memberships in other groups are not copied.

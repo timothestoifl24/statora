@@ -1,6 +1,7 @@
 from .auth import ApiToken, AuthProvider, User
 from .enums import (
     AuthProviderType,
+    HistoryResolution,
     IncidentImpact,
     IncidentStatus,
     MonitorStatus,
@@ -26,6 +27,7 @@ __all__ = [
     "AuthProvider",
     "AuthProviderType",
     "Heartbeat",
+    "HistoryResolution",
     "Incident",
     "IncidentImpact",
     "IncidentStatus",

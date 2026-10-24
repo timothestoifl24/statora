@@ -1,5 +1,6 @@
 {% from "admin/_macros.html" import monitor_target %}
 {% set status_colors = {'up': 'success', 'down': 'danger', 'degraded': 'warning', 'pending': 'secondary', 'maintenance': 'info'} %}
+{% set can_edit = user.role in ('admin', 'editor') %}
 <div class="row row-deck row-cards mb-3">
   {% for key, label, color, icon in [('up', 'Up', 'success', 'circle-check'), ('down', 'Down', 'danger', 'circle-x'),
                                      ('degraded', 'Degraded', 'warning', 'alert-circle'),
@@ -23,7 +24,7 @@
   <div class="table-responsive">
     <table class="table table-vcenter card-table">
       <thead>
-        <tr><th>Monitor</th><th class="d-none d-lg-table-cell">Last 30 checks</th><th>24h uptime</th><th>Latency</th><th>Checked</th></tr>
+        <tr><th>Monitor</th><th class="d-none d-lg-table-cell">Last 30 checks</th><th>24h uptime</th><th>Latency</th><th>Checked</th>{% if can_edit %}<th class="w-1"><span class="visually-hidden">Options</span></th>{% endif %}</tr>
       </thead>
       <tbody>
       {% for row in rows %}
@@ -49,6 +50,28 @@
           <td>{{ row.uptime_24h|pct }}</td>
           <td>{{ m.last_latency_ms|ms }}</td>
           <td class="text-secondary small" title="{{ m.last_message or '' }}">{{ m.last_checked_at|dt('%H:%M:%S') }}</td>
+          {% if can_edit %}
+          <td class="text-end">
+            <div class="dropdown">
+              {# Fixed positioning keeps the menu from being clipped by .table-responsive. #}
+              <button type="button" class="btn btn-icon btn-sm btn-ghost-secondary" data-bs-toggle="dropdown"
+                      data-bs-popper-config='{"strategy": "fixed"}' aria-expanded="false" aria-label="Options for {{ m.name }}">
+                <i class="ti ti-dots-vertical"></i>
+              </button>
+              <div class="dropdown-menu dropdown-menu-end">
+                <form method="post" action="/admin/monitors/{{ m.id }}/toggle">
+                  {{ csrf_input(request) }}
+                  <input type="hidden" name="next" value="/admin">
+                  <button type="submit" class="dropdown-item">
+                    <i class="ti ti-player-{{ 'pause' if m.active else 'play' }} me-2"></i>{{ 'Pause' if m.active else 'Resume' }}
+                  </button>
+                </form>
+                <a class="dropdown-item" href="/admin/monitors/{{ m.id }}/clone"><i class="ti ti-copy me-2"></i>Clone</a>
+                <a class="dropdown-item" href="/admin/monitors/{{ m.id }}/edit"><i class="ti ti-edit me-2"></i>Edit</a>
+              </div>
+            </div>
+          </td>
+          {% endif %}
         </tr>
       {% endfor %}
       </tbody>

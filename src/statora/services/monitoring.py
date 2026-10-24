@@ -19,7 +19,7 @@ from statora.db.models import (
 )
 
 # Which daily counter each recorded status increments.
-_COUNTER = {
+STATUS_COUNTER = {
     MonitorStatus.UP: "up_count",
     MonitorStatus.PENDING: "up_count",
     MonitorStatus.DEGRADED: "degraded_count",
@@ -95,7 +95,7 @@ async def record_result(
 async def _bump_daily_stat(
     session: AsyncSession, monitor_id: int, now: datetime, status: MonitorStatus, latency: float | None
 ) -> None:
-    column = _COUNTER[status]
+    column = STATUS_COUNTER[status]
     values = {
         "monitor_id": monitor_id,
         "day": now.date(),

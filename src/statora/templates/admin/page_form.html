@@ -1,6 +1,11 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ 'Edit ' ~ page.title if page else 'New status page' }}{% endblock %}
 {% block content %}
+<style>
+  .drag-handle { cursor: grab; }
+  .dragging { opacity: .4; }
+  .group-card .items { min-height: 2.5rem; }
+</style>
 <form method="post" id="page-form" autocomplete="off">
   {{ csrf_input(request) }}
   <input type="hidden" name="groups_json" id="groups_json">
@@ -47,6 +52,14 @@
             <label class="form-label" for="footer_text">Footer <span class="text-secondary">(Markdown)</span></label>
             <textarea class="form-control" id="footer_text" name="footer_text" rows="2">{{ values.footer_text or '' }}</textarea>
           </div>
+          <div class="mb-3">
+            <label class="form-label" for="history_resolution">Uptime bars</label>
+            <select class="form-select" id="history_resolution" name="history_resolution">
+              {% for value, label in [('minute', 'Per minute, last 2 hours'), ('hour', 'Per hour, last 5 days'), ('day', 'Per day, last 4 months')] %}
+                <option value="{{ value }}" {{ 'selected' if values.history_resolution == value }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
           <label class="form-check form-switch">
             <input class="form-check-input" type="checkbox" name="published" {{ 'checked' if values.published }}>
             <span class="form-check-label">Published</span>
@@ -85,6 +98,7 @@
   <div class="card group-card mb-3">
     <div class="card-body">
       <div class="d-flex gap-2 mb-2">
+        <span class="btn btn-icon btn-ghost-secondary drag-handle" title="Drag to reorder" aria-hidden="true"><i class="ti ti-grip-vertical"></i></span>
         <input class="form-control group-name" placeholder="Group name, e.g. Websites" required>
         <button type="button" class="btn btn-icon move-up" title="Move up" aria-label="Move group up"><i class="ti ti-arrow-up"></i></button>
         <button type="button" class="btn btn-icon move-down" title="Move down" aria-label="Move group down"><i class="ti ti-arrow-down"></i></button>
@@ -98,7 +112,8 @@
 <template id="item-template">
   <div class="list-group-item px-0 group-item">
     <div class="d-flex gap-2 align-items-center">
-      <span class="badge badge-outline text-secondary item-type"></span>
+      <span class="text-secondary drag-handle flex-shrink-0" title="Drag to reorder or into another group" aria-hidden="true"><i class="ti ti-grip-vertical"></i></span>
+      <span class="badge badge-outline text-secondary item-type flex-shrink-0"></span>
       <input class="form-control form-control-sm item-label" placeholder="Public name (optional)">
       <span class="text-secondary small text-nowrap item-monitor"></span>
       <button type="button" class="btn btn-sm btn-icon btn-ghost-secondary item-up" aria-label="Move up"><i class="ti ti-chevron-up"></i></button>
@@ -122,6 +137,50 @@
     if (dir > 0 && el.nextElementSibling) el.parentNode.insertBefore(el.nextElementSibling, el);
   }
 
+  // Drag and drop: an element is draggable only while its handle is held, so text in the
+  // inputs can still be selected. Monitors can also be dropped into another group.
+  var dragged = null;
+
+  function draggable(el) {
+    el.querySelector(".drag-handle").addEventListener("mousedown", function () { el.draggable = true; });
+    el.addEventListener("dragstart", function (e) {
+      if (!el.draggable) return;
+      e.stopPropagation(); // dragging a monitor must not drag its group
+      dragged = el;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", "");
+      setTimeout(function () { el.classList.add("dragging"); });
+    });
+    el.addEventListener("dragend", function (e) {
+      e.stopPropagation();
+      el.draggable = false;
+      el.classList.remove("dragging");
+      dragged = null;
+    });
+  }
+
+  function sortable(list, kind) {
+    list.addEventListener("dragover", function (e) {
+      if (!dragged || !dragged.classList.contains(kind)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var before = Array.from(list.children).find(function (child) {
+        var box = child.getBoundingClientRect();
+        return child !== dragged && child.classList.contains(kind) && e.clientY < box.top + box.height / 2;
+      });
+      if (before) { if (before.previousElementSibling !== dragged) list.insertBefore(dragged, before); }
+      else if (list.lastElementChild !== dragged) list.appendChild(dragged);
+    });
+    list.addEventListener("drop", function (e) {
+      if (dragged && dragged.classList.contains(kind)) e.preventDefault();
+    });
+  }
+
+  document.addEventListener("mouseup", function () {
+    container.querySelectorAll("[draggable=true]").forEach(function (el) { if (el !== dragged) el.draggable = false; });
+  });
+  sortable(container, "group-card");
+
   function addItem(groupEl, item) {
     var m = byId[item.monitor_id];
     if (!m) return;
@@ -134,6 +193,7 @@
     el.querySelector(".item-up").onclick = function () { move(el, -1); };
     el.querySelector(".item-down").onclick = function () { move(el, 1); };
     el.querySelector(".item-remove").onclick = function () { el.remove(); };
+    draggable(el);
     groupEl.querySelector(".items").appendChild(el);
   }
 
@@ -153,6 +213,8 @@
     el.querySelector(".move-up").onclick = function () { move(el, -1); };
     el.querySelector(".move-down").onclick = function () { move(el, 1); };
     el.querySelector(".remove").onclick = function () { el.remove(); };
+    draggable(el);
+    sortable(el.querySelector(".items"), "group-item");
     (group.items || []).forEach(function (item) { addItem(el, item); });
     container.appendChild(el);
   }

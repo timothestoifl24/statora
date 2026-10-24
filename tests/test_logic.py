@@ -1,5 +1,6 @@
 """Pure logic: retries, overall status, uptime buckets, role mapping, secrets."""
 
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 from statora.auth import crypto
@@ -9,13 +10,14 @@ from statora.checks import CheckResult
 from statora.db.models import (
     AuthProvider,
     AuthProviderType,
+    HistoryResolution,
     IncidentImpact,
     MonitorDailyStat,
     MonitorStatus,
     UserRole,
 )
 from statora.services.monitoring import resolve_status
-from statora.services.status import Overall, day_level, overall_status
+from statora.services.status import Counts, Overall, bar_level, bar_starts, build_bars, overall_status
 
 DOWN = CheckResult.down("nope")
 UP = CheckResult.up(10.0)
@@ -62,13 +64,71 @@ def stat(**counts):
     )
 
 
-def test_day_level_buckets():
-    assert day_level(None) == "none"
-    assert day_level(stat(up=100)) == "up"
-    assert day_level(stat(up=80, degraded=20)) == "degraded"
-    assert day_level(stat(up=99, down=1)) == "partial"
-    assert day_level(stat(up=50, down=50)) == "down"
-    assert day_level(stat(maintenance=10)) == "maintenance"
+def test_bar_level_buckets():
+    assert bar_level(None) == "none"
+    assert bar_level(stat(up=100)) == "up"
+    assert bar_level(stat(up=80, degraded=20)) == "degraded"
+    assert bar_level(stat(up=99, down=1)) == "partial"
+    assert bar_level(stat(up=50, down=50)) == "down"
+    assert bar_level(stat(maintenance=10)) == "maintenance"
+    assert bar_level(Counts(up_count=3, down_count=1)) == "down"
+
+
+NOW = datetime(2026, 10, 24, 14, 7, 30, tzinfo=UTC)
+
+
+def test_bar_starts_cover_each_window():
+    minutes = bar_starts(HistoryResolution.MINUTE, NOW)
+    assert len(minutes) == 120 and minutes[-1] == datetime(2026, 10, 24, 14, 7, tzinfo=UTC)
+    assert minutes[-1] - minutes[0] == timedelta(minutes=119)  # last 2 hours
+    hours = bar_starts(HistoryResolution.HOUR, NOW)
+    assert len(hours) == 120 and hours[-1] == datetime(2026, 10, 24, 14, tzinfo=UTC)
+    assert hours[-1] - hours[0] == timedelta(hours=119)  # last 5 days
+    days = bar_starts(HistoryResolution.DAY, NOW)
+    assert len(days) == 120 and days[-1] == datetime(2026, 10, 24, tzinfo=UTC)
+
+
+def _counts(status, ts, count=1):
+    counts = Counts()
+    counts.add(status, count, ts)
+    return counts
+
+
+def test_minute_bars_continue_results_between_checks():
+    starts = bar_starts(HistoryResolution.MINUTE, NOW)
+    at = {minute: starts[-1] - timedelta(minutes=minute) for minute in range(12)}
+    # A monitor checking every 5 minutes: checks at -10 (down) and -5 (up) minutes.
+    buckets = {
+        at[10]: _counts("down", at[10] + timedelta(seconds=5)),
+        at[5]: _counts("up", at[5] + timedelta(seconds=5)),
+    }
+    bars, uptime = build_bars(HistoryResolution.MINUTE, starts, buckets, interval_s=300)
+    levels = [bar["level"] for bar in bars[-11:]]
+    # -10 down, -9..-6 carried down, -5 up, -4..0 carried up (one interval plus one bar).
+    assert levels == ["down"] * 5 + ["up"] * 6
+    assert "note" not in bars[-6] and bars[-5]["note"].startswith("no check · last result up")
+    assert bars[-12]["level"] == "none"  # before the first check
+    assert uptime == 50.0  # only real checks count
+    assert bars[-1]["label"] == "24 Oct 14:07 UTC"
+
+
+def test_carry_forward_stops_after_a_missed_check():
+    starts = bar_starts(HistoryResolution.MINUTE, NOW)
+    last = starts[-10]
+    bars, _ = build_bars(HistoryResolution.MINUTE, starts, {last: _counts("up", last)}, interval_s=60)
+    assert [bar["level"] for bar in bars[-10:]] == ["up", "up"] + ["none"] * 8
+
+
+def test_carry_forward_from_before_the_window_but_not_for_days():
+    starts = bar_starts(HistoryResolution.HOUR, NOW)
+    before = starts[0] - timedelta(hours=1)
+    bars, uptime = build_bars(
+        HistoryResolution.HOUR, starts, {before: _counts("degraded", before + timedelta(minutes=50))}, 7200
+    )
+    assert bars[0]["level"] == "degraded" and uptime is None
+    days = bar_starts(HistoryResolution.DAY, NOW)
+    bars, _ = build_bars(HistoryResolution.DAY, days, {days[0]: _counts("up", days[0])}, 86_400)
+    assert bars[1]["level"] == "none"
 
 
 def test_role_for_groups_picks_highest_case_insensitive():
