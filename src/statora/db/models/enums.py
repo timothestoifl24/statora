@@ -27,6 +27,7 @@ class MonitorType(StrEnum):
     TCP = "tcp"
     PING = "ping"
     DNS = "dns"
+    SQL = "sql"
     # Status derived from member monitors (stack or redundancy group); no network check.
     GROUP = "group"
 

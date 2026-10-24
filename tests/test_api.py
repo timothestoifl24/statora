@@ -4,6 +4,7 @@ import pytest
 from openapi_spec_validator import validate
 
 from statora import cache
+from statora.auth import crypto
 from statora.checks import CheckResult
 from statora.db.base import utcnow
 from statora.db.models import Monitor, TokenScope, UserRole
@@ -353,3 +354,46 @@ async def test_history_resolution_round_trip_and_bars(client, auth, session):
     assert invalid.status_code == 422
     default = await client.post("/api/v1/status-pages", json={"slug": "days", "title": "Days"}, headers=auth)
     assert default.json()["history_resolution"] == "day"
+
+
+async def test_sql_monitor_password_is_write_only(client, auth, session):
+    payload = {
+        "name": "Orders DB",
+        "type": "sql",
+        "target": "db.internal",
+        "config": {"engine": "postgresql", "database": "orders", "username": "probe", "password": "hunter22"},
+    }
+    created = await client.post("/api/v1/monitors", json=payload, headers=auth)
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["config"]["password"] is None and "hunter22" not in created.text
+    assert body["config"]["query"] is None and body["config"]["match"] == "equals"
+
+    stored = await session.get(Monitor, body["id"])
+    assert crypto.is_encrypted(stored.config["password"])
+    assert crypto.decrypt(stored.config["password"]) == "hunter22"
+    encrypted = stored.config["password"]
+
+    # Changing other config fields without a password keeps the stored one.
+    patched = await client.patch(
+        f"/api/v1/monitors/{body['id']}",
+        json={"config": {**payload["config"], "password": None, "query": "SELECT 2"}},
+        headers=auth,
+    )
+    assert patched.status_code == 200 and patched.json()["config"]["password"] is None
+    await session.refresh(stored)
+    assert stored.config["password"] == encrypted and stored.config["query"] == "SELECT 2"
+
+    await client.patch(
+        f"/api/v1/monitors/{body['id']}",
+        json={"config": {**payload["config"], "password": "n3w"}},
+        headers=auth,
+    )
+    await session.refresh(stored)
+    assert crypto.decrypt(stored.config["password"]) == "n3w"
+
+    listed = await client.get("/api/v1/monitors", params={"type": "sql"}, headers=auth)
+    assert listed.json()["items"][0]["config"]["password"] is None
+
+    oracle = {**payload, "config": {"engine": "oracle", "query": "DELETE FROM orders"}}
+    assert (await client.post("/api/v1/monitors", json=oracle, headers=auth)).status_code == 422

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from statora import cache
+from statora.auth import crypto
 from statora.db.base import utcnow
 from statora.db.models import (
     Incident,
@@ -15,11 +16,12 @@ from statora.db.models import (
     Maintenance,
     Monitor,
     MonitorStatus,
+    MonitorType,
     StatusPage,
     StatusPageGroup,
     StatusPageItem,
 )
-from statora.schemas.monitor import MonitorBase, MonitorCreate, MonitorUpdate
+from statora.schemas.monitor import SECRET_FIELDS, MonitorBase, MonitorCreate, MonitorUpdate
 from statora.schemas.pages import (
     IncidentCreate,
     IncidentPatch,
@@ -40,8 +42,21 @@ class ValidationProblem(ValueError):
 # ---------------------------------------------------------------- monitors
 
 
+def _store_secrets(monitor_type: str, config: dict, previous: dict | None = None) -> dict:
+    """Encrypt secret config fields. An empty value keeps the previously stored secret."""
+    config = dict(config)
+    for name in SECRET_FIELDS.get(MonitorType(monitor_type), ()):
+        value = config.get(name)
+        if value and not crypto.is_encrypted(value):
+            config[name] = crypto.encrypt(value)
+        elif not value and previous and previous.get(name):
+            config[name] = previous[name]
+    return config
+
+
 async def create_monitor(session: AsyncSession, data: MonitorCreate) -> Monitor:
     monitor = Monitor(**data.model_dump(exclude={"member_ids"}))
+    monitor.config = _store_secrets(monitor.type, monitor.config)
     # Always assign the collection: a lazy load on a freshly inserted object would fail in async code.
     monitor.members = await _group_members(session, None, data.member_ids)
     session.add(monitor)
@@ -58,9 +73,12 @@ async def update_monitor(session: AsyncSession, monitor: Monitor, data: MonitorU
             **changes,
         }
     )
+    previous_config = dict(monitor.config or {})
     for field in changes:
         if field != "member_ids":
             setattr(monitor, field, getattr(merged, field))
+    if "config" in changes:
+        monitor.config = _store_secrets(monitor.type, monitor.config, previous_config)
     if "member_ids" in changes:
         monitor.members = await _group_members(session, monitor.id, merged.member_ids)
     if changes.get("active") is False:

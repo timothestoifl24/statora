@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from statora.db.base import utcnow
 from statora.db.models import Heartbeat, Monitor, MonitorType, User, UserRole, monitor_group_members
-from statora.schemas.monitor import CONFIG_MODELS, MonitorCreate, MonitorUpdate
+from statora.schemas.monitor import CONFIG_MODELS, SECRET_FIELDS, MonitorCreate, MonitorUpdate
 from statora.services import crud
 from statora.services.monitoring import monitors_in_maintenance, uptime_days, uptime_since
 from statora.web.deps import current_user, get_session, local_path, not_found, ui_role
@@ -268,6 +268,7 @@ async def monitor_detail(
         stats=stats,
         parent_groups=parent_groups,
         in_maintenance=await monitors_in_maintenance(session) if monitor.is_group else set(),
+        secret_fields=SECRET_FIELDS.get(MonitorType(monitor.type), ()),
     )
 
 

@@ -115,7 +115,7 @@
           <dt class="col-5">Interval</dt><dd class="col-7">{{ monitor.interval_s }}s</dd>
           <dt class="col-5">Timeout</dt><dd class="col-7">{{ monitor.timeout_s }}s</dd>
           <dt class="col-5">Retries</dt><dd class="col-7">{{ monitor.retries }}</dd>
-          {% for k, v in monitor.config.items() if v not in (none, '', {}, []) %}
+          {% for k, v in monitor.config.items() if v not in (none, '', {}, []) and k not in secret_fields %}
             <dt class="col-5">{{ k.replace('_', ' ')|capitalize }}</dt><dd class="col-7 font-monospace-sm">{{ v|join(', ') if v is iterable and v is not string and v is not mapping else v }}</dd>
           {% endfor %}
         </dl>
