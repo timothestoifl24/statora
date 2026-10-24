@@ -4,7 +4,7 @@ All notable changes to Statora are documented in this file. The format is based 
 
 Changes collect under the upcoming version while it's being developed, and you can try them with the [`beta` image](https://statora.stoifl.app/reference/images#beta-preview-of-the-next-release). The date is set when the version is released. Each section also appears in the matching [GitHub release](https://github.com/timothestoifl24/statora/releases).
 
-## [1.0.1] - Unreleased
+## [1.1.0] - 2026-10-24
 
 ### Added
 
