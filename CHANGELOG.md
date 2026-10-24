@@ -6,6 +6,10 @@ Changes collect under the upcoming version while it's being developed, and you c
 
 ## [1.0.1] - Unreleased
 
+### Added
+
+- **SQL monitors:** run a query against PostgreSQL, MySQL/MariaDB, Microsoft SQL Server or Oracle, and check the first value (equals or contains) or a minimum number of rows. Queries run read-only and are rolled back. The password is stored encrypted and never returned by the API. See [Monitors → SQL](https://statora.stoifl.app/guide/monitors#sql).
+
 ### Changed
 
 - **Dependencies:** updated FastAPI, Pydantic, pydantic-settings, Markdown and fakeredis to their latest patch and minor releases.

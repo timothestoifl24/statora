@@ -60,6 +60,52 @@ class DnsConfig(_Config):
     )
 
 
+SQL_DEFAULT_PORTS = {"postgresql": 5432, "mysql": 3306, "mssql": 1433, "oracle": 1521}
+SQL_ENGINE_LABELS = {
+    "postgresql": "PostgreSQL",
+    "mysql": "MySQL / MariaDB",
+    "mssql": "Microsoft SQL Server",
+    "oracle": "Oracle",
+}
+
+
+class SqlConfig(_Config):
+    engine: Literal["postgresql", "mysql", "mssql", "oracle"]
+    port: int | None = Field(
+        default=None, ge=1, le=65535, description="Default port of the engine when empty"
+    )
+    database: str | None = Field(default=None, description="Database name; the service name for Oracle")
+    username: str | None = None
+    password: str | None = Field(default=None, description="Write-only; stored encrypted and never returned")
+    query: str | None = Field(
+        default=None, description="Read-only query to run; SELECT 1 (Oracle: SELECT 1 FROM DUAL) when empty"
+    )
+    expected_value: str | None = Field(
+        default=None, description="Compared with the first column of the first row, as text"
+    )
+    match: Literal["equals", "contains"] = "equals"
+    min_rows: int | None = Field(default=None, ge=0, le=1000, description="Down when fewer rows are returned")
+    tls: bool = False
+    verify_tls: bool = True
+
+    @model_validator(mode="after")
+    def _oracle_select_only(self) -> "SqlConfig":
+        # Oracle commits DDL implicitly and has no read-only session, so only queries are accepted.
+        if self.engine == "oracle" and self.query and not re.match(r"^\s*(SELECT|WITH)\b", self.query, re.I):
+            raise ValueError("Oracle queries must start with SELECT or WITH")
+        return self
+
+    @property
+    def effective_port(self) -> int:
+        return self.port or SQL_DEFAULT_PORTS[self.engine]
+
+    @property
+    def effective_query(self) -> str:
+        if self.query and self.query.strip():
+            return self.query.strip().rstrip(";").strip()
+        return "SELECT 1 FROM DUAL" if self.engine == "oracle" else "SELECT 1"
+
+
 class GroupConfig(_Strict):
     mode: Literal["stack", "redundancy"] = Field(
         default="stack",
@@ -76,8 +122,21 @@ CONFIG_MODELS: dict[MonitorType, type[_Strict]] = {
     MonitorType.TCP: TcpConfig,
     MonitorType.PING: PingConfig,
     MonitorType.DNS: DnsConfig,
+    MonitorType.SQL: SqlConfig,
     MonitorType.GROUP: GroupConfig,
 }
+
+# Config fields that are stored encrypted and never returned by the API or shown in the UI.
+SECRET_FIELDS: dict[MonitorType, tuple[str, ...]] = {MonitorType.SQL: ("password",)}
+
+
+def redact_config(monitor_type: MonitorType | str, config: dict[str, Any] | None) -> dict[str, Any]:
+    """A copy of the config with secret fields set to None."""
+    data = dict(config or {})
+    for name in SECRET_FIELDS.get(MonitorType(monitor_type), ()):
+        if name in data:
+            data[name] = None
+    return data
 
 
 def parse_config(monitor_type: MonitorType | str, config: dict[str, Any] | None) -> _Strict:
@@ -162,6 +221,11 @@ class MonitorRead(BaseModel):
     last_message: str | None
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="after")
+    def _hide_secrets(self) -> "MonitorRead":
+        self.config = redact_config(self.type, self.config)
+        return self
 
 
 class HeartbeatRead(BaseModel):

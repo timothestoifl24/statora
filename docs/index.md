@@ -22,8 +22,8 @@ hero:
 
 features:
   - icon: 🩺
-    title: HTTP, TCP, ping and DNS
-    details: Status codes, keywords, headers and TLS for HTTP; open ports; ICMP without root; any DNS record with an expected value. Retries and a latency threshold for "degraded" on every check.
+    title: HTTP, TCP, ping, DNS and SQL
+    details: Status codes, keywords, headers and TLS for HTTP; open ports; ICMP without root; any DNS record with an expected value; SQL queries against PostgreSQL, MySQL, SQL Server and Oracle. Retries and a latency threshold for "degraded" on every check.
   - icon: 🧩
     title: Stacks and redundancy groups
     details: A stack is only up when every part is. A redundancy group stays up while enough nodes are, and says "degraded" when one drops out. Groups nest, and react the moment a member changes.
@@ -89,7 +89,7 @@ The [setup guide](/setup/) covers TLS, reverse proxies, plain Docker and Kuberne
 ## What this is, and what it is not
 
 **Statora is** uptime monitoring and status pages that you host yourself.
-- **Watches your services:** it checks websites, APIs, servers and DNS from wherever you install it, and groups the checks into the services your users actually depend on.
+- **Watches your services:** it checks websites, APIs, servers, DNS and databases from wherever you install it, and groups the checks into the services your users actually depend on.
 - **Keeps people informed:** it publishes branded status pages, with incident updates and planned maintenance, and keeps 90 days of history.
 - **Fits your setup:** your team signs in with the accounts it already has (LDAP, OIDC or SAML), and your automation gets a complete REST API.
 - **Your infrastructure, your data:** one container, plus your own PostgreSQL and Redis.

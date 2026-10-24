@@ -39,6 +39,10 @@ dependencies = [
     "nh3>=0.2.18",
     "ldap3>=2.9",
     "joserfc>=1.0",
+    "aiomysql>=0.2",
+    "python-tds>=1.16",
+    "pyopenssl>=24",
+    "oracledb>=3.0",
 ]
 
 [project.optional-dependencies]
