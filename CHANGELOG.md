@@ -6,6 +6,12 @@ Changes collect under the upcoming version while it's being developed, and you c
 
 ## [1.0.1] - Unreleased
 
+### Added
+
+- **Status page editor:** reorder groups and monitors by dragging them by their grip handle, and drag a monitor into another group. The arrow buttons still work from the keyboard.
+- **Uptime bars per minute, hour or day:** a new "Uptime bars" setting per status page (`history_resolution` in the API) shows the last 2 hours per minute, the last 5 days per hour, or the last 120 days per day. Daily bars now cover 120 days instead of 90.
+- **Monitor list options:** each row has a menu to pause or resume the monitor without leaving the list, clone it into a prefilled new-monitor form, or edit it.
+
 ### Changed
 
 - **Dependencies:** updated FastAPI, Pydantic, pydantic-settings, Markdown and fakeredis to their latest patch and minor releases.
