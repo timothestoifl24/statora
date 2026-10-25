@@ -807,3 +807,68 @@ async def test_auth_provider_forms_open_in_the_modal(client):
     assert (
         "<html" in (await client.get(f"/admin/settings/auth/{provider_id}")).text
     )  # still a page without the modal
+
+
+async def test_hide_local_sign_in_form(client, auth):
+    await login(client)
+    token = csrf_from((await client.get("/admin/settings/auth")).text)
+    toggle = "/admin/settings/auth/local-form"
+
+    # Without an enabled provider the form can't be hidden: nobody could sign in.
+    refused = await client.post(toggle, data={"csrf_token": token, "hide": "1"})
+    assert refused.status_code == 303
+    assert "Enable an authentication provider first" in (await client.get("/admin/settings/auth")).text
+    client.cookies.clear()
+    assert 'id="username"' in (await client.get("/login")).text
+
+    oidc = {
+        "name": "SSO",
+        "type": "oidc",
+        "config": {
+            "client_id": "statora",
+            "discovery_url": "https://sso.example/.well-known/openid-configuration",
+        },
+    }
+    provider = (await client.post("/api/v1/auth-providers", json=oidc, headers=auth)).json()
+    await login(client)
+    token = csrf_from((await client.get("/admin/settings/auth")).text)  # new session, new token
+    await client.post(toggle, data={"csrf_token": token, "hide": "1"})
+    settings = (await client.get("/admin/settings/auth")).text
+    assert "The sign-in page only shows your providers" in settings and "/login?local=1" in settings
+
+    client.cookies.clear()
+    hidden = (await client.get("/login")).text
+    assert 'id="username"' not in hidden and "Sign in with SSO" in hidden and ">or<" not in hidden
+    # The way back in: the form is still there on request, and local accounts still work.
+    fallback = await client.get("/login?local=1")
+    assert 'id="username"' in fallback.text
+    signed_in = await client.post(
+        "/login",
+        data={
+            "username": "admin",
+            "password": "password123",
+            "csrf_token": csrf_from(fallback.text),
+            "next": "/admin",
+        },
+    )
+    assert signed_in.status_code == 303 and signed_in.headers["location"] == "/admin"
+
+    # Disabling the last provider brings the form back by itself.
+    await client.patch(f"/api/v1/auth-providers/{provider['id']}", json={"enabled": False}, headers=auth)
+    client.cookies.clear()
+    assert 'id="username"' in (await client.get("/login")).text
+
+    # LDAP accounts use the same form, so it stays while an LDAP provider is enabled.
+    await client.patch(f"/api/v1/auth-providers/{provider['id']}", json={"enabled": True}, headers=auth)
+    ldap = {
+        "name": "AD",
+        "type": "ldap",
+        "config": {"server_uri": "ldap://ad.example", "bind_dn_template": "uid={username},dc=example"},
+    }
+    assert (await client.post("/api/v1/auth-providers", json=ldap, headers=auth)).status_code == 201
+    assert 'id="username"' in (await client.get("/login")).text
+
+    await login(client)
+    token = csrf_from((await client.get("/admin/settings/auth")).text)
+    await client.post(toggle, data={"csrf_token": token, "hide": "0"})
+    assert "The local sign-in form is shown again" in (await client.get("/admin/settings/auth")).text

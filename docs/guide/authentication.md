@@ -10,6 +10,14 @@ The command line can always create an admin or reset an admin's password:
 statora create-admin
 ```
 
+### Hiding the local sign-in form
+
+Once people sign in through an identity provider, you can hide the username and password form under **Authentication → Local accounts** ("Show the local sign-in form"). The sign-in page then only shows the provider buttons.
+
+- It can only be hidden while at least one provider is enabled. If the last provider is disabled or deleted, the form comes back by itself.
+- While an LDAP provider is enabled the form stays, because LDAP accounts sign in with it.
+- Hiding the form doesn't turn local accounts off. `/login?local=1` always shows the form, for example when the identity provider is down. To stop non-admin local accounts from signing in at all, use `STATORA_DISABLE_LOCAL_LOGIN`.
+
 ## External identity providers
 
 Add providers under **Authentication → Add provider**. Each provider has:
@@ -48,5 +56,5 @@ Statora uses the authorization-code flow with PKCE, state and nonce, and validat
 Responses must be signed (assertions by default), and each login can only be completed once.
 
 ::: tip Locked out?
-Local admins can always use the password form, even with `STATORA_DISABLE_LOCAL_LOGIN=true`, so a broken identity provider can't lock everyone out.
+Local admins can always use the password form at `/login?local=1`, even with `STATORA_DISABLE_LOCAL_LOGIN=true` or with the form hidden, so a broken identity provider can't lock everyone out.
 :::

@@ -22,9 +22,11 @@ from .pages import (
     maintenance_monitors,
     maintenance_pages,
 )
+from .settings import AppSetting
 
 __all__ = [
     "ApiToken",
+    "AppSetting",
     "AuthProvider",
     "AuthProviderType",
     "Heartbeat",

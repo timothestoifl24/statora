@@ -12,11 +12,13 @@ from statora.auth import passwords, tokens
 from statora.auth.providers import base as provider_base
 from statora.auth.providers.base import AuthError
 from statora.auth.providers.saml import sp_urls
+from statora.auth.service import enabled_providers, local_form_hidden
 from statora.config import get_settings
 from statora.db.base import utcnow
 from statora.db.models import ApiToken, AuthProvider, AuthProviderType, TokenScope, User, UserRole
 from statora.schemas.auth_provider import CONFIG_MODELS, SECRET_FIELDS, AuthProviderBase
 from statora.schemas.users import UserCreate, UserUpdate
+from statora.services import app_settings
 from statora.services.auth_providers import test_provider
 from statora.web.deps import current_user, get_session, not_found, ui_role
 
@@ -272,6 +274,7 @@ async def list_providers(
     request: Request, user: User = Depends(admin), session: AsyncSession = Depends(get_session)
 ):
     providers = (await session.scalars(select(AuthProvider).order_by(AuthProvider.name))).all()
+    enabled = [p for p in providers if p.enabled]
     counts = dict(
         (
             await session.execute(
@@ -290,7 +293,30 @@ async def list_providers(
         types=list(AuthProviderType),
         local_disabled=get_settings().disable_local_login,
         open_id=request.query_params.get("open", ""),
+        hide_local_login=bool(await app_settings.get(session, app_settings.HIDE_LOCAL_LOGIN, False)),
+        local_form_hidden=await local_form_hidden(session, enabled),
+        enabled_count=len(enabled),
+        has_enabled_ldap=any(p.type == AuthProviderType.LDAP for p in enabled),
     )
+
+
+@router.post("/settings/auth/local-form")
+async def set_local_form(
+    request: Request, user: User = Depends(admin), session: AsyncSession = Depends(get_session)
+):
+    """Show or hide the username/password form on the sign-in page."""
+    hide = (await request.form()).get("hide") == "1"
+    if hide and not await enabled_providers(session):
+        flash(
+            request, "Enable an authentication provider first, so there is another way to sign in.", "danger"
+        )
+        return redirect("/admin/settings/auth")
+    await app_settings.put(session, app_settings.HIDE_LOCAL_LOGIN, hide)
+    await session.commit()
+    flash(
+        request, "The local sign-in form is now hidden" if hide else "The local sign-in form is shown again"
+    )
+    return redirect("/admin/settings/auth")
 
 
 @router.get("/settings/auth/new/{provider_type}")
