@@ -1,6 +1,6 @@
 # Monitors
 
-A monitor runs one check on a schedule. Create one under **Monitors → New monitor**, or with `POST /api/v1/monitors`.
+A monitor runs one check on a schedule. Create one under **Monitors → New monitor** (or press <kbd>n</kbd> on the monitor list), or with `POST /api/v1/monitors`. The form opens in a dialog over the list.
 
 ## Common settings
 
@@ -11,6 +11,15 @@ A monitor runs one check on a schedule. Create one under **Monitors → New moni
 | Retries before down | 1 (UI) / 0 (API) | Extra consecutive failures tolerated. While retrying, the monitor shows as pending and the failures still count as up. |
 | Degraded above | none | Responses slower than this (ms) report *degraded* instead of *up*. |
 | Active | on | Paused monitors keep their history but aren't checked. |
+
+## Icon and link
+
+Under **Appearance** a monitor can get:
+
+- an **icon**: pick one of the bundled Font Awesome icons (brand logos included), upload an image (PNG, JPEG, WebP, GIF, ICO or SVG, up to 256 KB), or paste an image URL. In the API this is `icon`: `fa:brands:github`, an upload's `media:<sha256>` from `POST /api/v1/media`, or an http(s) URL;
+- a **link** (`link_url`) to the app behind the monitor, http(s) only.
+
+Both show in the monitor list and on every status page that includes the monitor. There, the component name links to the app.
 
 ## HTTP(S)
 
@@ -73,7 +82,8 @@ The query runs in a read-only transaction that is always rolled back: PostgreSQL
 
 ## What you see
 
-- The **dashboard** shows every monitor with its last 30 checks, 24-hour uptime and latency, and refreshes itself every 15 seconds.
+- The **dashboard** shows how many monitors are up, then every monitor with its last 30 checks, 24-hour uptime and latency, failing ones first. It refreshes itself every 15 seconds. Search with <kbd>/</kbd>, filter by problems or type, and expand groups to see their members.
+- The **tile view** (the grid button above the list) shows the same monitors as tiles; `/admin?kiosk=1` shows them full screen without the sidebar, for a wallboard.
 - Each row on the dashboard has an options menu (<kbd>⋮</kbd>, for editors and admins) to **pause or resume** the monitor without leaving the list, **clone** it, or edit it.
 - The **detail page** adds a 24-hour latency chart, the list of status changes, uptime over 24 h and 30 days, and the groups the monitor belongs to. It refreshes itself too.
 
