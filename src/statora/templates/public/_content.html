@@ -1,30 +1,54 @@
+{% from "_icons.html" import svg %}
 {% set impact_labels = {'none': 'No impact', 'minor': 'Minor', 'major': 'Major', 'critical': 'Critical'} %}
-<section class="banner banner-{{ s.overall.status }}" role="status">
-  <span class="banner-icon" aria-hidden="true">{{ '✓' if s.overall.status == 'operational' else ('🛠' if s.overall.status == 'maintenance' else '!') }}</span>
-  <span>{{ s.overall.label }}</span>
+{% set overall_icons = {'operational': 'check', 'degraded': 'warn', 'partial_outage': 'warn', 'major_outage': 'down', 'maintenance': 'maintenance'} %}
+{% set tally = namespace(total=0, affected=0) %}
+{% for g in s.groups %}{% for c in g.components %}
+  {% set tally.total = tally.total + 1 %}
+  {% if c.status not in ('up', 'pending') %}{% set tally.affected = tally.affected + 1 %}{% endif %}
+{% endfor %}{% endfor %}
+
+<section class="status-card status-{{ s.overall.status }}" role="status">
+  <div class="status-head">
+    <span class="status-icon">{{ svg(overall_icons.get(s.overall.status, 'check')) }}</span>
+    <div class="status-text">
+      <h2>{{ s.overall.label }}</h2>
+      <p class="muted">
+        {% if tally.affected %}{{ tally.affected }} of {{ tally.total }} component{{ 's' if tally.total != 1 }} affected{% elif tally.total %}All {{ tally.total }} component{{ 's' if tally.total != 1 }} operational{% endif %}
+        {%- if tally.total %} · {% endif %}Updated <time datetime="{{ s.generated_at }}" data-relative>{{ s.generated_at|dt('%H:%M UTC') }}</time>
+      </p>
+    </div>
+  </div>
+  {% for i in s.active_incidents %}
+  <article class="incident impact-{{ i.impact }}">
+    <h3>{{ i.title }} <span class="pill pill-{{ i.impact }}">{{ impact_labels[i.impact] }}</span></h3>
+    <ol class="timeline">
+      {% for u in i.updates %}
+      <li class="update">
+        <div class="update-head"><strong>{{ u.status|capitalize }}</strong> <time datetime="{{ u.created_at }}">{{ u.created_at|dt }}</time></div>
+        <div class="update-body">{{ u.body_html|safe }}</div>
+      </li>
+      {% endfor %}
+    </ol>
+  </article>
+  {% endfor %}
 </section>
 
-{% for i in s.active_incidents %}
-<article class="notice notice-{{ i.impact }}">
-  <h2>{{ i.title }}</h2>
-  {% for u in i.updates %}
-    <div class="update">
-      <div class="update-head"><strong>{{ u.status|capitalize }}</strong> <time datetime="{{ u.created_at }}">{{ u.created_at|dt }}</time></div>
-      <div class="update-body">{{ u.body_html|safe }}</div>
-    </div>
-  {% endfor %}
-</article>
-{% endfor %}
-
 {% for m in s.maintenances %}
-<article class="notice notice-maintenance">
-  <h2>{{ '🛠 ' if m.active }}{{ m.title }}</h2>
-  <div class="update-head">
-    {{ 'In progress' if m.active else 'Scheduled' }} ·
-    <time datetime="{{ m.starts_at }}">{{ m.starts_at|dt }}</time> – <time datetime="{{ m.ends_at }}">{{ m.ends_at|dt }}</time>
-  </div>
-  {% if m.body_html %}<div class="update-body">{{ m.body_html|safe }}</div>{% endif %}
-</article>
+{% set head %}
+  <span class="maint-icon">{{ svg('maintenance' if m.active else 'calendar') }}</span>
+  <span class="maint-text">
+    <strong>{{ 'In progress' if m.active else 'Scheduled' }}</strong> · {{ m.title }}
+    <span class="muted maint-when"><time datetime="{{ m.starts_at }}">{{ m.starts_at|dt }}</time> – <time datetime="{{ m.ends_at }}">{{ m.ends_at|dt }}</time></span>
+  </span>
+{% endset %}
+{% if m.body_html %}
+<details class="maint{{ ' is-active' if m.active }}" data-key="maintenance-{{ loop.index }}">
+  <summary>{{ head }}{{ svg('chevron', 'chevron') }}</summary>
+  <div class="update-body">{{ m.body_html|safe }}</div>
+</details>
+{% else %}
+<div class="maint{{ ' is-active' if m.active }}"><div class="maint-row">{{ head }}</div></div>
+{% endif %}
 {% endfor %}
 
 {% set history = s.history or {'span_label': '90 days ago', 'end_label': 'Today'} %}
@@ -35,19 +59,24 @@
     {% for c in g.components %}
     <div class="component">
       <div class="component-head">
-        <span class="component-name">{{ c.name }}</span>
-        <span class="component-status st-{{ c.status }}">{{ c.status_label }}</span>
+        <span class="component-name"><span class="dot dot-{{ c.status }}" aria-hidden="true"></span>{{ c.name }}</span>
+        <span class="component-meta">
+          {% if c.uptime is not none %}
+            <span class="component-uptime {{ 'good' if c.uptime >= 99.9 else ('fair' if c.uptime >= 99 else 'poor') }}">{{ '%.2f'|format(c.uptime) }}%</span>
+          {% endif %}
+          <span class="component-status st-{{ c.status }}">{{ c.status_label }}</span>
+        </span>
       </div>
       <div class="bars" role="img" aria-label="Uptime of {{ c.name }} from {{ history.span_label }} until {{ history.end_label|lower }}: {{ '%.2f'|format(c.uptime) ~ '%' if c.uptime is not none else 'no data' }}">
         {% for b in c.bars %}
           <span class="bar lv-{{ b.level }}" data-tip="{{ b.label or b.day }} · {{ ('%.2f'|format(b.uptime) ~ '% uptime') if b.uptime is not none else (b.note or ('maintenance' if b.level == 'maintenance' else 'no data')) }}{{ (' · ' ~ b.down ~ ' failed checks') if b.down }}"></span>
         {% endfor %}
       </div>
-      <div class="bars-legend"><span>{{ history.span_label }}</span><span class="rule"></span><span>{{ ('%.2f'|format(c.uptime) ~ '% uptime') if c.uptime is not none else 'No data yet' }}</span><span class="rule"></span><span>{{ history.end_label }}</span></div>
+      <div class="bars-legend"><span>{{ history.span_label }}</span><span class="rule"></span><span>{{ history.end_label }}</span></div>
       {% if c.members %}
       <details class="members" data-key="component-{{ c.id }}">
         <summary>
-          <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
+          {{ svg('chevron', 'chevron') }}
           {{ c.members|length }} component{{ 's' if c.members|length != 1 }}
           <span class="muted">· {{ 'redundant' if c.group_mode == 'redundancy' else 'all required' }}</span>
         </summary>
@@ -74,12 +103,14 @@
   {% for i in s.past_incidents %}
     <article class="past">
       <h3>{{ i.title }} <span class="pill pill-{{ i.impact }}">{{ impact_labels[i.impact] }}</span></h3>
-      {% for u in i.updates %}
-        <div class="update">
+      <ol class="timeline">
+        {% for u in i.updates %}
+        <li class="update">
           <div class="update-head"><strong>{{ u.status|capitalize }}</strong> <time datetime="{{ u.created_at }}">{{ u.created_at|dt }}</time></div>
           <div class="update-body">{{ u.body_html|safe }}</div>
-        </div>
-      {% endfor %}
+        </li>
+        {% endfor %}
+      </ol>
     </article>
   {% else %}
     <p class="muted">No incidents in the last 14 days.</p>

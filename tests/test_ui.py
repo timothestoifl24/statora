@@ -472,3 +472,36 @@ async def test_dashboard_tile_view_and_wallboard(client, auth):
 
     listed = await client.get("/admin?view=list", headers={"HX-Request": "true"})
     assert "monitor-table" in listed.text and "monitor-tiles" not in listed.text
+
+
+async def test_public_status_card_counts_and_incident_timeline(client, auth):
+    page = (
+        await client.post(
+            "/api/v1/status-pages", json={"slug": "acme", "title": "Acme", "is_default": True}, headers=auth
+        )
+    ).json()
+    ok = (
+        await client.post(
+            "/api/v1/monitors",
+            json={"name": "Web", "type": "http", "target": "https://a.example"},
+            headers=auth,
+        )
+    ).json()
+    await client.patch(
+        f"/api/v1/status-pages/{page['id']}",
+        json={"groups": [{"name": "Platform", "items": [{"monitor_id": ok["id"]}]}]},
+        headers=auth,
+    )
+    calm = (await client.get("/s/acme")).text
+    assert 'class="status-card status-operational"' in calm and "All 1 component operational" in calm
+    assert "banner" not in calm and '<svg class="icon' in calm
+
+    await client.post(
+        "/api/v1/incidents",
+        json={"page_id": page["id"], "title": "Mail delays", "impact": "major", "message": "Looking into it"},
+        headers=auth,
+    )
+    busy = (await client.get("/s/acme", headers={"HX-Request": "true"})).text
+    assert 'class="status-card status-partial_outage"' in busy
+    assert 'class="incident impact-major"' in busy and '<ol class="timeline">' in busy
+    assert "Updated <time" in busy  # the timestamp refreshes with the content
