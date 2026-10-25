@@ -126,3 +126,12 @@
 .kiosk .tile-metric { font-size: 2.2rem; }
 .kiosk-exit { position: fixed; right: 1rem; bottom: 1rem; z-index: 10; opacity: .35; }
 .kiosk-exit:hover, .kiosk-exit:focus-visible { opacity: 1; }
+
+/* Comfortable hit targets for icon-only buttons (at least 32px). */
+.btn-icon.btn-sm { min-width: 2rem; min-height: 2rem; padding: 0; justify-content: center; }
+.btn-icon.btn-sm > i { font-size: .95rem; }
+.row-menu { width: 2.25rem; height: 2.25rem; padding: 0; justify-content: center; }
+.row-menu > i { font-size: 1.05rem; }
+.monitor-table .col-options { width: 3.25rem; }
+.tile-actions .btn-sm { min-height: 2rem; }
+.tile-actions .btn-sm:has(> i:only-child) { min-width: 2rem; }
