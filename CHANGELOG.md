@@ -4,7 +4,19 @@ All notable changes to Statora are documented in this file. The format is based 
 
 Changes collect under the upcoming version while it's being developed, and you can try them with the [`beta` image](https://statora.stoifl.app/reference/images#beta-preview-of-the-next-release). The date is set when the version is released. Each section also appears in the matching [GitHub release](https://github.com/timothestoifl24/statora/releases).
 
-## [1.1.2] - Unreleased
+## [1.2.0] - Unreleased
+
+### Added
+
+- **Monitor dashboard:** a summary bar shows how many monitors are up and how many need attention. Down and degraded monitors come first, tinted, with how long they've been failing. Search and filter chips (Problems, HTTP, TCP, Ping, DNS, SQL, Groups) survive the auto-refresh, groups expand inline to show their members, and `/` focuses the search, `n` opens a new monitor.
+- **Tile view and wallboard:** switch the monitor list to tiles, or open `/admin?kiosk=1` for a full-screen wallboard without the sidebar. Failing monitors get bigger tiles with the last error and buttons to report an incident or pause them.
+- **Open incidents badge** in the admin navigation.
+
+### Changed
+
+- **Admin layout:** the navigation moved into a sidebar, with the user menu and theme toggle at its bottom.
+- **Public status page:** a calmer status card replaces the coloured banner and says how many components are affected. Active incidents show as a timeline inside it, maintenance as a slim strip, and each component shows its uptime next to its status.
+- **Fonts and icons:** the admin panel and status pages use Inter and JetBrains Mono, shipped with Statora (no requests to font CDNs). Icons now come from Font Awesome Free instead of Tabler Icons; login buttons for Google, GitHub, GitLab and Microsoft providers show the provider's logo.
 
 ## [1.1.1] - 2026-10-25
 
@@ -62,7 +74,7 @@ First public release.
 - **Deployment:** single container image, Docker Compose and Kubernetes manifests, horizontal scaling with a scheduler leader lock, and serialized migrations.
 - **Releases:** stable images (`X.Y.Z`, `X.Y`, `latest`) from `main`, beta images (`X.Y.Z-beta.N`, `beta`) from `develop`, and GitHub releases whose notes come from this changelog.
 
-[1.1.2]: https://github.com/timothestoifl24/statora/releases/tag/v1.1.2
+[1.2.0]: https://github.com/timothestoifl24/statora/releases/tag/v1.2.0
 [1.1.1]: https://github.com/timothestoifl24/statora/releases/tag/v1.1.1
 [1.1.0]: https://github.com/timothestoifl24/statora/releases/tag/v1.1.0
 [1.0.0]: https://github.com/timothestoifl24/statora/releases/tag/v1.0.0
