@@ -8,7 +8,7 @@
   <div class="table-responsive">
     <table class="table table-vcenter card-table monitor-table">
       <thead>
-        <tr><th>Monitor</th><th class="d-none d-lg-table-cell">Last 30 checks</th><th>24h uptime</th><th>Latency</th><th class="d-none d-md-table-cell">Checked</th>{% if can_edit %}<th class="col-options"><span class="visually-hidden">Options</span></th>{% endif %}</tr>
+        <tr><th>Monitor</th><th class="d-none d-lg-table-cell">Last 30 checks</th><th>24h uptime</th><th>Latency</th><th class="d-none d-xl-table-cell">Checked</th>{% if can_edit %}<th class="col-options"><span class="visually-hidden">Options</span></th>{% endif %}</tr>
       </thead>
       <tbody>
       {% for row in rows %}
@@ -50,7 +50,7 @@
           </td>
           <td class="tabular">{{ row.uptime_24h|pct }}</td>
           <td class="tabular">{{ m.last_latency_ms|ms }}</td>
-          <td class="text-secondary small tabular d-none d-md-table-cell" title="{{ m.last_message or '' }}">{{ m.last_checked_at|dt('%H:%M:%S') }}</td>
+          <td class="text-secondary small tabular d-none d-xl-table-cell" title="{{ m.last_message or '' }}">{{ m.last_checked_at|dt('%H:%M:%S') }}</td>
           {% if can_edit %}
           <td class="text-end">
             <div class="dropdown">
