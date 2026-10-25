@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,7 @@ from statora.services import crud
 from statora.services.status import get_page_summary
 from statora.web.deps import current_user, get_session, not_found, ui_role
 
-from .common import checkbox, error_messages, flash, opt, redirect, render, rollback
+from .common import checkbox, done, error_messages, flash, opt, redirect, render, render_form, rollback
 
 router = APIRouter(prefix="/pages")
 editor = ui_role(UserRole.EDITOR)
@@ -76,18 +76,19 @@ def _settings_from_form(form) -> dict:
 
 
 def _settings_form(request, user, page, values, errors=None, next_url="/admin/pages"):
-    """The settings form: a fragment for the modal (HTMX) or a full page without JavaScript."""
-    context = {"page": page, "values": values, "errors": errors or [], "next_url": next_url}
-    if request.headers.get("HX-Request"):
-        # htmx doesn't swap 4xx responses by default, so validation errors come back as 200.
-        return render(request, "admin/_page_settings.html", user, **context)
-    return render(request, "admin/page_settings_page.html", user, 422 if errors else 200, **context)
-
-
-def _done(request, url: str):
-    if request.headers.get("HX-Request"):
-        return Response(status_code=200, headers={"HX-Redirect": url})
-    return redirect(url)
+    action = f"/admin/pages/{page.id}/settings" if page else "/admin/pages/new"
+    return render_form(
+        request,
+        "admin/page_settings.html",
+        user,
+        422 if errors else 200,
+        page=page,
+        values=values,
+        errors=errors or [],
+        next_url=next_url,
+        form_action=action,
+        cancel_url=next_url,
+    )
 
 
 def _next_url(form) -> str:
@@ -112,7 +113,7 @@ async def create_page(
         return _settings_form(request, user, None, values, error_messages(exc))
     await session.commit()
     flash(request, f"Status page “{page.title}” created. Add its components.")
-    return _done(request, f"/admin/pages/{page.id}/edit")
+    return done(request, f"/admin/pages/{page.id}/edit")
 
 
 async def _get(session: AsyncSession, page_id: int) -> StatusPage:
@@ -146,7 +147,7 @@ async def update_page_settings(
         return _settings_form(request, user, page, values, error_messages(exc), next_url)
     await session.commit()
     flash(request, "Status page settings saved")
-    return _done(request, next_url)
+    return done(request, next_url)
 
 
 # ---------------------------------------------------------------- components editor

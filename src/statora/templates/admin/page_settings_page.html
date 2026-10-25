@@ -1,8 +1,0 @@
-{% extends "admin/base.html" %}
-{# Full-page version of the settings modal, used when JavaScript is off. #}
-{% block title %}{{ 'Settings · ' ~ page.title if page else 'New status page' }}{% endblock %}
-{% block content %}
-<div class="card page-settings-card">
-  {% include "admin/_page_settings.html" %}
-</div>
-{% endblock %}

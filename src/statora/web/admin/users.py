@@ -20,7 +20,7 @@ from statora.schemas.users import UserCreate, UserUpdate
 from statora.services.auth_providers import test_provider
 from statora.web.deps import current_user, get_session, not_found, ui_role
 
-from .common import checkbox, error_messages, flash, opt, redirect, render, rollback
+from .common import checkbox, done, error_messages, flash, opt, redirect, render, render_form, rollback
 
 router = APIRouter()
 admin = ui_role(UserRole.ADMIN)
@@ -42,7 +42,7 @@ async def list_users(
 
 @router.get("/users/new")
 async def new_user(request: Request, user: User = Depends(admin)):
-    return render(
+    return render_form(
         request,
         "admin/user_form.html",
         user,
@@ -71,7 +71,7 @@ async def create_user(
         if await session.scalar(select(User.id).where(func.lower(User.username) == data.username.lower())):
             raise ValueError(f"Username {data.username!r} is taken")
     except (ValidationError, ValueError) as exc:
-        return render(
+        return render_form(
             request,
             "admin/user_form.html",
             user,
@@ -86,7 +86,7 @@ async def create_user(
     )
     await session.commit()
     flash(request, f"User {data.username} created")
-    return redirect("/admin/users")
+    return done(request, "/admin/users")
 
 
 async def _get_user(session: AsyncSession, user_id: int) -> User:
@@ -110,7 +110,7 @@ async def edit_user(
         "role": target.role,
         "active": target.active,
     }
-    return render(
+    return render_form(
         request, "admin/user_form.html", user, target=target, values=values, errors=[], roles=list(UserRole)
     )
 
@@ -136,7 +136,7 @@ async def update_user(
         if data.password and not target.is_local:
             raise ValueError("Passwords of external users are managed by their identity provider")
     except (ValidationError, ValueError) as exc:
-        return render(
+        return render_form(
             request,
             "admin/user_form.html",
             user,
@@ -152,7 +152,7 @@ async def update_user(
         target.password_hash = passwords.hash_password(data.password)
     await session.commit()
     flash(request, "User saved")
-    return redirect("/admin/users")
+    return done(request, "/admin/users")
 
 
 @router.post("/users/{user_id}/delete")

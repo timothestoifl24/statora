@@ -3,7 +3,7 @@
 {% block title %}Maintenance{% endblock %}
 {% block actions %}
   {% if user.role in ('admin', 'editor') %}
-    <a href="/admin/maintenance/new" class="btn btn-primary"><i class="fa-regular fa-calendar-plus me-1"></i>Schedule maintenance</a>
+    <a href="/admin/maintenance/new" class="btn btn-primary" data-modal><i class="fa-regular fa-calendar-plus me-1"></i>Schedule maintenance</a>
   {% endif %}
 {% endblock %}
 {% block content %}
@@ -27,7 +27,7 @@
           <td class="small">{{ ticket_ref(m.change_number, m.change_url) }}</td>
           <td class="text-end">
             {% if user.role in ('admin', 'editor') %}
-            <a href="/admin/maintenance/{{ m.id }}/edit" class="btn btn-sm">Edit</a>
+            <a href="/admin/maintenance/{{ m.id }}/edit" class="btn btn-sm" data-modal>Edit</a>
             {% endif %}
           </td>
         </tr>

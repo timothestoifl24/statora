@@ -33,7 +33,7 @@
         <span class="tabular">{{ row.uptime_24h|pct }} · 24h</span>
         {% if problem and can_edit %}
           <span class="tile-actions">
-            <a href="/admin/incidents/new" class="btn btn-sm"><i class="fa-solid fa-triangle-exclamation me-1"></i>Incident</a>
+            <a href="/admin/incidents/new" class="btn btn-sm" data-modal><i class="fa-solid fa-triangle-exclamation me-1"></i>Incident</a>
             <form method="post" action="/admin/monitors/{{ m.id }}/toggle" class="d-inline">
               {{ csrf_input(request) }}
               <input type="hidden" name="next" value="/admin">

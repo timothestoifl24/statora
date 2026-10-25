@@ -13,7 +13,18 @@ from statora.services import crud
 from statora.services.monitoring import monitors_in_maintenance, uptime_days, uptime_since
 from statora.web.deps import current_user, get_session, local_path, not_found, ui_role
 
-from .common import checkbox, error_messages, flash, int_list, opt, redirect, render, rollback
+from .common import (
+    checkbox,
+    done,
+    error_messages,
+    flash,
+    int_list,
+    opt,
+    redirect,
+    render,
+    render_form,
+    rollback,
+)
 
 router = APIRouter()
 editor = ui_role(UserRole.EDITOR)
@@ -130,6 +141,8 @@ async def _form_context(
     return {
         "monitor": monitor,
         "values": values,
+        "form_action": f"/admin/monitors/{monitor.id}/edit" if monitor else "/admin/monitors/new",
+        "cancel_url": f"/admin/monitors/{monitor.id}" if monitor else "/admin",
         "errors": errors or [],
         "types": list(MonitorType),
         "member_choices": await _member_choices(session, monitor.id if monitor else None),
@@ -180,7 +193,7 @@ def _values_from_form(form) -> dict:
 async def new_monitor(
     request: Request, user: User = Depends(editor), session: AsyncSession = Depends(get_session)
 ):
-    return render(request, "admin/monitor_form.html", user, **await _form_context(session, None))
+    return render_form(request, "admin/monitor_form.html", user, **await _form_context(session, None))
 
 
 @router.get("/monitors/{monitor_id}/clone")
@@ -193,7 +206,7 @@ async def clone_monitor(
     """The new-monitor form, prefilled from an existing monitor. Nothing is saved until it's submitted."""
     source = await _get(session, monitor_id)
     values = _monitor_values(source) | {"name": f"{source.name} (copy)"[:150], "active": True}
-    return render(
+    return render_form(
         request,
         "admin/monitor_form.html",
         user,
@@ -237,7 +250,7 @@ async def create_monitor(
         monitor = await crud.create_monitor(session, MonitorCreate.model_validate(values))
     except (ValidationError, ValueError) as exc:
         values.setdefault("config", {})
-        return render(
+        return render_form(
             request,
             "admin/monitor_form.html",
             user,
@@ -248,7 +261,7 @@ async def create_monitor(
     await session.commit()
     await crud.notify_monitor_changed(monitor.id)
     flash(request, f"Monitor “{monitor.name}” created")
-    return redirect(f"/admin/monitors/{monitor.id}")
+    return done(request, f"/admin/monitors/{monitor.id}")
 
 
 async def _get(session: AsyncSession, monitor_id: int) -> Monitor:
@@ -321,7 +334,7 @@ async def edit_monitor(
     user: User = Depends(editor),
     session: AsyncSession = Depends(get_session),
 ):
-    return render(
+    return render_form(
         request,
         "admin/monitor_form.html",
         user,
@@ -347,7 +360,7 @@ async def update_monitor(
     except (ValidationError, ValueError) as exc:
         await rollback(session, user, monitor)
         values.setdefault("config", {})
-        return render(
+        return render_form(
             request,
             "admin/monitor_form.html",
             user,
@@ -357,7 +370,7 @@ async def update_monitor(
     await session.commit()
     await crud.notify_monitor_changed(monitor.id)
     flash(request, "Monitor saved")
-    return redirect(f"/admin/monitors/{monitor.id}")
+    return done(request, f"/admin/monitors/{monitor.id}")
 
 
 @router.post("/monitors/{monitor_id}/toggle")

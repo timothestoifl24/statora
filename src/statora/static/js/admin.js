@@ -105,15 +105,34 @@ document.addEventListener("click", function (event) {
   apply();
 })();
 
-// Status page settings modal: HTMX loads the form into #page-modal-content, then we show it.
+// Create/edit forms in the shared modal (admin/base.html). Links with data-modal load their form
+// into it; the href stays a normal page for new tabs and for browsers without JavaScript.
+document.addEventListener("click", function (event) {
+  var link = event.target.closest("a[data-modal]");
+  if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  event.preventDefault();
+  window.htmx.ajax("GET", link.getAttribute("href"), { target: "#app-modal-content", swap: "innerHTML" });
+});
+// A full page instead of a form fragment (e.g. the login page after the session expired): go there.
+document.body.addEventListener("htmx:beforeSwap", function (event) {
+  var id = event.detail.target.id;
+  if ((id === "app-modal-content" || id === "app-modal-form") && /<html[\s>]/i.test(event.detail.serverResponse || "")) {
+    event.detail.shouldSwap = false;
+    window.location.href = event.detail.xhr.responseURL || event.detail.pathInfo.requestPath;
+  }
+});
 document.body.addEventListener("htmx:afterSwap", function (event) {
-  if (event.detail.target.id !== "page-modal-content") return;
-  var modal = document.getElementById("page-modal");
+  if (event.detail.target.id !== "app-modal-content") return;
+  var modal = document.getElementById("app-modal");
   var Modal = (window.tabler || window.bootstrap).Modal; // Tabler bundles Bootstrap's components
   Modal.getOrCreateInstance(modal).show();
   modal.addEventListener("shown.bs.modal", function () {
-    modal.querySelector("input:not([type=hidden])")?.focus();
+    modal.querySelector(".modal-body input:not([type=hidden]):not([disabled]), .modal-body select, .modal-body textarea")?.focus();
   }, { once: true });
+});
+// Don't let a half-filled form linger: clear the modal when it closes.
+document.getElementById("app-modal")?.addEventListener("hidden.bs.modal", function () {
+  document.getElementById("app-modal-content").replaceChildren();
 });
 
 // New page: fill the slug from the title until the slug is edited by hand.

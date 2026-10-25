@@ -1,0 +1,39 @@
+{# Shared create/edit form. Opened from a list it renders into the modal in admin/base.html
+   (`modal` is set by web/admin/common.py:render_form); opened directly, or without JavaScript,
+   it is a normal page. Child templates fill: title, form_body, submit, and optionally
+   form_actions (page header buttons) and modal_actions (extra modal footer buttons, left side). #}
+{% extends "admin/_modal_root.html" if modal else "admin/base.html" %}
+{% block content %}
+{% set action = self.form_action()|trim %}
+<form method="post" action="{{ action }}" id="{{ 'app-modal-form' if modal else 'admin-form' }}"
+      {% if modal %}hx-post="{{ action }}" hx-target="this" hx-swap="outerHTML"{% endif %}
+      class="{{ 'admin-modal-form' if modal else 'card admin-form-card' }}" autocomplete="off">
+  {{ csrf_input(request) }}
+  {% if modal %}
+  <div class="modal-header">
+    <h5 class="modal-title">{{ self.title() }}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  </div>
+  {% endif %}
+  <div class="{{ 'modal-body' if modal else 'card-body' }}">
+    {# The page layout lists errors itself; the modal has no layout around it. #}
+    {% if modal and errors %}
+      <div class="alert alert-danger" role="alert">
+        <ul class="mb-0">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      </div>
+    {% endif %}
+    {% block form_body %}{% endblock %}
+  </div>
+  <div class="{{ 'modal-footer' if modal else 'card-footer' }} d-flex align-items-center gap-2">
+    {% if modal %}{% block modal_actions %}{% endblock %}{% endif %}
+    <a href="{{ self.cancel_url()|trim }}" class="btn btn-link link-secondary {{ '' if modal else 'me-auto' }}" {% if modal %}data-bs-dismiss="modal"{% endif %}>Cancel</a>
+    {% if modal %}<span class="me-auto"></span>{% endif %}
+    {% block submit %}{% endblock %}
+  </div>
+</form>
+{% block after_form %}{% endblock %}
+{% endblock %}
+{# Children override these blocks or pass form_action / cancel_url from the view. #}
+{% block form_action %}{{ form_action }}{% endblock %}
+{% block cancel_url %}{{ cancel_url }}{% endblock %}
+{% block actions %}{% block form_actions %}{% endblock %}{% endblock %}

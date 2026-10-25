@@ -117,6 +117,12 @@
     </footer>
   </div>
 </div>
+{# Shared modal for create/edit forms: links with data-modal load their form into it (admin.js). #}
+<div class="modal modal-blur fade" id="app-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content" id="app-modal-content"></div>
+  </div>
+</div>
 <script src="{{ asset('vendor/tabler.min.js') }}" defer></script>
 <script src="{{ asset('vendor/htmx.min.js') }}" defer></script>
 <script src="{{ asset('js/admin.js') }}" defer></script>

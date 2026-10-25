@@ -4,7 +4,7 @@
 {% block title %}Incidents{% endblock %}
 {% block actions %}
   {% if user.role in ('admin', 'editor') %}
-    <a href="/admin/incidents/new" class="btn btn-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i>Report incident</a>
+    <a href="/admin/incidents/new" class="btn btn-danger" data-modal><i class="fa-solid fa-triangle-exclamation me-1"></i>Report incident</a>
   {% endif %}
 {% endblock %}
 {% block content %}

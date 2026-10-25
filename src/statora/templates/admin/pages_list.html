@@ -6,8 +6,7 @@
 {% block title %}Status pages{% endblock %}
 {% block actions %}
   {% if can_edit %}
-    {# Opens the settings modal; the href is the no-JavaScript fallback. #}
-    <a href="/admin/pages/new" class="btn btn-primary" hx-get="/admin/pages/new" hx-target="#page-modal-content" hx-push-url="false">
+    <a href="/admin/pages/new" class="btn btn-primary" data-modal>
       <i class="fa-solid fa-plus me-1"></i>New status page
     </a>
   {% endif %}
@@ -63,7 +62,7 @@
       {% if can_edit %}
       <div class="card-footer page-card-actions">
         <a href="/admin/pages/{{ page.id }}/edit" class="btn btn-primary"><i class="fa-solid fa-layer-group me-1"></i>Components</a>
-        <a href="/admin/pages/{{ page.id }}/settings" class="btn" hx-get="/admin/pages/{{ page.id }}/settings" hx-target="#page-modal-content">
+        <a href="/admin/pages/{{ page.id }}/settings" class="btn" data-modal>
           <i class="fa-solid fa-sliders me-1"></i>Settings
         </a>
       </div>
@@ -78,11 +77,10 @@
   <p class="empty-subtitle text-secondary">Group monitors into components and publish them on a public page.</p>
   {% if can_edit %}
   <div class="empty-action">
-    <a href="/admin/pages/new" class="btn btn-primary" hx-get="/admin/pages/new" hx-target="#page-modal-content"><i class="fa-solid fa-plus me-1"></i>Create status page</a>
+    <a href="/admin/pages/new" class="btn btn-primary" data-modal><i class="fa-solid fa-plus me-1"></i>Create status page</a>
   </div>
   {% endif %}
 </div></div>
 {% endif %}
 
-{% include "admin/_page_modal.html" %}
 {% endblock %}

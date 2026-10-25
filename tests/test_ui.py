@@ -578,7 +578,7 @@ async def test_status_page_settings_modal_flow(client, auth):
     ).json()
     await client.post("/api/v1/status-pages", json={"slug": "taken", "title": "Taken"}, headers=auth)
     await login(client)
-    hx = {"HX-Request": "true"}
+    hx = {"HX-Request": "true", "HX-Target": "app-modal-form"}  # what htmx sends from the modal
 
     fragment = await client.get("/admin/pages/new", headers=hx)
     assert "<html" not in fragment.text and 'hx-post="/admin/pages/new"' in fragment.text
@@ -617,7 +617,10 @@ async def test_status_page_settings_modal_flow(client, auth):
     assert page["title"] == "Shop status" and page["accent_color"] == "#123456" and page["groups"] == []
 
     listing = (await client.get("/admin/pages")).text
-    assert 'hx-get="/admin/pages/new"' in listing and 'id="page-modal"' in listing
+    assert (
+        'href="/admin/pages/new" class="btn btn-primary" data-modal' in listing
+        and 'id="app-modal"' in listing
+    )
     # The "next" target can't leave the status pages section.
     escaped = await client.post(
         f"/admin/pages/{page_id}/settings", data={**form, "slug": "shop", "next": "https://evil.example"}
@@ -673,3 +676,85 @@ async def test_monitor_icon_and_link(client, auth):
     assert f'src="/media/{ref[6:]}"' in dashboard
     form = (await client.get(f"/admin/monitors/{monitor['id']}/edit")).text
     assert f'name="icon" value="{ref}"' in form and "data-allow-fa" in form
+
+
+async def test_create_and_edit_forms_open_in_the_modal(client, auth):
+    page = (await client.post("/api/v1/status-pages", json={"slug": "m", "title": "M"}, headers=auth)).json()
+    monitor = (
+        await client.post(
+            "/api/v1/monitors",
+            json={"name": "Shop", "type": "http", "target": "https://s.example"},
+            headers=auth,
+        )
+    ).json()
+    await login(client)
+    token = csrf_from((await client.get("/admin")).text)
+    load = {"HX-Request": "true", "HX-Target": "app-modal-content"}
+    submit = {"HX-Request": "true", "HX-Target": "app-modal-form"}
+
+    forms = [
+        "/admin/monitors/new",
+        f"/admin/monitors/{monitor['id']}/edit",
+        f"/admin/monitors/{monitor['id']}/clone",
+        "/admin/incidents/new",
+        "/admin/maintenance/new",
+        "/admin/users/new",
+        f"/admin/pages/{page['id']}/settings",
+    ]
+    for url in forms:
+        fragment = await client.get(url, headers=load)
+        assert fragment.status_code == 200 and "<html" not in fragment.text, url
+        assert 'id="app-modal-form"' in fragment.text and 'class="modal-header"' in fragment.text, url
+        full = await client.get(url)  # direct links and browsers without JavaScript get a page
+        assert "<html" in full.text and 'id="admin-form"' in full.text, url
+        # Other HTMX requests (like the dashboard refresh) never get the modal fragment.
+        assert (
+            "<html" in (await client.get(url, headers={"HX-Request": "true", "HX-Target": "content"})).text
+        ), url
+
+    invalid = await client.post(
+        "/admin/maintenance/new",
+        data={"csrf_token": token, "title": "DB", "starts_at": "", "ends_at": ""},
+        headers=submit,
+    )
+    assert (
+        invalid.status_code == 200 and "alert-danger" in invalid.text and "HX-Redirect" not in invalid.headers
+    )
+
+    created = await client.post(
+        "/admin/incidents/new",
+        data={
+            "csrf_token": token,
+            "page_id": page["id"],
+            "title": "Down",
+            "impact": "minor",
+            "status": "investigating",
+            "message": "Hm",
+        },
+        headers=submit,
+    )
+    assert re.fullmatch(r"/admin/incidents/\d+", created.headers["HX-Redirect"])
+
+    user = await client.post(
+        "/admin/users/new",
+        data={
+            "csrf_token": token,
+            "username": "dana",
+            "password": "password123",
+            "role": "viewer",
+            "active": "on",
+        },
+        headers=submit,
+    )
+    assert user.headers["HX-Redirect"] == "/admin/users"
+    users = (await client.get("/admin/users")).text
+    assert 'href="/admin/users/new" class="btn btn-primary" data-modal' in users
+    dana = next(
+        u
+        for u in (await client.get("/api/v1/users", headers=auth)).json()["items"]
+        if u["username"] == "dana"
+    )
+    assert f'href="/admin/users/{dana["id"]}/edit" class="btn btn-sm" data-modal' in users
+    edit = (await client.get(f"/admin/users/{dana['id']}/edit", headers=load)).text
+    # You can't delete yourself, so check the delete button on another user.
+    assert 'form="modal-delete-form"' in edit and 'id="modal-delete-form"' in edit

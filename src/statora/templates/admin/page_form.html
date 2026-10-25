@@ -2,8 +2,7 @@
 {% block title %}{{ page.title }}{% endblock %}
 {% block pretitle %}<div class="page-pretitle"><a href="/admin/pages" class="text-reset">Status pages</a> · Components</div>{% endblock %}
 {% block actions %}
-  <a href="/admin/pages/{{ page.id }}/settings?next=/admin/pages/{{ page.id }}/edit" class="btn"
-     hx-get="/admin/pages/{{ page.id }}/settings?next=/admin/pages/{{ page.id }}/edit" hx-target="#page-modal-content">
+  <a href="/admin/pages/{{ page.id }}/settings?next=/admin/pages/{{ page.id }}/edit" class="btn" data-modal>
     <i class="fa-solid fa-sliders me-1"></i>Settings
   </a>
   <a href="/s/{{ page.slug }}" target="_blank" rel="noopener" class="btn">
@@ -36,7 +35,6 @@
     </div>
   </div>
 </form>
-{% include "admin/_page_modal.html" %}
 
 <template id="group-template">
   <div class="card group-card mb-3">

@@ -9,7 +9,7 @@
     <a href="/admin?kiosk=1" class="btn btn-icon" title="Wallboard (full screen tiles)" aria-label="Wallboard"><i class="fa-solid fa-tv"></i></a>
   </div>
   {% if user.role in ('admin', 'editor') %}
-    <a href="/admin/monitors/new" class="btn btn-primary" data-shortcut="n"><i class="fa-solid fa-plus me-1"></i>New monitor</a>
+    <a href="/admin/monitors/new" class="btn btn-primary" data-shortcut="n" data-modal><i class="fa-solid fa-plus me-1"></i>New monitor</a>
   {% endif %}
 {% endblock %}
 {% block content %}
