@@ -3,7 +3,7 @@
 {% block title %}Maintenance{% endblock %}
 {% block actions %}
   {% if user.role in ('admin', 'editor') %}
-    <a href="/admin/maintenance/new" class="btn btn-primary"><i class="ti ti-calendar-plus me-1"></i>Schedule maintenance</a>
+    <a href="/admin/maintenance/new" class="btn btn-primary"><i class="fa-regular fa-calendar-plus me-1"></i>Schedule maintenance</a>
   {% endif %}
 {% endblock %}
 {% block content %}
@@ -37,7 +37,7 @@
   </div>
   {% else %}
   <div class="empty">
-    <div class="empty-icon"><i class="ti ti-tool fs-1"></i></div>
+    <div class="empty-icon"><i class="fa-solid fa-screwdriver-wrench fs-1"></i></div>
     <p class="empty-title">No maintenance windows</p>
     <p class="empty-subtitle text-secondary">During maintenance, affected monitors show as “under maintenance” and don't count as downtime.</p>
   </div>

@@ -7,12 +7,12 @@
   <div class="btn-list">
     <button class="btn" hx-post="/admin/settings/auth/{{ provider.id }}/test" hx-target="#test-result" hx-indicator="#test-spinner">
       <span id="test-spinner" class="spinner-border spinner-border-sm me-2 htmx-indicator" role="status"></span>
-      <i class="ti ti-plug-connected me-1"></i>Test connection
+      <i class="fa-solid fa-plug-circle-check me-1"></i>Test connection
     </button>
     <form method="post" action="/admin/settings/auth/{{ provider.id }}/delete" class="d-inline"
           data-confirm="Delete provider “{{ provider.name }}”? Its users stay but can no longer sign in.">
       {{ csrf_input(request) }}
-      <button class="btn btn-outline-danger" type="submit" aria-label="Delete"><i class="ti ti-trash"></i></button>
+      <button class="btn btn-outline-danger" type="submit" aria-label="Delete"><i class="fa-regular fa-trash-can"></i></button>
     </form>
   </div>
   {% endif %}
@@ -107,21 +107,21 @@
             <label class="form-label">Redirect / callback URL</label>
             <div class="input-group mb-2">
               <input class="form-control font-monospace-sm" id="oidc-callback" value="{{ oidc_callback }}" readonly>
-              <button class="btn" type="button" data-copy="#oidc-callback"><i class="ti ti-copy"></i></button>
+              <button class="btn" type="button" data-copy="#oidc-callback"><i class="fa-regular fa-copy"></i></button>
             </div>
           {% endif %}
           {% if saml_urls %}
             <label class="form-label">ACS URL</label>
             <div class="input-group mb-2">
               <input class="form-control font-monospace-sm" id="saml-acs" value="{{ saml_urls.acs }}" readonly>
-              <button class="btn" type="button" data-copy="#saml-acs"><i class="ti ti-copy"></i></button>
+              <button class="btn" type="button" data-copy="#saml-acs"><i class="fa-regular fa-copy"></i></button>
             </div>
             <label class="form-label">SP entity ID / metadata</label>
             <div class="input-group mb-2">
               <input class="form-control font-monospace-sm" id="saml-meta" value="{{ saml_urls.metadata }}" readonly>
-              <button class="btn" type="button" data-copy="#saml-meta"><i class="ti ti-copy"></i></button>
+              <button class="btn" type="button" data-copy="#saml-meta"><i class="fa-regular fa-copy"></i></button>
             </div>
-            <a href="{{ saml_urls.metadata }}" class="btn btn-sm" target="_blank" rel="noopener"><i class="ti ti-download me-1"></i>Download SP metadata</a>
+            <a href="{{ saml_urls.metadata }}" class="btn btn-sm" target="_blank" rel="noopener"><i class="fa-solid fa-download me-1"></i>Download SP metadata</a>
           {% endif %}
         </div>
       </div>

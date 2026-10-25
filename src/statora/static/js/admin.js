@@ -20,7 +20,7 @@ document.addEventListener("click", function (event) {
   if (!el) return;
   navigator.clipboard.writeText(el.value || el.textContent.trim()).then(function () {
     var label = button.innerHTML;
-    button.innerHTML = '<i class="ti ti-check"></i> Copied';
+    button.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
     setTimeout(function () { button.innerHTML = label; }, 1500);
   });
 });

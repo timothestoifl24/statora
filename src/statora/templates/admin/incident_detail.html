@@ -7,7 +7,7 @@
   {% if user.role in ('admin', 'editor') %}
   <form method="post" action="/admin/incidents/{{ incident.id }}/delete" data-confirm="Delete this incident permanently?">
     {{ csrf_input(request) }}
-    <button class="btn btn-outline-danger" type="submit"><i class="ti ti-trash me-1"></i>Delete</button>
+    <button class="btn btn-outline-danger" type="submit"><i class="fa-regular fa-trash-can me-1"></i>Delete</button>
   </form>
   {% endif %}
 {% endblock %}
@@ -36,7 +36,7 @@
       {{ csrf_input(request) }}
       <input type="hidden" name="status" value="investigating">
       <input type="hidden" name="body" value="We are investigating this issue again.">
-      <div><i class="ti ti-circle-check me-1"></i>Resolved {{ incident.resolved_at|dt }}</div>
+      <div><i class="fa-regular fa-circle-check me-1"></i>Resolved {{ incident.resolved_at|dt }}</div>
       <button type="submit" class="btn btn-sm ms-auto">Reopen</button>
     </form>
     {% endif %}
@@ -48,7 +48,7 @@
           {% for u in incident.updates %}
             <li class="timeline-event">
               <div class="timeline-event-icon bg-{{ 'success' if u.status == 'resolved' else 'warning' }}-lt">
-                <i class="ti ti-{{ 'check' if u.status == 'resolved' else 'message' }}"></i>
+                <i class="fa-{{ 'solid fa-check' if u.status == 'resolved' else 'regular fa-message' }}"></i>
               </div>
               <div class="card timeline-event-card">
                 <div class="card-body">
@@ -76,7 +76,7 @@
           <dt class="col-5">Ticket</dt>
           <dd class="col-7">{{ ticket_ref(incident.ticket_number, incident.ticket_url) }}</dd>
         </dl>
-        {% if page %}<a href="/s/{{ page.slug }}" target="_blank" rel="noopener" class="btn btn-sm w-100 mt-3">View public page <i class="ti ti-external-link ms-1"></i></a>{% endif %}
+        {% if page %}<a href="/s/{{ page.slug }}" target="_blank" rel="noopener" class="btn btn-sm w-100 mt-3">View public page <i class="fa-solid fa-arrow-up-right-from-square ms-1"></i></a>{% endif %}
       </div>
     </div>
 

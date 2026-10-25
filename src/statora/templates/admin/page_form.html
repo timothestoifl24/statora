@@ -17,7 +17,7 @@
           {% if page %}
           <div class="card-actions">
             <a href="/s/{{ page.slug }}" target="_blank" rel="noopener" class="btn btn-sm btn-primary">
-              <i class="ti ti-external-link me-1"></i>View status page
+              <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>View status page
             </a>
           </div>
           {% endif %}
@@ -81,7 +81,7 @@
         <div class="card-header">
           <h3 class="card-title">Components</h3>
           <div class="card-actions">
-            <button type="button" class="btn btn-sm" id="add-group"><i class="ti ti-plus me-1"></i>Add group</button>
+            <button type="button" class="btn btn-sm" id="add-group"><i class="fa-solid fa-plus me-1"></i>Add group</button>
           </div>
         </div>
         <div class="card-body" id="groups"></div>
@@ -98,11 +98,11 @@
   <div class="card group-card mb-3">
     <div class="card-body">
       <div class="d-flex gap-2 mb-2">
-        <span class="btn btn-icon btn-ghost-secondary drag-handle" title="Drag to reorder" aria-hidden="true"><i class="ti ti-grip-vertical"></i></span>
+        <span class="btn btn-icon btn-ghost-secondary drag-handle" title="Drag to reorder" aria-hidden="true"><i class="fa-solid fa-grip-vertical"></i></span>
         <input class="form-control group-name" placeholder="Group name, e.g. Websites" required>
-        <button type="button" class="btn btn-icon move-up" title="Move up" aria-label="Move group up"><i class="ti ti-arrow-up"></i></button>
-        <button type="button" class="btn btn-icon move-down" title="Move down" aria-label="Move group down"><i class="ti ti-arrow-down"></i></button>
-        <button type="button" class="btn btn-icon btn-ghost-danger remove" title="Remove group" aria-label="Remove group"><i class="ti ti-trash"></i></button>
+        <button type="button" class="btn btn-icon move-up" title="Move up" aria-label="Move group up"><i class="fa-solid fa-arrow-up"></i></button>
+        <button type="button" class="btn btn-icon move-down" title="Move down" aria-label="Move group down"><i class="fa-solid fa-arrow-down"></i></button>
+        <button type="button" class="btn btn-icon btn-ghost-danger remove" title="Remove group" aria-label="Remove group"><i class="fa-regular fa-trash-can"></i></button>
       </div>
       <div class="list-group list-group-flush items mb-2"></div>
       <select class="form-select form-select-sm add-item"><option value="">+ Add monitor…</option></select>
@@ -112,13 +112,13 @@
 <template id="item-template">
   <div class="list-group-item px-0 group-item">
     <div class="d-flex gap-2 align-items-center">
-      <span class="text-secondary drag-handle flex-shrink-0" title="Drag to reorder or into another group" aria-hidden="true"><i class="ti ti-grip-vertical"></i></span>
+      <span class="text-secondary drag-handle flex-shrink-0" title="Drag to reorder or into another group" aria-hidden="true"><i class="fa-solid fa-grip-vertical"></i></span>
       <span class="badge badge-outline text-secondary item-type flex-shrink-0"></span>
       <input class="form-control form-control-sm item-label" placeholder="Public name (optional)">
       <span class="text-secondary small text-nowrap item-monitor"></span>
-      <button type="button" class="btn btn-sm btn-icon btn-ghost-secondary item-up" aria-label="Move up"><i class="ti ti-chevron-up"></i></button>
-      <button type="button" class="btn btn-sm btn-icon btn-ghost-secondary item-down" aria-label="Move down"><i class="ti ti-chevron-down"></i></button>
-      <button type="button" class="btn btn-sm btn-icon btn-ghost-danger item-remove" aria-label="Remove"><i class="ti ti-x"></i></button>
+      <button type="button" class="btn btn-sm btn-icon btn-ghost-secondary item-up" aria-label="Move up"><i class="fa-solid fa-chevron-up"></i></button>
+      <button type="button" class="btn btn-sm btn-icon btn-ghost-secondary item-down" aria-label="Move down"><i class="fa-solid fa-chevron-down"></i></button>
+      <button type="button" class="btn btn-sm btn-icon btn-ghost-danger item-remove" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>
     </div>
   </div>
 </template>

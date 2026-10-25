@@ -4,7 +4,7 @@
   {% if item %}
   <form method="post" action="/admin/maintenance/{{ item.id }}/delete" data-confirm="Delete this maintenance window?">
     {{ csrf_input(request) }}
-    <button class="btn btn-outline-danger" type="submit"><i class="ti ti-trash me-1"></i>Delete</button>
+    <button class="btn btn-outline-danger" type="submit"><i class="fa-regular fa-trash-can me-1"></i>Delete</button>
   </form>
   {% endif %}
 {% endblock %}

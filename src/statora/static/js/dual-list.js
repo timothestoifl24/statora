@@ -39,8 +39,8 @@
     if (select.dataset.dualReady) return;
     select.dataset.dualReady = "1";
     var noun = select.dataset.noun || "items";
-    var left = buildPane(select.dataset.availableLabel || "Available", "Add all", "All " + noun + " selected.", "ti-plus");
-    var right = buildPane(select.dataset.selectedLabel || "Selected", "Remove all", "Nothing selected yet.", "ti-x");
+    var left = buildPane(select.dataset.availableLabel || "Available", "Add all", "All " + noun + " selected.", "fa-solid fa-plus");
+    var right = buildPane(select.dataset.selectedLabel || "Selected", "Remove all", "Nothing selected yet.", "fa-solid fa-xmark");
     var wrapper = el("div", "dual-list");
     wrapper.append(left.pane, right.pane);
     select.hidden = true;
@@ -67,7 +67,7 @@
         var item = el("button", "list-group-item list-group-item-action dual-item");
         item.type = "button";
         item.title = (selected ? "Remove " : "Add ") + option.text;
-        item.append(el("span", "text-truncate", option.text), el("i", "ti " + side.icon + " ms-auto"));
+        item.append(el("span", "text-truncate", option.text), el("i", side.icon + " ms-auto"));
         item.addEventListener("click", function () {
           option.selected = !selected;
           render();

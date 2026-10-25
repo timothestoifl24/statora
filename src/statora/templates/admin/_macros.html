@@ -20,7 +20,7 @@
 {# ITSM ticket reference: number linked to the URL when both exist. #}
 {% macro ticket_ref(number, url) -%}
   {%- if url -%}
-    <a href="{{ url }}" target="_blank" rel="noopener noreferrer" class="text-nowrap">{{ number or 'Open ticket' }} <i class="ti ti-external-link"></i></a>
+    <a href="{{ url }}" target="_blank" rel="noopener noreferrer" class="text-nowrap">{{ number or 'Open ticket' }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
   {%- elif number -%}
     <span class="font-monospace-sm">{{ number }}</span>
   {%- else -%}

@@ -1,7 +1,7 @@
 {% extends "admin/base.html" %}
 {% block title %}API tokens{% endblock %}
 {% block pretitle %}<div class="page-pretitle">Profile · {{ user.username }}</div>{% endblock %}
-{% block actions %}<a href="/api/docs" class="btn" target="_blank" rel="noopener"><i class="ti ti-api me-1"></i>Open API docs</a>{% endblock %}
+{% block actions %}<a href="/api/docs" class="btn" target="_blank" rel="noopener"><i class="fa-solid fa-code me-1"></i>Open API docs</a>{% endblock %}
 {% block content %}
 {% if new_token %}
 <div class="alert alert-success">
@@ -9,7 +9,7 @@
   <p class="mb-2">Copy it now; it won't be shown again.</p>
   <div class="input-group">
     <input class="form-control font-monospace" id="new-token" value="{{ new_token }}" readonly>
-    <button class="btn" type="button" data-copy="#new-token"><i class="ti ti-copy me-1"></i>Copy</button>
+    <button class="btn" type="button" data-copy="#new-token"><i class="fa-regular fa-copy me-1"></i>Copy</button>
   </div>
 </div>
 {% endif %}
