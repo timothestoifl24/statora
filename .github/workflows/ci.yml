@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.0  # setup-uv publishes exact version tags only
+      - uses: astral-sh/setup-uv@v10.3.1  # setup-uv publishes exact version tags only
         with:
           python-version: "3.15"
           enable-cache: true
@@ -84,7 +84,7 @@ jobs:
       STATORA_TEST_MSSQL_URL: mssql://sa:Statora-ci-1@localhost:1433
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.0  # setup-uv publishes exact version tags only
+      - uses: astral-sh/setup-uv@v10.3.1  # setup-uv publishes exact version tags only
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
