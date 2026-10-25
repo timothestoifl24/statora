@@ -247,6 +247,10 @@ jobs:
     needs: [version, publish]
     if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-24.04
+    # Records a GitHub deployment per release, which GitHub for Jira links to the shipped issues.
+    environment:
+      name: ${{ needs.version.outputs.channel == 'stable' && 'production' || 'beta' }}
+      url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.version.outputs.tag }}
     permissions:
       contents: write
     env:
