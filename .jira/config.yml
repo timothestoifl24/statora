@@ -1,0 +1,8 @@
+# Read by the GitHub for Jira app. The release job in .github/workflows/docker.yml deploys to
+# "beta" (develop) or "production" (main); Jira doesn't recognise "beta" by name, so map it here.
+deployments:
+  environmentMapping:
+    testing:
+      - "beta"
+    production:
+      - "production"
