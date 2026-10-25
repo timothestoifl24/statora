@@ -1,6 +1,8 @@
 import re
+from datetime import timedelta
 
 from statora.auth import crypto
+from statora.db.base import utcnow
 from statora.db.models import Monitor, UserRole
 
 from .conftest import make_user, needs_services
@@ -414,3 +416,37 @@ async def test_sidebar_shows_open_incident_count(client, auth):
         headers=auth,
     )
     assert (await client.get("/admin/incidents/open-count")).text == ""
+
+
+async def test_dashboard_lists_problems_first(client, auth, session):
+    ids = {}
+    for name in ("Alpha", "Bravo", "Charlie", "Delta"):
+        created = await client.post(
+            "/api/v1/monitors",
+            json={"name": name, "type": "http", "target": f"https://{name}.example"},
+            headers=auth,
+        )
+        ids[name] = created.json()["id"]
+    statuses = {
+        "Alpha": ("up", True),
+        "Bravo": ("down", True),
+        "Charlie": ("degraded", True),
+        "Delta": ("down", False),
+    }
+    for name, (status, active) in statuses.items():
+        monitor = await session.get(Monitor, ids[name])
+        monitor.status, monitor.active, monitor.status_changed_at = (
+            status,
+            active,
+            utcnow() - timedelta(minutes=90),
+        )
+    await session.commit()
+
+    await login(client)
+    partial = (await client.get("/admin", headers={"HX-Request": "true"})).text
+    order = re.findall(r'data-name="(\w+) https', partial)
+    assert order == ["bravo", "charlie", "alpha", "delta"]  # down, degraded, up, then paused
+    assert "1 of 3 up" in partial and "2 need attention" in partial
+    assert "Down for 1h 30m" in partial and 'data-status="paused"' in partial
+    assert 'id="monitor-search"' not in partial  # the toolbar stays outside the refreshed block
+    assert 'id="monitor-search"' in (await client.get("/admin")).text

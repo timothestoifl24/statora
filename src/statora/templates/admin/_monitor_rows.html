@@ -1,43 +1,41 @@
 {% from "admin/_macros.html" import monitor_target %}
 {% set status_colors = {'up': 'success', 'down': 'danger', 'degraded': 'warning', 'pending': 'secondary', 'maintenance': 'info'} %}
 {% set can_edit = user.role in ('admin', 'editor') %}
-<div class="row row-deck row-cards mb-3">
-  {% for key, label, color, icon in [('up', 'Up', 'success', 'circle-check'), ('down', 'Down', 'danger', 'circle-xmark'),
-                                     ('degraded', 'Degraded', 'warning', 'circle-exclamation'),
-                                     ('maintenance', 'Maintenance', 'info', 'screwdriver-wrench'), ('paused', 'Paused', 'secondary', 'pause')] %}
-    <div class="col-6 col-md">
-      <div class="card card-sm">
-        <div class="card-body d-flex align-items-center">
-          <span class="bg-{{ color }} text-white avatar me-3"><i class="fa-solid fa-{{ icon }}"></i></span>
-          <div>
-            <div class="h2 mb-0">{{ counts[key] }}</div>
-            <div class="text-secondary">{{ label }}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  {% endfor %}
-</div>
+{% include "admin/_health_summary.html" %}
 
 <div class="card">
   {% if rows %}
   <div class="table-responsive">
-    <table class="table table-vcenter card-table">
+    <table class="table table-vcenter card-table monitor-table">
       <thead>
-        <tr><th>Monitor</th><th class="d-none d-lg-table-cell">Last 30 checks</th><th>24h uptime</th><th>Latency</th><th>Checked</th>{% if can_edit %}<th class="w-1"><span class="visually-hidden">Options</span></th>{% endif %}</tr>
+        <tr><th>Monitor</th><th class="d-none d-lg-table-cell">Last 30 checks</th><th>24h uptime</th><th>Latency</th><th class="d-none d-md-table-cell">Checked</th>{% if can_edit %}<th class="w-1"><span class="visually-hidden">Options</span></th>{% endif %}</tr>
       </thead>
       <tbody>
       {% for row in rows %}
         {% set m = row.monitor %}
-        <tr>
+        {% set state = m.status if m.active else 'paused' %}
+        <tr class="monitor-row{% if state in ('down', 'degraded') %} is-{{ state }}{% endif %}"
+            data-status="{{ state }}" data-type="{{ m.type }}" data-name="{{ (m.name ~ ' ' ~ m.target)|lower }}">
           <td>
             <div class="d-flex align-items-center gap-2">
-              <span class="status-dot status-{{ m.status if m.active else 'pending' }}" title="{{ m.status }}"></span>
-              <div>
+              <span class="status-dot status-{{ m.status if m.active else 'pending' }}" title="{{ state }}"></span>
+              <span class="type-icon" title="{{ m.type|upper }}"><i class="{{ type_icons.get(m.type, 'fa-solid fa-circle') }}"></i></span>
+              <div class="min-w-0">
                 <a href="/admin/monitors/{{ m.id }}" class="text-reset fw-medium">{{ m.name }}</a>
                 {% if not m.active %}<span class="badge bg-secondary-lt ms-1">paused</span>{% endif %}
-                <div class="text-secondary small"><span class="badge badge-outline text-secondary me-1">{{ m.type|upper }}</span>{{ monitor_target(m) }}</div>
+                <div class="text-secondary small text-truncate">
+                  {% if state in ('down', 'degraded') %}
+                    <span class="text-{{ status_colors[state] }}">{{ state|capitalize }} for {{ m.status_changed_at|since }}</span> ·
+                  {% endif %}
+                  <span class="{{ '' if m.type == 'group' else 'font-monospace-sm' }}">{{ monitor_target(m) }}</span>
+                </div>
               </div>
+              {% if m.type == 'group' and m.members %}
+                <button type="button" class="btn btn-sm btn-icon btn-ghost-secondary ms-auto group-toggle" data-group="{{ m.id }}"
+                        aria-expanded="false" aria-label="Show members of {{ m.name }}">
+                  <i class="fa-solid fa-chevron-down"></i>
+                </button>
+              {% endif %}
             </div>
           </td>
           <td class="d-none d-lg-table-cell">
@@ -47,9 +45,9 @@
               {% endfor %}
             </div>
           </td>
-          <td>{{ row.uptime_24h|pct }}</td>
-          <td>{{ m.last_latency_ms|ms }}</td>
-          <td class="text-secondary small" title="{{ m.last_message or '' }}">{{ m.last_checked_at|dt('%H:%M:%S') }}</td>
+          <td class="tabular">{{ row.uptime_24h|pct }}</td>
+          <td class="tabular">{{ m.last_latency_ms|ms }}</td>
+          <td class="text-secondary small tabular d-none d-md-table-cell" title="{{ m.last_message or '' }}">{{ m.last_checked_at|dt('%H:%M:%S') }}</td>
           {% if can_edit %}
           <td class="text-end">
             <div class="dropdown">
@@ -73,16 +71,38 @@
           </td>
           {% endif %}
         </tr>
+        {% if m.type == 'group' and m.members %}
+        <tr class="member-row" data-parent="{{ m.id }}" hidden>
+          <td colspan="{{ 6 if can_edit else 5 }}">
+            <ul class="member-list">
+              {% for member in m.members|sort(attribute='name') %}
+                {% set mstate = member.status if member.active else 'pending' %}
+                <li>
+                  <span class="status-dot status-{{ mstate }}"></span>
+                  <i class="{{ type_icons.get(member.type, 'fa-solid fa-circle') }} type-icon"></i>
+                  <a href="/admin/monitors/{{ member.id }}" class="text-reset">{{ member.name }}</a>
+                  <span class="text-secondary small ms-auto tabular">{{ member.last_latency_ms|ms }}</span>
+                  <span class="badge bg-{{ status_colors.get(mstate, 'secondary') }}-lt">{{ mstate }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          </td>
+        </tr>
+        {% endif %}
       {% endfor %}
       </tbody>
     </table>
+  </div>
+  <div class="empty filter-empty" hidden>
+    <p class="empty-title">No monitors match this filter</p>
+    <p class="empty-subtitle text-secondary">Clear the search or pick another filter.</p>
   </div>
   {% else %}
   <div class="empty">
     <div class="empty-icon"><i class="fa-solid fa-heart-pulse fs-1"></i></div>
     <p class="empty-title">No monitors yet</p>
     <p class="empty-subtitle text-secondary">Add your first HTTP, TCP, ping, DNS or SQL check.</p>
-    {% if user.role in ('admin', 'editor') %}
+    {% if can_edit %}
     <div class="empty-action"><a href="/admin/monitors/new" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>New monitor</a></div>
     {% endif %}
   </div>

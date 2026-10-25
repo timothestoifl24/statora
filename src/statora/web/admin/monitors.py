@@ -50,7 +50,16 @@ async def _dashboard_rows(session: AsyncSession) -> list[dict]:
         )
         for row in await session.execute(select(ranked).where(ranked.c.rn <= 30).order_by(ranked.c.ts)):
             recent[row.monitor_id].append(row)
-    return [{"monitor": m, "uptime_24h": uptime.get(m.id), "recent": recent[m.id]} for m in monitors]
+    rows = [{"monitor": m, "uptime_24h": uptime.get(m.id), "recent": recent[m.id]} for m in monitors]
+    # Problems first, paused monitors last; names keep the order stable within a status.
+    return sorted(rows, key=lambda r: _status_rank(r["monitor"]))
+
+
+_STATUS_ORDER = {"down": 0, "degraded": 1, "maintenance": 2, "pending": 3, "up": 4}
+
+
+def _status_rank(m: Monitor) -> int:
+    return len(_STATUS_ORDER) if not m.active else _STATUS_ORDER.get(m.status, 3)
 
 
 async def dashboard(
@@ -62,8 +71,10 @@ async def dashboard(
         for s in ("up", "down", "degraded", "pending", "maintenance")
     }
     counts["paused"] = sum(1 for r in rows if not r["monitor"].active)
+    checked = [r["monitor"].last_checked_at for r in rows if r["monitor"].last_checked_at]
+    last_check = max(checked) if checked else None
     template = "admin/_monitor_rows.html" if request.headers.get("HX-Request") else "admin/dashboard.html"
-    return render(request, template, user, rows=rows, counts=counts)
+    return render(request, template, user, rows=rows, counts=counts, last_check=last_check)
 
 
 async def _member_choices(session: AsyncSession, exclude_id: int | None) -> list[Monitor]:

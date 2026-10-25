@@ -24,3 +24,83 @@ document.addEventListener("click", function (event) {
     setTimeout(function () { button.innerHTML = label; }, 1500);
   });
 });
+
+// Monitor list: search, filter chips and expanded groups. The rows are replaced by the
+// 15s HTMX refresh, so the state lives here and is re-applied after every swap.
+(function () {
+  var search = document.getElementById("monitor-search");
+  if (!search) return;
+  var STORE = "statora-monitor-filter";
+  var state = { filter: "all", open: [] };
+  try { Object.assign(state, JSON.parse(localStorage.getItem(STORE)) || {}); } catch (e) {}
+
+  function save() {
+    try { localStorage.setItem(STORE, JSON.stringify({ filter: state.filter, open: state.open })); } catch (e) {}
+  }
+
+  function matches(row, query) {
+    var status = row.dataset.status, type = row.dataset.type;
+    if (state.filter === "problems" && status !== "down" && status !== "degraded") return false;
+    if (state.filter !== "all" && state.filter !== "problems" && type !== state.filter) return false;
+    return !query || row.dataset.name.indexOf(query) !== -1;
+  }
+
+  function apply() {
+    var query = search.value.trim().toLowerCase();
+    var shown = 0;
+    document.querySelectorAll(".filter-chip").forEach(function (chip) {
+      chip.setAttribute("aria-pressed", String(chip.dataset.filter === state.filter));
+    });
+    document.querySelectorAll("[data-status][data-name]").forEach(function (row) {
+      var visible = matches(row, query);
+      row.hidden = !visible;
+      if (visible) shown++;
+    });
+    document.querySelectorAll(".group-toggle").forEach(function (button) {
+      var id = button.dataset.group;
+      var open = state.open.indexOf(id) !== -1;
+      var parentRow = button.closest("[data-status]");
+      button.setAttribute("aria-expanded", String(open));
+      document.querySelectorAll('.member-row[data-parent="' + id + '"]').forEach(function (row) {
+        row.hidden = !open || parentRow.hidden;
+      });
+    });
+    var empty = document.querySelector(".filter-empty");
+    if (empty) empty.hidden = shown > 0;
+  }
+
+  search.addEventListener("input", apply);
+  document.addEventListener("click", function (event) {
+    var chip = event.target.closest(".filter-chip");
+    if (chip) {
+      state.filter = chip.dataset.filter;
+      save();
+      apply();
+      return;
+    }
+    var toggle = event.target.closest(".group-toggle");
+    if (toggle) {
+      var id = toggle.dataset.group;
+      var at = state.open.indexOf(id);
+      if (at === -1) state.open.push(id); else state.open.splice(at, 1);
+      save();
+      apply();
+    }
+  });
+  document.body.addEventListener("htmx:afterSwap", apply);
+
+  // Shortcuts: "/" focuses the search, "n" opens the new-monitor form.
+  document.addEventListener("keydown", function (event) {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    var target = event.target;
+    if (target.closest("input, textarea, select, [contenteditable]")) {
+      if (event.key === "Escape" && target === search) { search.value = ""; apply(); search.blur(); }
+      return;
+    }
+    if (event.key === "/") { event.preventDefault(); search.focus(); }
+    var link = document.querySelector('[data-shortcut="' + event.key + '"]');
+    if (link) { event.preventDefault(); link.click(); }
+  });
+
+  apply();
+})();
