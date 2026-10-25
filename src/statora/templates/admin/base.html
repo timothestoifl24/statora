@@ -19,7 +19,7 @@
     })();
   </script>
 </head>
-<body hx-headers='{"X-CSRF-Token": "{{ csrf_token(request) }}"}'>
+<body{% if kiosk %} class="kiosk"{% endif %} hx-headers='{"X-CSRF-Token": "{{ csrf_token(request) }}"}'>
 <div class="page">
   <aside class="navbar navbar-vertical navbar-expand-lg d-print-none sidebar">
     <div class="container-fluid">

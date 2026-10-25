@@ -73,8 +73,26 @@ async def dashboard(
     counts["paused"] = sum(1 for r in rows if not r["monitor"].active)
     checked = [r["monitor"].last_checked_at for r in rows if r["monitor"].last_checked_at]
     last_check = max(checked) if checked else None
-    template = "admin/_monitor_rows.html" if request.headers.get("HX-Request") else "admin/dashboard.html"
-    return render(request, template, user, rows=rows, counts=counts, last_check=last_check)
+    # List or tile view; an explicit ?view= is remembered for the session. Kiosk mode is the
+    # tile view without the sidebar and toolbar, for wall screens.
+    kiosk = request.query_params.get("kiosk") == "1"
+    view = request.query_params.get("view")
+    if view in ("list", "tiles"):
+        request.session["dashboard_view"] = view
+    view = "tiles" if kiosk else request.session.get("dashboard_view", "list")
+    partial = "admin/_monitor_tiles.html" if view == "tiles" else "admin/_monitor_rows.html"
+    template = partial if request.headers.get("HX-Request") else "admin/dashboard.html"
+    return render(
+        request,
+        template,
+        user,
+        rows=rows,
+        counts=counts,
+        last_check=last_check,
+        view=view,
+        partial=partial,
+        kiosk=kiosk,
+    )
 
 
 async def _member_choices(session: AsyncSession, exclude_id: int | None) -> list[Monitor]:

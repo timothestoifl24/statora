@@ -450,3 +450,25 @@ async def test_dashboard_lists_problems_first(client, auth, session):
     assert "Down for 1h 30m" in partial and 'data-status="paused"' in partial
     assert 'id="monitor-search"' not in partial  # the toolbar stays outside the refreshed block
     assert 'id="monitor-search"' in (await client.get("/admin")).text
+
+
+async def test_dashboard_tile_view_and_wallboard(client, auth):
+    await client.post(
+        "/api/v1/monitors",
+        json={"name": "Shop", "type": "http", "target": "https://shop.example"},
+        headers=auth,
+    )
+    await login(client)
+
+    tiles = await client.get("/admin?view=tiles")
+    assert 'class="monitor-tiles"' in tiles.text and 'aria-label="Tile view"' in tiles.text
+    # The choice is remembered, so the HTMX refresh (plain /admin) keeps returning tiles.
+    refreshed = await client.get("/admin", headers={"HX-Request": "true"})
+    assert "<html" not in refreshed.text and 'class="monitor-tiles"' in refreshed.text
+
+    kiosk = await client.get("/admin?kiosk=1")
+    assert '<body class="kiosk"' in kiosk.text and 'id="monitor-search"' not in kiosk.text
+    assert 'hx-get="/admin?kiosk=1"' in kiosk.text and "Exit wallboard" in kiosk.text
+
+    listed = await client.get("/admin?view=list", headers={"HX-Request": "true"})
+    assert "monitor-table" in listed.text and "monitor-tiles" not in listed.text

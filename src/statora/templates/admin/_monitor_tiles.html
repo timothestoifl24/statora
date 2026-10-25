@@ -1,0 +1,57 @@
+{% set status_colors = {'up': 'success', 'down': 'danger', 'degraded': 'warning', 'pending': 'secondary', 'maintenance': 'info'} %}
+{% set can_edit = user.role in ('admin', 'editor') %}
+{% include "admin/_health_summary.html" %}
+
+{% if rows %}
+<div class="monitor-tiles">
+  {% for row in rows %}
+    {% set m = row.monitor %}
+    {% set state = m.status if m.active else 'paused' %}
+    {% set problem = state in ('down', 'degraded') %}
+    <article class="monitor-tile tile-{{ state }}{{ ' is-problem' if problem }}"
+             data-status="{{ state }}" data-type="{{ m.type }}" data-name="{{ (m.name ~ ' ' ~ m.target)|lower }}">
+      <div class="tile-head">
+        <i class="{{ type_icons.get(m.type, 'fa-solid fa-circle') }} tile-type" title="{{ m.type|upper }}"></i>
+        <a href="/admin/monitors/{{ m.id }}" class="tile-name text-reset">{{ m.name }}</a>
+        <span class="status-dot status-{{ m.status if m.active else 'pending' }} ms-auto" title="{{ state }}"></span>
+      </div>
+      {% if problem %}
+        <div class="tile-problem text-{{ status_colors[state] }}">{{ state|capitalize }} for {{ m.status_changed_at|since }}</div>
+        {% if m.last_message %}<div class="tile-message" title="{{ m.last_message }}">{{ m.last_message }}</div>{% endif %}
+      {% elif m.type == 'group' %}
+        {% set up = m.members|selectattr('status', 'equalto', 'up')|list|length %}
+        <div class="tile-metric">{{ up }}<span>/{{ m.members|length }} up</span></div>
+      {% else %}
+        <div class="tile-metric">{% if m.last_latency_ms is not none %}{{ '%.0f'|format(m.last_latency_ms) }}<span> ms</span>{% else %}—{% endif %}</div>
+      {% endif %}
+      <div class="tile-strip" aria-hidden="true">
+        {% for b in row.recent %}<span class="bg-{{ status_colors.get(b.status, 'secondary') }}"></span>{% endfor %}
+      </div>
+      <div class="tile-foot">
+        <span class="tabular">{{ row.uptime_24h|pct }} · 24h</span>
+        {% if problem and can_edit %}
+          <span class="tile-actions">
+            <a href="/admin/incidents/new" class="btn btn-sm"><i class="fa-solid fa-triangle-exclamation me-1"></i>Incident</a>
+            <form method="post" action="/admin/monitors/{{ m.id }}/toggle" class="d-inline">
+              {{ csrf_input(request) }}
+              <input type="hidden" name="next" value="/admin">
+              <button type="submit" class="btn btn-sm" aria-label="Pause {{ m.name }}"><i class="fa-solid fa-pause"></i></button>
+            </form>
+          </span>
+        {% else %}
+          <span class="text-secondary">{{ m.last_checked_at|dt('%H:%M:%S') }}</span>
+        {% endif %}
+      </div>
+    </article>
+  {% endfor %}
+</div>
+<div class="empty filter-empty card" hidden>
+  <p class="empty-title">No monitors match this filter</p>
+  <p class="empty-subtitle text-secondary">Clear the search or pick another filter.</p>
+</div>
+{% else %}
+<div class="card"><div class="empty">
+  <div class="empty-icon"><i class="fa-solid fa-heart-pulse fs-1"></i></div>
+  <p class="empty-title">No monitors yet</p>
+</div></div>
+{% endif %}

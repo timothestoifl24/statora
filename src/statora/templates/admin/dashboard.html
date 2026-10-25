@@ -1,12 +1,20 @@
 {% extends "admin/base.html" %}
 {% block title %}Monitors{% endblock %}
 {% block actions %}
+  <div class="btn-group me-2" role="group" aria-label="Layout">
+    <a href="/admin?view=list" class="btn btn-icon{{ ' active' if view == 'list' }}" title="List view" aria-label="List view"
+       {% if view == 'list' %}aria-current="true"{% endif %}><i class="fa-solid fa-list"></i></a>
+    <a href="/admin?view=tiles" class="btn btn-icon{{ ' active' if view == 'tiles' }}" title="Tile view" aria-label="Tile view"
+       {% if view == 'tiles' %}aria-current="true"{% endif %}><i class="fa-solid fa-table-cells-large"></i></a>
+    <a href="/admin?kiosk=1" class="btn btn-icon" title="Wallboard (full screen tiles)" aria-label="Wallboard"><i class="fa-solid fa-tv"></i></a>
+  </div>
   {% if user.role in ('admin', 'editor') %}
     <a href="/admin/monitors/new" class="btn btn-primary" data-shortcut="n"><i class="fa-solid fa-plus me-1"></i>New monitor</a>
   {% endif %}
 {% endblock %}
 {% block content %}
 {# Outside the refreshed block, so typing and the chosen filter survive the 15s refresh. #}
+{% if not kiosk %}
 <div class="monitor-toolbar mb-3">
   <div class="input-icon monitor-search">
     <span class="input-icon-addon"><i class="fa-solid fa-magnifying-glass"></i></span>
@@ -20,8 +28,10 @@
     {% endfor %}
   </div>
 </div>
+{% endif %}
+{% if kiosk %}<a href="/admin" class="kiosk-exit btn btn-sm"><i class="fa-solid fa-xmark me-1"></i>Exit wallboard</a>{% endif %}
 {# Skips a refresh while a row's options menu is open, so the menu doesn't close under the pointer. #}
-<div id="monitor-list" hx-get="/admin" hx-trigger="every 15s [!document.querySelector('.dropdown-menu.show')]" hx-swap="innerHTML">
-  {% include "admin/_monitor_rows.html" %}
+<div id="monitor-list" hx-get="/admin{{ '?kiosk=1' if kiosk }}" hx-trigger="every 15s [!document.querySelector('.dropdown-menu.show')]" hx-swap="innerHTML">
+  {% include partial %}
 </div>
 {% endblock %}
