@@ -15,6 +15,8 @@ Thanks for helping. Bug reports, fixes, documentation and ideas are all welcome.
 
 Open your pull requests against **`develop`**. Pull requests from other branches into `main` are rejected by CI.
 
+Maintainers put the Jira issue key after the prefix, such as `feature/APP-42-smtp-monitor`, so the work shows up in Jira. You don't need one; a plain `feature/smtp-monitor` is fine.
+
 ## Before you start
 
 - **Found a security problem?** Don't open an issue. Report it privately as described in [SECURITY.md](SECURITY.md).
