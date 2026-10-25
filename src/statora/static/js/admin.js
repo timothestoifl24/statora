@@ -104,3 +104,27 @@ document.addEventListener("click", function (event) {
 
   apply();
 })();
+
+// Status page settings modal: HTMX loads the form into #page-modal-content, then we show it.
+document.body.addEventListener("htmx:afterSwap", function (event) {
+  if (event.detail.target.id !== "page-modal-content") return;
+  var modal = document.getElementById("page-modal");
+  var Modal = (window.tabler || window.bootstrap).Modal; // Tabler bundles Bootstrap's components
+  Modal.getOrCreateInstance(modal).show();
+  modal.addEventListener("shown.bs.modal", function () {
+    modal.querySelector("input:not([type=hidden])")?.focus();
+  }, { once: true });
+});
+
+// New page: fill the slug from the title until the slug is edited by hand.
+document.addEventListener("input", function (event) {
+  var form = event.target.closest("form");
+  if (!form) return;
+  var slug = form.querySelector("[data-slug-target]");
+  if (!slug) return;
+  if (event.target === slug) { slug.dataset.touched = "1"; return; }
+  if (event.target.matches("[data-slug-source]") && !slug.dataset.touched) {
+    slug.value = event.target.value.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 100);
+  }
+});

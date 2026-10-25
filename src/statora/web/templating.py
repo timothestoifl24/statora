@@ -8,6 +8,8 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 
 from statora import __version__
+from statora.services import media
+from statora.services.icons import icon_html
 from statora.services.markdown import render_markdown
 from statora.web.deps import csrf_token
 
@@ -84,6 +86,8 @@ templates.env.globals.update(
     csrf_token=csrf_token,
     app_version=__version__,
     type_icons=MONITOR_TYPE_ICONS,
+    monitor_icon=icon_html,
+    media_url=media.url,
 )
 templates.env.filters.update(
     dt=_fmt_dt,

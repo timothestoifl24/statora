@@ -19,6 +19,7 @@ from statora.db import session as db
 from statora.scheduler import Scheduler
 from statora.services.crud import ValidationProblem
 from statora.web import auth_routes
+from statora.web import media as media_routes
 from statora.web.admin import router as admin_router
 from statora.web.api.v1 import router as api_router
 from statora.web.deps import LoginRequired
@@ -191,5 +192,6 @@ def create_app() -> FastAPI:
         app.include_router(api_router)
         app.include_router(auth_routes.router)
         app.include_router(admin_router)
+        app.include_router(media_routes.router)
         app.include_router(public_router)
     return app

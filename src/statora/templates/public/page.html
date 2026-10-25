@@ -4,7 +4,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if s.page.favicon_url %}
+  <link rel="icon" href="{{ s.page.favicon_url }}">
+  <link rel="apple-touch-icon" href="{{ s.page.favicon_url }}">
+  {% else %}
   {% include '_brand_head.html' %}
+  {% endif %}
   <title>{{ s.page.title }} · {{ s.overall.label }}</title>
   <meta name="description" content="Current status and uptime of {{ s.page.title }}.">
   <meta property="og:title" content="{{ s.page.title }} · {{ s.overall.label }}">

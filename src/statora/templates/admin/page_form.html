@@ -1,5 +1,15 @@
 {% extends "admin/base.html" %}
-{% block title %}{{ 'Edit ' ~ page.title if page else 'New status page' }}{% endblock %}
+{% block title %}{{ page.title }}{% endblock %}
+{% block pretitle %}<div class="page-pretitle"><a href="/admin/pages" class="text-reset">Status pages</a> · Components</div>{% endblock %}
+{% block actions %}
+  <a href="/admin/pages/{{ page.id }}/settings?next=/admin/pages/{{ page.id }}/edit" class="btn"
+     hx-get="/admin/pages/{{ page.id }}/settings?next=/admin/pages/{{ page.id }}/edit" hx-target="#page-modal-content">
+    <i class="fa-solid fa-sliders me-1"></i>Settings
+  </a>
+  <a href="/s/{{ page.slug }}" target="_blank" rel="noopener" class="btn">
+    <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>View status page
+  </a>
+{% endblock %}
 {% block content %}
 <style>
   .drag-handle { cursor: grab; }
@@ -9,90 +19,24 @@
 <form method="post" id="page-form" autocomplete="off">
   {{ csrf_input(request) }}
   <input type="hidden" name="groups_json" id="groups_json">
-  <div class="row row-cards">
-    <div class="col-lg-5">
-      <div class="card">
-        <div class="card-header">
-          <h3 class="card-title">Page</h3>
-          {% if page %}
-          <div class="card-actions">
-            <a href="/s/{{ page.slug }}" target="_blank" rel="noopener" class="btn btn-sm btn-primary">
-              <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>View status page
-            </a>
-          </div>
-          {% endif %}
-        </div>
-        <div class="card-body">
-          <div class="mb-3">
-            <label class="form-label required" for="title">Title</label>
-            <input class="form-control" id="title" name="title" value="{{ values.title }}" required maxlength="150">
-          </div>
-          <div class="mb-3">
-            <label class="form-label required" for="slug">Slug</label>
-            <div class="input-group">
-              <span class="input-group-text">/s/</span>
-              <input class="form-control" id="slug" name="slug" value="{{ values.slug }}" required pattern="[a-z0-9][a-z0-9\-]*" maxlength="100">
-            </div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label" for="description">Description <span class="text-secondary">(Markdown)</span></label>
-            <textarea class="form-control" id="description" name="description" rows="3">{{ values.description or '' }}</textarea>
-          </div>
-          <div class="row g-3 mb-3">
-            <div class="col-8">
-              <label class="form-label" for="logo_url">Logo URL</label>
-              <input class="form-control" id="logo_url" name="logo_url" value="{{ values.logo_url or '' }}" placeholder="https://…/logo.svg">
-            </div>
-            <div class="col-4">
-              <label class="form-label" for="accent_color">Accent</label>
-              <input type="color" class="form-control form-control-color w-100" id="accent_color" name="accent_color" value="{{ values.accent_color }}">
-            </div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label" for="footer_text">Footer <span class="text-secondary">(Markdown)</span></label>
-            <textarea class="form-control" id="footer_text" name="footer_text" rows="2">{{ values.footer_text or '' }}</textarea>
-          </div>
-          <div class="mb-3">
-            <label class="form-label" for="history_resolution">Uptime bars</label>
-            <select class="form-select" id="history_resolution" name="history_resolution">
-              {% for value, label in [('minute', 'Per minute, last 2 hours'), ('hour', 'Per hour, last 5 days'), ('day', 'Per day, last 4 months')] %}
-                <option value="{{ value }}" {{ 'selected' if values.history_resolution == value }}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <label class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" name="published" {{ 'checked' if values.published }}>
-            <span class="form-check-label">Published</span>
-          </label>
-          <label class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" name="is_default" {{ 'checked' if values.is_default }}>
-            <span class="form-check-label">Default page (served at <code>/</code>)</span>
-          </label>
-          <label class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" name="show_powered_by" {{ 'checked' if values.show_powered_by }}>
-            <span class="form-check-label">Show “Powered by Statora” in the footer</span>
-          </label>
-        </div>
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Components</h3>
+        <div class="card-subtitle text-secondary small">Group monitors and give them public names. Drag by the grip to reorder or move them between groups.</div>
+      </div>
+      <div class="card-actions">
+        <button type="button" class="btn" id="add-group"><i class="fa-solid fa-plus me-1"></i>Add group</button>
       </div>
     </div>
-
-    <div class="col-lg-7">
-      <div class="card">
-        <div class="card-header">
-          <h3 class="card-title">Components</h3>
-          <div class="card-actions">
-            <button type="button" class="btn btn-sm" id="add-group"><i class="fa-solid fa-plus me-1"></i>Add group</button>
-          </div>
-        </div>
-        <div class="card-body" id="groups"></div>
-      </div>
+    <div class="card-body" id="groups"></div>
+    <div class="card-footer d-flex align-items-center">
+      <a href="/admin/pages" class="btn btn-link link-secondary">Back to status pages</a>
+      <button type="submit" class="btn btn-primary ms-auto"><i class="fa-solid fa-check me-1"></i>Save components</button>
     </div>
-  </div>
-  <div class="d-flex mt-3">
-    <a href="/admin/pages" class="btn btn-link">Cancel</a>
-    <button type="submit" class="btn btn-primary ms-auto">{{ 'Save' if page else 'Create status page' }}</button>
   </div>
 </form>
+{% include "admin/_page_modal.html" %}
 
 <template id="group-template">
   <div class="card group-card mb-3">
@@ -127,7 +71,7 @@
 <script>
 (function () {
   var monitors = {{ monitors|tojson }};
-  var initial = {{ values.groups|tojson }};
+  var initial = {{ groups|tojson }};
   var byId = {};
   monitors.forEach(function (m) { byId[m.id] = m; });
   var container = document.getElementById("groups");

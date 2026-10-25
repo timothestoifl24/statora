@@ -24,7 +24,7 @@ from statora.db.models import (
     StatusPage,
     maintenance_pages,
 )
-from statora.services import crud
+from statora.services import crud, media
 from statora.services.markdown import render_markdown
 from statora.services.monitoring import STATUS_COUNTER, monitors_in_maintenance
 
@@ -341,6 +341,7 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
             "title": page.title,
             "description_html": render_markdown(page.description or ""),
             "logo_url": page.logo_url,
+            "favicon_url": media.url(page.favicon),
             "accent_color": page.accent_color,
             "footer_html": render_markdown(page.footer_text or ""),
             "show_powered_by": page.show_powered_by,

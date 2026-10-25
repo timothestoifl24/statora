@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import timedelta
 
@@ -124,15 +125,23 @@ async def test_create_monitor_and_page_via_forms(client):
             "accent_color": "#ff0000",
             "published": "on",
             "history_resolution": "hour",
+        },
+    )
+    # Creating a page leads straight to its components editor.
+    assert page.status_code == 303 and page.headers["location"] == "/admin/pages/1/edit"
+    components = await client.post(
+        "/admin/pages/1/edit",
+        data={
+            "csrf_token": token,
             "groups_json": '[{"name": "APIs", "items": [{"monitor_id": 1, "display_name": "Public API"}]}]',
         },
     )
-    assert page.status_code == 303
+    assert components.status_code == 303
     public = await client.get("/s/public")
     assert public.status_code == 200 and "Public API" in public.text and "#ff0000" in public.text
     assert "5 days ago" in public.text and public.text.count('class="bar ') == 120
-    editor = await client.get("/admin/pages/1/edit")
-    assert '<option value="hour" selected>' in editor.text
+    settings = await client.get("/admin/pages/1/settings")
+    assert '<option value="hour" selected>' in settings.text
 
 
 async def test_viewer_cannot_open_editor_pages(client):
@@ -505,3 +514,112 @@ async def test_public_status_card_counts_and_incident_timeline(client, auth):
     assert 'class="status-card status-partial_outage"' in busy
     assert 'class="incident impact-major"' in busy and '<ol class="timeline">' in busy
     assert "Updated <time" in busy  # the timestamp refreshes with the content
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+
+
+async def test_media_upload_validation_and_headers(client, auth):
+    ok = await client.post("/api/v1/media", files={"file": ("x.png", PNG, "image/png")}, headers=auth)
+    assert ok.status_code == 201, ok.text
+    body = ok.json()
+    assert body["ref"].startswith("media:") and body["content_type"] == "image/png"
+    again = await client.post("/api/v1/media", files={"file": ("y.png", PNG, "image/png")}, headers=auth)
+    assert again.json()["ref"] == body["ref"]  # identical files are stored once
+
+    served = await client.get(body["url"])
+    assert served.status_code == 200 and served.content == PNG
+    assert served.headers["content-type"] == "image/png"
+    assert "sandbox" in served.headers["content-security-policy"]
+    assert served.headers["x-content-type-options"] == "nosniff"
+
+    svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>'
+    assert (
+        await client.post("/api/v1/media", files={"file": ("i.svg", svg)}, headers=auth)
+    ).status_code == 201
+    rejected = {
+        "script.svg": b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+        "handler.svg": b'<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"></svg>',
+        "fake.png": b"<html>not an image</html>",
+        "big.png": PNG + b"\x00" * (256 * 1024),
+    }
+    for name, data in rejected.items():
+        response = await client.post("/api/v1/media", files={"file": (name, data, "image/png")}, headers=auth)
+        assert response.status_code == 422, name
+    assert (await client.get("/media/" + "0" * 64)).status_code == 404
+
+
+async def test_status_page_favicon(client, auth):
+    ref = (await client.post("/api/v1/media", files={"file": ("f.png", PNG)}, headers=auth)).json()["ref"]
+    bad = await client.post(
+        "/api/v1/status-pages",
+        json={"slug": "fav", "title": "Fav", "favicon": "javascript:alert(1)"},
+        headers=auth,
+    )
+    assert bad.status_code == 422
+    page = await client.post(
+        "/api/v1/status-pages", json={"slug": "fav", "title": "Fav", "favicon": ref}, headers=auth
+    )
+    assert page.json()["favicon"] == ref
+    public = (await client.get("/s/fav")).text
+    assert f'<link rel="icon" href="/media/{ref[6:]}">' in public and "brand/favicon.svg" not in public
+
+    await client.patch(f"/api/v1/status-pages/{page.json()['id']}", json={"favicon": None}, headers=auth)
+    assert "brand/favicon.svg" in (await client.get("/s/fav")).text
+
+
+async def test_status_page_settings_modal_flow(client, auth):
+    monitor = (
+        await client.post(
+            "/api/v1/monitors",
+            json={"name": "Web", "type": "http", "target": "https://w.example"},
+            headers=auth,
+        )
+    ).json()
+    await client.post("/api/v1/status-pages", json={"slug": "taken", "title": "Taken"}, headers=auth)
+    await login(client)
+    hx = {"HX-Request": "true"}
+
+    fragment = await client.get("/admin/pages/new", headers=hx)
+    assert "<html" not in fragment.text and 'hx-post="/admin/pages/new"' in fragment.text
+    token = csrf_from(fragment.text)
+    assert "<html" in (await client.get("/admin/pages/new")).text  # works without JavaScript too
+
+    form = {
+        "csrf_token": token,
+        "title": "Shop",
+        "slug": "taken",
+        "accent_color": "#123456",
+        "published": "on",
+    }
+    clash = await client.post("/admin/pages/new", data=form, headers=hx)
+    assert clash.status_code == 200 and "HX-Redirect" not in clash.headers and "already used" in clash.text
+
+    created = await client.post("/admin/pages/new", data={**form, "slug": "shop"}, headers=hx)
+    editor_url = created.headers["HX-Redirect"]
+    assert re.fullmatch(r"/admin/pages/\d+/edit", editor_url)
+    page_id = editor_url.split("/")[3]
+
+    groups = json.dumps([{"name": "Main", "items": [{"monitor_id": monitor["id"]}]}])
+    await client.post(editor_url, data={"csrf_token": token, "groups_json": groups})
+    # Saving settings leaves the components alone ...
+    saved = await client.post(
+        f"/admin/pages/{page_id}/settings",
+        data={**form, "slug": "shop", "title": "Shop status", "next": editor_url},
+        headers=hx,
+    )
+    assert saved.headers["HX-Redirect"] == editor_url
+    page = (await client.get(f"/api/v1/status-pages/{page_id}", headers=auth)).json()
+    assert page["title"] == "Shop status" and page["groups"][0]["items"][0]["monitor_id"] == monitor["id"]
+    # ... and saving components leaves the settings alone.
+    await client.post(editor_url, data={"csrf_token": token, "groups_json": "[]"})
+    page = (await client.get(f"/api/v1/status-pages/{page_id}", headers=auth)).json()
+    assert page["title"] == "Shop status" and page["accent_color"] == "#123456" and page["groups"] == []
+
+    listing = (await client.get("/admin/pages")).text
+    assert 'hx-get="/admin/pages/new"' in listing and 'id="page-modal"' in listing
+    # The "next" target can't leave the status pages section.
+    escaped = await client.post(
+        f"/admin/pages/{page_id}/settings", data={**form, "slug": "shop", "next": "https://evil.example"}
+    )
+    assert escaped.headers["location"] == "/admin/pages"

@@ -27,3 +27,33 @@
     <span class="text-secondary">—</span>
   {%- endif -%}
 {%- endmacro %}
+
+{# Image reference input (status page favicon, monitor icon). The value is "media:<sha256>" after an
+   upload, an http(s) URL, or with allow_fa "fa:<style>:<name>". static/js/icon-picker.js does the
+   upload and the Font Awesome picker; without JavaScript the URL can still be typed. #}
+{% macro image_ref_input(name, value, input_id, allow_fa=False, placeholder='https://example.com/icon.png') -%}
+<div class="ref-input" data-ref-input{% if allow_fa %} data-allow-fa{% endif %}>
+  <div class="ref-row">
+    <span class="ref-preview{{ ' has-icon' if value }}" aria-hidden="true">{{ monitor_icon(value) if value else '' }}<i class="fa-regular fa-image ref-empty"></i></span>
+    <input class="form-control ref-value" id="{{ input_id }}" name="{{ name }}" value="{{ value or '' }}" placeholder="{{ placeholder }}" autocomplete="off" spellcheck="false">
+    <label class="btn" title="Upload an image (PNG, JPEG, WebP, GIF, ICO or SVG, max 256 KB)">
+      <i class="fa-solid fa-upload me-1"></i>Upload
+      <input type="file" class="ref-file" accept="image/png,image/jpeg,image/webp,image/gif,image/x-icon,image/vnd.microsoft.icon,image/svg+xml,.ico,.svg" hidden>
+    </label>
+    {% if allow_fa %}
+    <button type="button" class="btn ref-pick" aria-expanded="false"><i class="fa-solid fa-icons me-1"></i>Icon</button>
+    {% endif %}
+    <button type="button" class="btn btn-icon btn-ghost-secondary ref-clear" title="Remove" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="ref-error invalid-feedback d-block" hidden></div>
+  {% if allow_fa %}
+  <div class="ref-picker card" hidden>
+    <div class="card-body p-2">
+      <input type="search" class="form-control form-control-sm mb-2 ref-search" placeholder="Search icons, e.g. database, github, cloud" aria-label="Search icons">
+      <div class="ref-grid" role="listbox" aria-label="Icons"></div>
+      <div class="ref-hint text-secondary small mt-1"></div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{%- endmacro %}

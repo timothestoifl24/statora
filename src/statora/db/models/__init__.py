@@ -9,6 +9,7 @@ from .enums import (
     TokenScope,
     UserRole,
 )
+from .media import Media
 from .monitoring import Heartbeat, Monitor, MonitorDailyStat, monitor_group_members
 from .pages import (
     Incident,
@@ -33,6 +34,7 @@ __all__ = [
     "IncidentStatus",
     "IncidentUpdate",
     "Maintenance",
+    "Media",
     "Monitor",
     "MonitorDailyStat",
     "MonitorStatus",
