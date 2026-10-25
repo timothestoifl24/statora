@@ -4,7 +4,11 @@ All notable changes to Statora are documented in this file. The format is based 
 
 Changes collect under the upcoming version while it's being developed, and you can try them with the [`beta` image](https://statora.stoifl.app/reference/images#beta-preview-of-the-next-release). The date is set when the version is released. Each section also appears in the matching [GitHub release](https://github.com/timothestoifl24/statora/releases).
 
-## [1.1.1] - Unreleased
+## [1.1.1] - 2026-10-25
+
+### Changed
+
+- **Dependencies:** updated FastAPI to 0.158.1, and pydantic-settings, Markdown and joserfc to their latest patch releases.
 
 ## [1.1.0] - 2026-10-24
 
@@ -56,6 +60,7 @@ First public release.
 - **Deployment:** single container image, Docker Compose and Kubernetes manifests, horizontal scaling with a scheduler leader lock, and serialized migrations.
 - **Releases:** stable images (`X.Y.Z`, `X.Y`, `latest`) from `main`, beta images (`X.Y.Z-beta.N`, `beta`) from `develop`, and GitHub releases whose notes come from this changelog.
 
-[1.0.1]: https://github.com/timothestoifl24/statora/releases/tag/v1.0.1
+[1.1.1]: https://github.com/timothestoifl24/statora/releases/tag/v1.1.1
+[1.1.0]: https://github.com/timothestoifl24/statora/releases/tag/v1.1.0
 [1.0.0]: https://github.com/timothestoifl24/statora/releases/tag/v1.0.0
 [0.1.0]: https://github.com/timothestoifl24/statora/releases/tag/v0.1.0
