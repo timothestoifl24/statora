@@ -1,13 +1,15 @@
 {# Shared create/edit form. Opened from a list it renders into the modal in admin/base.html
    (`modal` is set by web/admin/common.py:render_form); opened directly, or without JavaScript,
    it is a normal page. Child templates fill: title, form_body, submit, and optionally
-   form_actions (page header buttons) and modal_actions (extra modal footer buttons, left side). #}
+   form_actions (page header buttons), modal_actions (extra modal footer buttons, left side)
+   and modal_size (lg or xl). #}
 {% extends "admin/_modal_root.html" if modal else "admin/base.html" %}
 {% block content %}
 {% set action = self.form_action()|trim %}
 <form method="post" action="{{ action }}" id="{{ 'app-modal-form' if modal else 'admin-form' }}"
       {% if modal %}hx-post="{{ action }}" hx-target="this" hx-swap="outerHTML"{% endif %}
-      class="{{ 'admin-modal-form' if modal else 'card admin-form-card' }}" autocomplete="off">
+      class="{{ 'admin-modal-form' if modal else 'card admin-form-card' }}" autocomplete="off"
+      {% if modal %}data-modal-size="{{ self.modal_size()|trim }}"{% endif %}>
   {{ csrf_input(request) }}
   {% if modal %}
   <div class="modal-header">
@@ -36,4 +38,5 @@
 {# Children override these blocks or pass form_action / cancel_url from the view. #}
 {% block form_action %}{{ form_action }}{% endblock %}
 {% block cancel_url %}{{ cancel_url }}{% endblock %}
+{% block modal_size %}lg{% endblock %}
 {% block actions %}{% block form_actions %}{% endblock %}{% endblock %}

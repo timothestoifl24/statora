@@ -8,7 +8,7 @@
   <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown"><i class="fa-solid fa-plus me-1"></i>Add provider</button>
   <div class="dropdown-menu dropdown-menu-end">
     {% for t in types %}
-      <a class="dropdown-item" href="/admin/settings/auth/new/{{ t }}"><i class="{{ type_icons[t] }} me-2"></i>{{ type_labels[t] }}</a>
+      <a class="dropdown-item" href="/admin/settings/auth/new/{{ t }}" data-modal><i class="{{ type_icons[t] }} me-2"></i>{{ type_labels[t] }}</a>
     {% endfor %}
   </div>
 </div>
@@ -39,7 +39,7 @@
           <td>{{ counts.get(p.id, 0) }}</td>
           <td>{{ 'Yes, as ' ~ p.default_role if p.auto_create_users else 'No' }}</td>
           <td>{% if p.enabled %}<span class="badge bg-success-lt">enabled</span>{% else %}<span class="badge bg-secondary-lt">disabled</span>{% endif %}</td>
-          <td class="text-end"><a href="/admin/settings/auth/{{ p.id }}" class="btn btn-sm">Configure</a></td>
+          <td class="text-end"><a href="/admin/settings/auth/{{ p.id }}" class="btn btn-sm" data-modal{% if open_id == p.id|string %} data-autoopen{% endif %}>Configure</a></td>
         </tr>
       {% endfor %}
       </tbody>

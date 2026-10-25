@@ -223,7 +223,7 @@ async def _provider_form(request, user, provider_type, provider=None, values=Non
             "mapping": _mapping_text(provider.group_role_mapping) if provider else "",
             "config": provider_base.public_config(provider) if provider else {},
         }
-    return render(
+    return render_form(
         request,
         "admin/auth_provider_form.html",
         user,
@@ -289,6 +289,7 @@ async def list_providers(
         counts=counts,
         types=list(AuthProviderType),
         local_disabled=get_settings().disable_local_login,
+        open_id=request.query_params.get("open", ""),
     )
 
 
@@ -338,8 +339,12 @@ async def create_provider(
         await rollback(session, user)
         return await _provider_form(request, user, provider_type, None, values, error_messages(exc), 422)
     await session.commit()
-    flash(request, f"Provider “{provider.name}” created")
-    return redirect(f"/admin/settings/auth/{provider.id}")
+    flash(
+        request,
+        f"Provider “{provider.name}” created. Copy the values for your identity provider from its settings.",
+    )
+    # Back to the list with the new provider's settings open: they include the callback/ACS URLs.
+    return done(request, f"/admin/settings/auth?open={provider.id}")
 
 
 async def _get_provider(session: AsyncSession, provider_id: int) -> AuthProvider:
@@ -377,7 +382,7 @@ async def update_provider(
         return await _provider_form(request, user, provider.type, provider, values, error_messages(exc), 422)
     await session.commit()
     flash(request, "Provider saved")
-    return redirect(f"/admin/settings/auth/{provider.id}")
+    return done(request, "/admin/settings/auth")
 
 
 @router.post("/settings/auth/{provider_id}/test")

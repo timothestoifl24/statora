@@ -124,12 +124,21 @@ document.body.addEventListener("htmx:beforeSwap", function (event) {
 document.body.addEventListener("htmx:afterSwap", function (event) {
   if (event.detail.target.id !== "app-modal-content") return;
   var modal = document.getElementById("app-modal");
+  var size = modal.querySelector("[data-modal-size]")?.dataset.modalSize || "lg";
+  modal.querySelector(".modal-dialog").classList.toggle("modal-xl", size === "xl");
+  modal.querySelector(".modal-dialog").classList.toggle("modal-lg", size !== "xl");
   var Modal = (window.tabler || window.bootstrap).Modal; // Tabler bundles Bootstrap's components
   Modal.getOrCreateInstance(modal).show();
   modal.addEventListener("shown.bs.modal", function () {
     modal.querySelector(".modal-body input:not([type=hidden]):not([disabled]), .modal-body select, .modal-body textarea")?.focus();
   }, { once: true });
 });
+// Connection test results land at the top of the form; bring them into view.
+document.body.addEventListener("htmx:afterSwap", function (event) {
+  if (event.detail.target.id === "test-result") event.detail.target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+});
+// A link marked data-autoopen (e.g. a provider just created) opens its dialog right away.
+document.querySelector("a[data-modal][data-autoopen]")?.click();
 // Don't let a half-filled form linger: clear the modal when it closes.
 document.getElementById("app-modal")?.addEventListener("hidden.bs.modal", function () {
   document.getElementById("app-modal-content").replaceChildren();

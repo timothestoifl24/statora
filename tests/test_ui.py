@@ -758,3 +758,52 @@ async def test_create_and_edit_forms_open_in_the_modal(client, auth):
     edit = (await client.get(f"/admin/users/{dana['id']}/edit", headers=load)).text
     # You can't delete yourself, so check the delete button on another user.
     assert 'form="modal-delete-form"' in edit and 'id="modal-delete-form"' in edit
+
+
+async def test_auth_provider_forms_open_in_the_modal(client):
+    await make_user("admin", UserRole.ADMIN)
+    await login(client)
+    load = {"HX-Request": "true", "HX-Target": "app-modal-content"}
+    submit = {"HX-Request": "true", "HX-Target": "app-modal-form"}
+    listing = (await client.get("/admin/settings/auth")).text
+    assert 'href="/admin/settings/auth/new/oidc" data-modal' in listing
+
+    new = await client.get("/admin/settings/auth/new/oidc", headers=load)
+    assert (
+        "<html" not in new.text and 'data-modal-size="xl"' in new.text and "Test connection" not in new.text
+    )
+    token = csrf_from(new.text)
+    form = {
+        "csrf_token": token,
+        "name": "Keycloak",
+        "enabled": "on",
+        "default_role": "viewer",
+        "mapping": "",
+        "cfg_discovery_url": "https://sso.example/realms/x/.well-known/openid-configuration",
+        "cfg_client_id": "statora",
+    }
+    bad = await client.post(
+        "/admin/settings/auth/new/oidc", data={**form, "mapping": "no equals sign"}, headers=submit
+    )
+    assert bad.status_code == 200 and "alert-danger" in bad.text and "HX-Redirect" not in bad.headers
+
+    created = await client.post("/admin/settings/auth/new/oidc", data=form, headers=submit)
+    target = created.headers["HX-Redirect"]
+    provider_id = re.fullmatch(r"/admin/settings/auth\?open=(\d+)", target).group(1)
+    # The list reopens the new provider's settings, which show the callback URL to copy.
+    reopened = (await client.get(target)).text
+    assert (
+        f'href="/admin/settings/auth/{provider_id}" class="btn btn-sm" data-modal data-autoopen' in reopened
+    )
+
+    edit = (await client.get(f"/admin/settings/auth/{provider_id}", headers=load)).text
+    assert f"/auth/oidc/{provider_id}/callback" in edit and "Test connection" in edit
+    assert 'form="modal-delete-form"' in edit and 'type="button" class="btn" hx-post' in edit
+    saved = await client.post(
+        f"/admin/settings/auth/{provider_id}", data={**form, "name": "SSO"}, headers=submit
+    )
+    assert saved.headers["HX-Redirect"] == "/admin/settings/auth"
+    assert "SSO" in (await client.get("/admin/settings/auth")).text
+    assert (
+        "<html" in (await client.get(f"/admin/settings/auth/{provider_id}")).text
+    )  # still a page without the modal
