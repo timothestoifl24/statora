@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import HTMLResponse
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from statora import cache
@@ -54,6 +55,17 @@ async def list_incidents(
     ).all()
     pages = {p.id: p for p in (await session.scalars(select(StatusPage))).all()}
     return render(request, "admin/incidents_list.html", user, incidents=incidents, pages=pages)
+
+
+@router.get("/incidents/open-count")
+async def open_incident_count(
+    user: User = Depends(current_user), session: AsyncSession = Depends(get_session)
+):
+    """Badge for the sidebar, loaded with HTMX so every admin page doesn't pay for the query."""
+    count = await session.scalar(
+        select(func.count()).select_from(Incident).where(Incident.resolved_at.is_(None))
+    )
+    return HTMLResponse(f'<span class="badge bg-red text-red-fg">{count}</span>' if count else "")
 
 
 @router.get("/incidents/new")

@@ -387,3 +387,30 @@ async def test_clone_keeps_the_stored_sql_password(client, auth, session):
     assert created.status_code == 303, created.text
     copy = await session.get(Monitor, int(created.headers["location"].rsplit("/", 1)[1]))
     assert crypto.decrypt(copy.config["password"]) == "hunter22"
+
+
+async def test_sidebar_shows_open_incident_count(client, auth):
+    page = (
+        await client.post("/api/v1/status-pages", json={"slug": "inc", "title": "Inc"}, headers=auth)
+    ).json()
+    await login(client)
+    dashboard = await client.get("/admin")
+    assert 'class="navbar navbar-vertical' in dashboard.text
+    assert 'hx-get="/admin/incidents/open-count"' in dashboard.text
+    assert (await client.get("/admin/incidents/open-count")).text == ""
+
+    incident = (
+        await client.post(
+            "/api/v1/incidents",
+            json={"page_id": page["id"], "title": "Down", "message": "Looking"},
+            headers=auth,
+        )
+    ).json()
+    assert ">1</span>" in (await client.get("/admin/incidents/open-count")).text
+
+    await client.post(
+        f"/api/v1/incidents/{incident['id']}/updates",
+        json={"status": "resolved", "body": "Fixed"},
+        headers=auth,
+    )
+    assert (await client.get("/admin/incidents/open-count")).text == ""
