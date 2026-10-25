@@ -11,8 +11,10 @@
     <article class="monitor-tile tile-{{ state }}{{ ' is-problem' if problem }}"
              data-status="{{ state }}" data-type="{{ m.type }}" data-name="{{ (m.name ~ ' ' ~ m.target)|lower }}">
       <div class="tile-head">
-        <i class="{{ type_icons.get(m.type, 'fa-solid fa-circle') }} tile-type" title="{{ m.type|upper }}"></i>
+        {% if m.icon %}<span class="tile-type" title="{{ m.type|upper }}">{{ monitor_icon(m.icon) }}</span>
+        {% else %}<i class="{{ type_icons.get(m.type, 'fa-solid fa-circle') }} tile-type" title="{{ m.type|upper }}"></i>{% endif %}
         <a href="/admin/monitors/{{ m.id }}" class="tile-name text-reset">{{ m.name }}</a>
+        {% if m.link_url %}<a href="{{ m.link_url }}" target="_blank" rel="noopener noreferrer" class="app-link" aria-label="Open the app behind {{ m.name }}"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>{% endif %}
         <span class="status-dot status-{{ m.status if m.active else 'pending' }} ms-auto" title="{{ state }}"></span>
       </div>
       {% if problem %}

@@ -1,4 +1,13 @@
 {% from "_icons.html" import svg %}
+{# Component name with its icon; linked to the app behind it when the monitor has a link. #}
+{% macro named(item, cls) -%}
+  {%- if item.icon %}{{ monitor_icon(item.icon, 'component-icon') }}{% endif -%}
+  {%- if item.link_url -%}
+    <a href="{{ item.link_url }}" class="{{ cls }} app-link" target="_blank" rel="noopener noreferrer">{{ item.name }}{{ svg('external', 'external') }}</a>
+  {%- else -%}
+    <span class="{{ cls }}">{{ item.name }}</span>
+  {%- endif -%}
+{%- endmacro %}
 {% set impact_labels = {'none': 'No impact', 'minor': 'Minor', 'major': 'Major', 'critical': 'Critical'} %}
 {% set overall_icons = {'operational': 'check', 'degraded': 'warn', 'partial_outage': 'warn', 'major_outage': 'down', 'maintenance': 'maintenance'} %}
 {% set tally = namespace(total=0, affected=0) %}
@@ -59,7 +68,7 @@
     {% for c in g.components %}
     <div class="component">
       <div class="component-head">
-        <span class="component-name"><span class="dot dot-{{ c.status }}" aria-hidden="true"></span>{{ c.name }}</span>
+        <span class="component-name"><span class="dot dot-{{ c.status }}" aria-hidden="true"></span>{{ named(c, "component-label") }}</span>
         <span class="component-meta">
           {% if c.uptime is not none %}
             <span class="component-uptime {{ 'good' if c.uptime >= 99.9 else ('fair' if c.uptime >= 99 else 'poor') }}">{{ '%.2f'|format(c.uptime) }}%</span>
@@ -84,7 +93,7 @@
           {% for m in c.members %}
           <li>
             <span class="dot dot-{{ m.status }}" aria-hidden="true"></span>
-            <span class="member-name">{{ m.name }}</span>
+            <span class="member-name">{{ named(m, "member-label") }}</span>
             <span class="member-uptime muted">{{ ('%.2f'|format(m.uptime) ~ '%') if m.uptime is not none else '—' }}</span>
             <span class="component-status st-{{ m.status }}">{{ m.status_label }}</span>
           </li>

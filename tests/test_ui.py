@@ -623,3 +623,53 @@ async def test_status_page_settings_modal_flow(client, auth):
         f"/admin/pages/{page_id}/settings", data={**form, "slug": "shop", "next": "https://evil.example"}
     )
     assert escaped.headers["location"] == "/admin/pages"
+
+
+async def test_monitor_icon_and_link(client, auth):
+    base = {"name": "Grafana", "type": "http", "target": "https://grafana.example"}
+    for bad in (
+        {"icon": "fa:brands:not-an-icon"},
+        {"icon": "javascript:alert(1)"},
+        {"link_url": "javascript:alert(1)"},
+    ):
+        assert (
+            await client.post("/api/v1/monitors", json={**base, **bad}, headers=auth)
+        ).status_code == 422, bad
+    monitor = (
+        await client.post(
+            "/api/v1/monitors",
+            json={**base, "icon": "fa:brands:github", "link_url": "https://grafana.example/d/home"},
+            headers=auth,
+        )
+    ).json()
+    assert monitor["icon"] == "fa:brands:github" and monitor["link_url"] == "https://grafana.example/d/home"
+
+    page = (
+        await client.post("/api/v1/status-pages", json={"slug": "apps", "title": "Apps"}, headers=auth)
+    ).json()
+    await client.patch(
+        f"/api/v1/status-pages/{page['id']}",
+        json={"groups": [{"name": "Apps", "items": [{"monitor_id": monitor["id"]}]}]},
+        headers=auth,
+    )
+    public = (await client.get("/s/apps")).text
+    assert (
+        '<a href="https://grafana.example/d/home" class="component-label app-link" target="_blank" rel="noopener noreferrer">'
+        in public
+    )
+    assert '<svg class="mon-icon component-icon" viewBox="0 0 496 512"' in public  # inline SVG, no icon font
+
+    ref = (await client.post("/api/v1/media", files={"file": ("g.png", PNG)}, headers=auth)).json()["ref"]
+    await client.patch(
+        f"/api/v1/monitors/{monitor['id']}", json={"icon": ref, "link_url": None}, headers=auth
+    )
+    public = (await client.get("/s/apps")).text
+    assert (
+        f'<img class="mon-icon component-icon" src="/media/{ref[6:]}"' in public and "app-link" not in public
+    )
+
+    await login(client)
+    dashboard = (await client.get("/admin")).text
+    assert f'src="/media/{ref[6:]}"' in dashboard
+    form = (await client.get(f"/admin/monitors/{monitor['id']}/edit")).text
+    assert f'name="icon" value="{ref}"' in form and "data-allow-fa" in form

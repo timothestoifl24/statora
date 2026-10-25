@@ -176,3 +176,11 @@
 .ref-option:hover, .ref-option:focus-visible { background: rgba(var(--tblr-primary-rgb), .08); border-color: rgba(var(--tblr-primary-rgb), .35); }
 .ref-option[aria-selected="true"] { background: rgba(var(--tblr-primary-rgb), .15); border-color: var(--tblr-primary); color: var(--tblr-primary); }
 @media (max-width: 575.98px) { .ref-row { flex-wrap: wrap; } .ref-row .ref-value { flex-basis: calc(100% - 3rem); } }
+
+/* Monitor icons (fa: refs inline as SVG, uploads/URLs as <img>) and app links. */
+.mon-icon { width: 1em; height: 1em; display: inline-block; vertical-align: -.125em; object-fit: contain; }
+.monitor-table .type-icon.has-custom { color: var(--tblr-body-color); font-size: .95rem; }
+.monitor-table .type-icon img.mon-icon { width: 1.1rem; height: 1.1rem; }
+.tile-type .mon-icon { width: 1rem; height: 1rem; }
+.app-link { color: var(--tblr-secondary); font-size: .75rem; margin-left: .35rem; padding: .25rem; border-radius: var(--tblr-border-radius); }
+.app-link:hover { color: var(--tblr-primary); background: rgba(var(--tblr-primary-rgb), .08); }

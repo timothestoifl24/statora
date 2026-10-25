@@ -106,6 +106,8 @@ def _monitor_values(monitor: Monitor | None) -> dict:
     return {
         "name": monitor.name if monitor else "",
         "description": monitor.description if monitor else "",
+        "icon": monitor.icon if monitor else "",
+        "link_url": monitor.link_url if monitor else "",
         "type": monitor.type if monitor else MonitorType.HTTP,
         "target": monitor.target if monitor else "",
         "interval_s": monitor.interval_s if monitor else 60,
@@ -162,6 +164,8 @@ def _values_from_form(form) -> dict:
     return {
         "name": str(form.get("name", "")).strip(),
         "description": opt(form.get("description")),
+        "icon": opt(form.get("icon")),
+        "link_url": opt(form.get("link_url")),
         "type": form.get("type", "http"),
         "target": str(form.get("target", "")).strip(),
         "interval_s": form.get("interval_s") or 60,

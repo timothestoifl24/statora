@@ -19,9 +19,12 @@
           <td>
             <div class="d-flex align-items-center gap-2">
               <span class="status-dot status-{{ m.status if m.active else 'pending' }}" title="{{ state }}"></span>
-              <span class="type-icon" title="{{ m.type|upper }}"><i class="{{ type_icons.get(m.type, 'fa-solid fa-circle') }}"></i></span>
+              <span class="type-icon{{ ' has-custom' if m.icon }}" title="{{ m.type|upper }}">
+                {%- if m.icon %}{{ monitor_icon(m.icon) }}{% else %}<i class="{{ type_icons.get(m.type, 'fa-solid fa-circle') }}"></i>{% endif -%}
+              </span>
               <div class="min-w-0">
                 <a href="/admin/monitors/{{ m.id }}" class="text-reset fw-medium">{{ m.name }}</a>
+                {% if m.link_url %}<a href="{{ m.link_url }}" target="_blank" rel="noopener noreferrer" class="app-link" title="Open {{ m.link_url }}" aria-label="Open the app behind {{ m.name }}"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>{% endif %}
                 {% if not m.active %}<span class="badge bg-secondary-lt ms-1">paused</span>{% endif %}
                 <div class="text-secondary small text-truncate">
                   {% if state in ('down', 'degraded') %}
@@ -79,7 +82,7 @@
                 {% set mstate = member.status if member.active else 'pending' %}
                 <li>
                   <span class="status-dot status-{{ mstate }}"></span>
-                  <i class="{{ type_icons.get(member.type, 'fa-solid fa-circle') }} type-icon"></i>
+                  {% if member.icon %}<span class="type-icon">{{ monitor_icon(member.icon) }}</span>{% else %}<i class="{{ type_icons.get(member.type, 'fa-solid fa-circle') }} type-icon"></i>{% endif %}
                   <a href="/admin/monitors/{{ member.id }}" class="text-reset">{{ member.name }}</a>
                   <span class="text-secondary small ms-auto tabular">{{ member.last_latency_ms|ms }}</span>
                   <span class="badge bg-{{ status_colors.get(mstate, 'secondary') }}-lt">{{ mstate }}</span>

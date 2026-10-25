@@ -1,4 +1,5 @@
 {% extends "admin/base.html" %}
+{% from "admin/_macros.html" import image_ref_input %}
 {% block title %}{{ 'Edit ' ~ monitor.name if monitor else ('Clone ' ~ clone_of.name if clone_of else 'New monitor') }}{% endblock %}
 {% block content %}
 <form method="post" action="{{ '/admin/monitors/' ~ monitor.id ~ '/edit' if monitor else '/admin/monitors/new' }}" class="card" autocomplete="off">
@@ -45,6 +46,21 @@
 
     <h3 class="card-title mt-4">Check settings</h3>
     <div id="config-fields">{% include "admin/_monitor_config.html" %}</div>
+
+    <h3 class="card-title mt-4">Appearance</h3>
+    <div class="row g-3">
+      <div class="col-xl-7">
+        <label class="form-label" for="icon">Icon</label>
+        {{ image_ref_input('icon', values.icon, 'icon', allow_fa=True, placeholder='Pick an icon, upload an image or paste a URL') }}
+        <small class="form-hint">Shown next to the name in the monitor list and on status pages.</small>
+      </div>
+      <div class="col-xl-5">
+        <label class="form-label" for="link_url">Link</label>
+        <input type="url" class="form-control" id="link_url" name="link_url" value="{{ values.link_url or '' }}"
+               placeholder="https://grafana.example.com" pattern="https?://.+">
+        <small class="form-hint">The app behind this monitor. Status pages link the name to it.</small>
+      </div>
+    </div>
 
     <div class="row g-3 mt-1">
       <div class="col-12">

@@ -11,10 +11,15 @@ Changes collect under the upcoming version while it's being developed, and you c
 - **Monitor dashboard:** a summary bar shows how many monitors are up and how many need attention. Down and degraded monitors come first, tinted, with how long they've been failing. Search and filter chips (Problems, HTTP, TCP, Ping, DNS, SQL, Groups) survive the auto-refresh, groups expand inline to show their members, and `/` focuses the search, `n` opens a new monitor.
 - **Tile view and wallboard:** switch the monitor list to tiles, or open `/admin?kiosk=1` for a full-screen wallboard without the sidebar. Failing monitors get bigger tiles with the last error and buttons to report an incident or pause them.
 - **Open incidents badge** in the admin navigation.
+- **Monitor icons and links:** give a monitor an icon (pick one of the bundled Font Awesome icons, including brand logos, or upload or link your own image) and a link to the app behind it. Status pages show the icon and link the component name to the app; the monitor list and tiles show them too. New `icon` and `link_url` fields in the monitor API.
+- **Status page favicon:** each status page can have its own browser-tab icon, uploaded or as a URL (`favicon` in the API).
+- **Image uploads:** `POST /api/v1/media` stores a PNG, JPEG, WebP, GIF, ICO or SVG image (up to 256 KB) in the database and returns a `media:` reference for `favicon` and `icon`. Uploaded SVGs must not contain scripts and are served sandboxed.
 
 ### Changed
 
 - **Admin layout:** the navigation moved into a sidebar, with the user menu and theme toggle at its bottom.
+- **Status pages in the admin panel:** a new overview shows each page's status, favicon and size. Create a page and edit its settings in a dialog; creating a page takes you straight to its components, which have their own editor.
+- **Bigger buttons:** the row menus and other icon buttons in the admin panel are at least 32 px, so they're easier to hit.
 - **Public status page:** a calmer status card replaces the coloured banner and says how many components are affected. Active incidents show as a timeline inside it, maintenance as a slim strip, and each component shows its uptime next to its status.
 - **Fonts and icons:** the admin panel and status pages use Inter and JetBrains Mono, shipped with Statora (no requests to font CDNs). Icons now come from Font Awesome Free instead of Tabler Icons; login buttons for Google, GitHub, GitLab and Microsoft providers show the provider's logo.
 

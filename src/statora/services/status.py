@@ -282,6 +282,8 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
                 {
                     "id": item.id,
                     "name": item.label,
+                    "icon": monitor.icon,
+                    "link_url": monitor.link_url,
                     "status": status,
                     "status_label": COMPONENT_LABELS.get(status, "Unknown"),
                     "uptime": uptime,
@@ -290,6 +292,8 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
                     "members": [
                         {
                             "name": member.name,
+                            "icon": member.icon,
+                            "link_url": member.link_url,
                             "status": (member_status := effective_status(member)),
                             "status_label": COMPONENT_LABELS.get(member_status, "Unknown"),
                             "uptime": bars_and_uptime(member)[1],
