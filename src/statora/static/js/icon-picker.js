@@ -5,28 +5,43 @@
   var STYLE_CLASS = { solid: "fa-solid", regular: "fa-regular", brands: "fa-brands" };
   var LIMIT = 120;
 
-  function preview(box, ref, url) {
+  var FA_REF = /^fa:(solid|regular|brands):([a-z0-9-]+)$/;
+  var MEDIA_REF = /^media:([0-9a-f]{64})$/;
+
+  // Image URL for a reference, or null. Mirrors the server's rules (schemas/common.py):
+  // uploads are served from /media/<sha256>, external images must be well-formed https URLs.
+  function imageSrc(ref) {
+    var media = MEDIA_REF.exec(ref);
+    if (media) return "/media/" + media[1];
+    var parsed;
+    try { parsed = new URL(ref); } catch (e) { return null; }
+    if (parsed.protocol !== "https:" || !parsed.hostname || parsed.username || parsed.password) return null;
+    return parsed.href;
+  }
+
+  function preview(box, ref) {
     var target = box.querySelector(".ref-preview");
     target.querySelectorAll(":scope > :not(.ref-empty)").forEach(function (el) { el.remove(); });
-    target.classList.toggle("has-icon", !!ref);
-    if (!ref) return;
-    var fa = /^fa:(solid|regular|brands):([a-z0-9-]+)$/.exec(ref);
-    var el;
+    var fa = FA_REF.exec(ref);
+    var src = fa ? null : imageSrc(ref);
+    var el = null;
     if (fa) {
       el = document.createElement("i");
       el.className = STYLE_CLASS[fa[1]] + " fa-" + fa[2];
-    } else if (url || /^https?:\/\//.test(ref) || /^media:/.test(ref)) {
+    } else if (src) {
       el = document.createElement("img");
       el.alt = "";
-      el.src = url || (ref.startsWith("media:") ? "/media/" + ref.slice(6) : ref);
+      el.referrerPolicy = "no-referrer";
+      el.src = src;
     }
+    target.classList.toggle("has-icon", !!el);
     if (el) target.prepend(el);
   }
 
-  function setValue(box, ref, url) {
+  function setValue(box, ref) {
     var input = box.querySelector(".ref-value");
     input.value = ref;
-    preview(box, ref, url);
+    preview(box, ref);
     input.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
@@ -45,7 +60,8 @@
       .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
       .then(function (res) {
         if (!res.ok) throw new Error(res.data.detail || "Upload failed");
-        setValue(box, res.data.ref, res.data.url);
+        if (!MEDIA_REF.test(res.data.ref)) throw new Error("Upload failed");
+        setValue(box, res.data.ref);
       })
       .catch(function (e) { showError(box, e.message); })
       .finally(function () { box.classList.remove("is-uploading"); });

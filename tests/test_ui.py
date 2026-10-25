@@ -1,3 +1,4 @@
+import io
 import json
 import re
 from datetime import timedelta
@@ -516,7 +517,17 @@ async def test_public_status_card_counts_and_incident_timeline(client, auth):
     assert "Updated <time" in busy  # the timestamp refreshes with the content
 
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+def image_bytes(fmt: str = "PNG", size=(32, 32), **save) -> bytes:
+    from PIL import Image
+
+    out = io.BytesIO()
+    Image.new("RGBA" if fmt in ("PNG", "WEBP", "ICO") else "RGB", size, (31, 111, 235, 255)).save(
+        out, fmt, **save
+    )
+    return out.getvalue()
+
+
+PNG = image_bytes()
 
 
 async def test_media_upload_validation_and_headers(client, auth):
@@ -528,25 +539,132 @@ async def test_media_upload_validation_and_headers(client, auth):
     assert again.json()["ref"] == body["ref"]  # identical files are stored once
 
     served = await client.get(body["url"])
-    assert served.status_code == 200 and served.content == PNG
+    assert served.status_code == 200 and served.content.startswith(b"\x89PNG")
     assert served.headers["content-type"] == "image/png"
     assert "sandbox" in served.headers["content-security-policy"]
     assert served.headers["x-content-type-options"] == "nosniff"
-
-    svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>'
-    assert (
-        await client.post("/api/v1/media", files={"file": ("i.svg", svg)}, headers=auth)
-    ).status_code == 201
-    rejected = {
-        "script.svg": b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
-        "handler.svg": b'<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"></svg>',
-        "fake.png": b"<html>not an image</html>",
-        "big.png": PNG + b"\x00" * (256 * 1024),
-    }
-    for name, data in rejected.items():
-        response = await client.post("/api/v1/media", files={"file": (name, data, "image/png")}, headers=auth)
-        assert response.status_code == 422, name
     assert (await client.get("/media/" + "0" * 64)).status_code == 404
+
+
+async def upload(client, auth, name: str, data: bytes, mime: str = "application/octet-stream"):
+    return await client.post("/api/v1/media", files={"file": (name, data, mime)}, headers=auth)
+
+
+async def stored(client, response) -> bytes:
+    assert response.status_code == 201, response.text
+    return (await client.get(response.json()["url"])).content
+
+
+async def test_raster_uploads_are_re_encoded(client, auth):
+    from PIL import Image, PngImagePlugin
+
+    # Every accepted raster format comes back as a clean, small PNG.
+    for fmt, extra in (("JPEG", {}), ("GIF", {}), ("WEBP", {}), ("ICO", {"sizes": [(16, 16), (48, 48)]})):
+        data = await stored(
+            client, await upload(client, auth, f"i.{fmt.lower()}", image_bytes(fmt, (48, 48), **extra))
+        )
+        img = Image.open(io.BytesIO(data))
+        assert img.format == "PNG" and max(img.size) <= 256, fmt
+
+    # Anything hidden in or after the image is dropped: text chunks, EXIF, appended HTML or ZIP.
+    info = PngImagePlugin.PngInfo()
+    info.add_text("Comment", "<script>alert(1)</script>")
+    tagged = image_bytes("PNG", info=info)
+    exif = Image.Exif()
+    exif[0x010E] = "<?php system($_GET['c']); ?>"  # ImageDescription
+    payloads = {
+        "text.png": tagged,
+        "exif.jpg": image_bytes("JPEG", exif=exif),
+        "polyglot.png": PNG + b"<html><script>alert(document.cookie)</script></html>",
+        "zip.png": PNG + b"PK\x03\x04" + b"evil.exe" + b"\x00" * 64,
+    }
+    for name, data in payloads.items():
+        clean = await stored(client, await upload(client, auth, name, data))
+        for marker in (b"<script", b"<?php", b"PK\x03\x04", b"evil.exe", b"alert("):
+            assert marker not in clean, (name, marker)
+
+    # Big images shrink to 256 px; oversized dimensions are refused before decoding (decompression bombs).
+    big = Image.open(
+        io.BytesIO(await stored(client, await upload(client, auth, "b.png", image_bytes("PNG", (1024, 512)))))
+    )
+    assert big.size == (256, 128)
+    bomb = await upload(client, auth, "bomb.png", image_bytes("PNG", (4096, 1)))
+    assert bomb.status_code == 422 and "2048" in bomb.json()["detail"]
+
+
+async def test_rejected_uploads(client, auth):
+    fake_png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+    truncated = PNG[: len(PNG) // 2]
+    cases = {
+        "fake.png": (fake_png, "damaged"),
+        "truncated.png": (truncated, "damaged"),
+        "page.png": (b"<html><body>hi</body></html>", "Upload a PNG"),
+        "tool.exe": (b"MZ\x90\x00" + b"\x00" * 200, "Upload a PNG"),
+        "archive.zip": (b"PK\x03\x04" + b"\x00" * 200, "Upload a PNG"),
+        "script.png": (b"#!/bin/sh\nrm -rf /\n", "Upload a PNG"),
+        "doc.pdf": (b"%PDF-1.7\n" + b"\x00" * 100, "Upload a PNG"),
+        "empty.png": (b"", "empty"),
+        "big.png": (PNG + b"\x00" * (256 * 1024), "256 KB"),
+        "xxe.svg": (
+            b'<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg xmlns="http://www.w3.org/2000/svg">&x;</svg>',
+            "DOCTYPE",
+        ),
+        "broken.svg": (b'<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"', "valid XML"),
+        "nothing.svg": (
+            b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+            "Nothing drawable",
+        ),
+    }
+    for name, (data, message) in cases.items():
+        response = await upload(client, auth, name, data, "image/png")
+        assert response.status_code == 422, (name, response.text)
+        detail = response.json()["detail"]
+        assert message in detail and "Traceback" not in detail and "PIL" not in detail, (name, detail)
+
+    # The body limit applies before the upload is read.
+    huge = await upload(client, auth, "huge.png", b"\x00" * (600 * 1024))
+    assert huge.status_code == 413
+
+
+async def test_svg_uploads_are_rebuilt_from_an_allowlist(client, auth):
+    evil = b"""<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" onload="alert(1)">
+  <title>icon</title>
+  <script>alert(document.cookie)</script>
+  <style>@import url(https://evil.example/x.css); svg { background: url(javascript:alert(1)) }</style>
+  <defs><linearGradient id="g"><stop offset="0" stop-color="#1f6feb"/></linearGradient></defs>
+  <path d="M2 2h20v20H2z" fill="url(#g)" style="stroke:#000;stroke-width:2;fill:url(javascript:alert(1))" onclick="alert(2)"/>
+  <circle cx="12" cy="12" r="4" fill="url(https://evil.example/track)"/>
+  <a xlink:href="javascript:alert(3)"><rect width="4" height="4"/></a>
+  <use xlink:href="https://evil.example/sprite.svg#x"/>
+  <use href="#g"/>
+  <image href="data:image/svg+xml;base64,PHN2Zz48c2NyaXB0PmFsZXJ0KDEpPC9zY3JpcHQ+PC9zdmc+"/>
+  <foreignObject><body xmlns="http://www.w3.org/1999/xhtml"><iframe src="javascript:alert(4)"/></body></foreignObject>
+  <animate attributeName="href" values="javascript:alert(5)"/>
+  <set attributeName="onmouseover" to="alert(6)"/>
+  <rect width="2" height="2" fill="&#106;avascript:alert(7)"/>
+</svg>"""
+    clean = (await stored(client, await upload(client, auth, "evil.svg", evil, "image/svg+xml"))).decode()
+    lowered = clean.lower()
+    for bad in (
+        "script",
+        "onload",
+        "onclick",
+        "javascript",
+        "evil.example",
+        "@import",
+        "foreignobject",
+        "<image",
+        "<a ",
+        "animate",
+        "<set",
+        "iframe",
+        "data:",
+    ):
+        assert bad not in lowered, (bad, clean)
+    # The drawing itself survives, including internal references and safe style declarations.
+    assert 'fill="url(#g)"' in clean and 'stroke="#000"' in clean and 'stroke-width="2"' in clean
+    assert '<use href="#g"' in clean and "<title>icon</title>" in clean and 'viewBox="0 0 24 24"' in clean
 
 
 async def test_status_page_favicon(client, auth):

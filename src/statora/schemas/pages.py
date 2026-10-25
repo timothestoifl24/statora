@@ -1,10 +1,10 @@
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from statora.db.models import HistoryResolution, IncidentImpact, IncidentStatus
-from statora.schemas.common import ImageRef
+from statora.schemas.common import ImageRef, check_link
 
 Slug = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9][a-z0-9-]*$")
 Color = Field(pattern=r"^#[0-9a-fA-F]{6}$")
@@ -21,6 +21,7 @@ TicketUrl = Annotated[
         pattern=r"^https?://\S+$",
         description="Link to the ticket or documentation",
     ),
+    AfterValidator(check_link),
 ]
 
 
@@ -51,7 +52,7 @@ class StatusPageBase(BaseModel):
     slug: str = Slug
     title: str = Field(min_length=1, max_length=150)
     description: str | None = None
-    logo_url: str | None = Field(default=None, max_length=2048)
+    logo_url: ImageRef = None
     favicon: ImageRef = None
     accent_color: str = Field(default="#1f6feb", pattern=r"^#[0-9a-fA-F]{6}$")
     footer_text: str | None = None
@@ -74,7 +75,7 @@ class StatusPageUpdate(BaseModel):
     slug: str | None = Field(default=None, min_length=1, max_length=100, pattern=r"^[a-z0-9][a-z0-9-]*$")
     title: str | None = Field(default=None, min_length=1, max_length=150)
     description: str | None = None
-    logo_url: str | None = None
+    logo_url: ImageRef = None
     favicon: ImageRef = None
     accent_color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
     footer_text: str | None = None

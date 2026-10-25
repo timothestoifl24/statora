@@ -8,7 +8,7 @@
 {# The connection test uses the saved settings, so it's only offered for an existing provider. #}
 {% macro test_button() -%}
 <button type="button" class="btn" hx-post="/admin/settings/auth/{{ provider.id }}/test" hx-target="#test-result"
-        hx-swap="innerHTML" hx-indicator="#test-spinner" hx-include="none" title="Tests the saved settings">
+        hx-swap="innerHTML" hx-indicator="#test-spinner" title="Tests the saved settings">
   <span id="test-spinner" class="spinner-border spinner-border-sm me-2 htmx-indicator" role="status"></span>
   <i class="fa-solid fa-plug-circle-check me-1"></i>Test connection
 </button>

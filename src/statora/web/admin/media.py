@@ -24,7 +24,7 @@ async def upload_media(
     try:
         stored = await media.store(session, data)
     except media.MediaError as exc:
-        return JSONResponse({"detail": str(exc)}, 422)
+        return JSONResponse({"detail": exc.public_message}, 422)
     await session.commit()
     ref = media.ref(stored)
     return {"ref": ref, "url": media.url(ref)}

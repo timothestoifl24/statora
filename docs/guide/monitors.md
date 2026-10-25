@@ -16,8 +16,8 @@ A monitor runs one check on a schedule. Create one under **Monitors → New moni
 
 Under **Appearance** a monitor can get:
 
-- an **icon**: pick one of the bundled Font Awesome icons (brand logos included), upload an image (PNG, JPEG, WebP, GIF, ICO or SVG, up to 256 KB), or paste an image URL. In the API this is `icon`: `fa:brands:github`, an upload's `media:<sha256>` from `POST /api/v1/media`, or an http(s) URL;
-- a **link** (`link_url`) to the app behind the monitor, http(s) only.
+- an **icon**: pick one of the bundled Font Awesome icons (brand logos included), upload an image (PNG, JPEG, WebP, GIF, ICO or SVG, up to 256 KB and 2048 × 2048 px), or paste an https image URL. In the API this is `icon`: `fa:brands:github`, an upload's `media:<sha256>` from `POST /api/v1/media`, or an https URL. Uploads are re-encoded (raster images become a PNG of at most 256 px) and SVGs are cleaned of scripts and other active content;
+- a **link** (`link_url`) to the app behind the monitor: an http(s) URL without a user name or password.
 
 Both show in the monitor list and on every status page that includes the monitor. There, the component name links to the app.
 
