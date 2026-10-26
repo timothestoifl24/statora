@@ -218,11 +218,9 @@ class _InlineCodeFinder(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         attributes = {name: (value or "") for name, value in attrs}
-        if (
-            tag == "script"
-            and "src" not in attributes
-            and attributes.get("type", "").lower() != "application/json"
-        ):
+        if tag == "script" and "src" not in attributes:
+            # Data blocks too: htmx (allowScriptTags off) drops every script element from swapped
+            # content, so data goes in data-* attributes instead.
             self.problems.append("inline <script>")
         for name, value in attributes.items():
             if name.startswith("on"):
@@ -268,9 +266,9 @@ def test_inline_code_finder_catches_variants(markup):
     assert finder.problems, markup
 
 
-def test_inline_code_finder_allows_external_and_data_scripts():
+def test_inline_code_finder_allows_external_scripts_only():
     finder = _InlineCodeFinder()
-    finder.feed(
-        '<script src="/static/js/admin.js" defer></script><script type="application/json" id="d">{"a": 1}</script>'
-    )
+    finder.feed('<script src="/static/js/admin.js" defer></script>')
     assert not finder.problems
+    finder.feed('<script type="application/json" id="d">{"a": 1}</script>')
+    assert finder.problems  # data blocks would vanish on htmx swaps

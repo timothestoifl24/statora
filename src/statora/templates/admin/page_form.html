@@ -28,7 +28,7 @@
         <button type="button" class="btn" id="add-group"><i class="fa-solid fa-plus me-1"></i>Add group</button>
       </div>
     </div>
-    <div class="card-body" id="groups"></div>
+    <div class="card-body" id="groups" data-monitors='{{ monitors|tojson }}' data-groups='{{ groups|tojson }}'></div>
     <div class="card-footer d-flex align-items-center">
       <a href="/admin/pages" class="btn btn-link link-secondary">Back to status pages</a>
       <button type="submit" class="btn btn-primary ms-auto"><i class="fa-solid fa-check me-1"></i>Save components</button>
@@ -66,7 +66,5 @@
 </template>
 {% endblock %}
 {% block scripts %}
-<script type="application/json" id="page-monitors">{{ monitors|tojson }}</script>
-<script type="application/json" id="page-groups">{{ groups|tojson }}</script>
 <script src="{{ asset('js/page-editor.js') }}" defer></script>
 {% endblock %}

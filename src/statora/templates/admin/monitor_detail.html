@@ -81,8 +81,8 @@
 <div class="card mb-3">
   <div class="card-header"><h3 class="card-title">Response time · last 24 hours</h3></div>
   <div class="card-body">
-    {% if chart %}<div id="latency-chart" style="min-height: 260px"></div>
-    <script type="application/json" id="latency-data">{{ chart|tojson }}</script>
+    {# Data in an attribute, not a script block: htmx drops script elements from refreshed content. #}
+    {% if chart %}<div id="latency-chart" style="min-height: 260px" data-points='{{ chart|tojson }}'></div>
     {% else %}<p class="text-secondary mb-0">No checks yet. The first result appears within one interval ({{ monitor.interval_s }}s).</p>{% endif %}
   </div>
 </div>

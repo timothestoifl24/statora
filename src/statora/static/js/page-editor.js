@@ -1,11 +1,11 @@
 // Status page components editor (admin/page_form.html): groups, items, drag and drop.
-// The page passes its data as JSON in #page-monitors and #page-groups.
+// The page passes its data as JSON in #groups' data-monitors and data-groups attributes.
 (function () {
-  var monitors = JSON.parse(document.getElementById("page-monitors").textContent);
-  var initial = JSON.parse(document.getElementById("page-groups").textContent);
+  var container = document.getElementById("groups");
+  var monitors = JSON.parse(container.dataset.monitors);
+  var initial = JSON.parse(container.dataset.groups);
   var byId = {};
   monitors.forEach(function (m) { byId[m.id] = m; });
-  var container = document.getElementById("groups");
 
   function move(el, dir) {
     if (dir < 0 && el.previousElementSibling) el.parentNode.insertBefore(el, el.previousElementSibling);
