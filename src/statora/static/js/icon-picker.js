@@ -20,6 +20,7 @@
   var pending = new WeakMap();
   function preview(box, ref) {
     var fa = FA_REF.exec(ref);
+    clearTimeout(pending.get(box)); // a newer value replaces any preview still waiting to load
     if (fa || !ref) {
       var icon = null;
       if (fa) {
@@ -29,12 +30,13 @@
       showPreview(box, icon);
       return;
     }
-    clearTimeout(pending.get(box));
+    // The field may have changed (typed on, an icon picked) by the time the answer arrives.
+    function stillCurrent() { return box.querySelector(".ref-value").value.trim() === ref; }
     pending.set(box, setTimeout(function () {
       fetch("/admin/media/preview?ref=" + encodeURIComponent(ref), { headers: { Accept: "application/json" } })
         .then(function (r) { return r.ok ? r.json() : { src: null }; })
         .then(function (data) {
-          if (box.querySelector(".ref-value").value.trim() !== ref) return; // typed on meanwhile
+          if (!stillCurrent()) return;
           var img = null;
           if (data.src) {
             img = document.createElement("img");
@@ -44,7 +46,9 @@
           }
           showPreview(box, img);
         })
-        .catch(function () { showPreview(box, null); });
+        .catch(function () {
+          if (stillCurrent()) showPreview(box, null);
+        });
     }, 250));
   }
 
