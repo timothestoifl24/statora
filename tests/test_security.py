@@ -1,6 +1,6 @@
 """Security hardening: response headers, NUL bytes, URL validation, secret key, upload limits."""
 
-import re
+from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
@@ -205,16 +205,72 @@ async def test_saved_legacy_logo_stays_readable(client, auth, session):
 TEMPLATES = Path(__file__).resolve().parent.parent / "src/statora/templates"
 
 
+class _InlineCodeFinder(HTMLParser):
+    """Collects inline code the CSP would block, the way a browser reads the markup.
+
+    html.parser lowercases tag and attribute names and copes with odd spacing and quoting, so
+    <SCRIPT>, <script  type=...> or ONCLICK= are all found.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.problems: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        attributes = {name: (value or "") for name, value in attrs}
+        if (
+            tag == "script"
+            and "src" not in attributes
+            and attributes.get("type", "").lower() != "application/json"
+        ):
+            self.problems.append("inline <script>")
+        for name, value in attributes.items():
+            if name.startswith("on"):
+                self.problems.append(f"inline event handler {name}= on <{tag}>")
+            if name.startswith("hx-on") or value.lstrip().lower().startswith("js:"):
+                self.problems.append(f"htmx inline JavaScript in {name}= on <{tag}>")
+            if value.strip().lower().replace("\t", "").replace("\n", "").startswith("javascript:"):
+                self.problems.append(f"javascript: URL in {name}= on <{tag}>")
+            if name == "hx-trigger" and "[" in value:
+                self.problems.append("htmx trigger filter (needs eval)")
+
+    handle_startendtag = handle_starttag
+
+
 @pytest.mark.parametrize(
     "template", sorted(TEMPLATES.rglob("*.html")), ids=lambda p: str(p.relative_to(TEMPLATES))
 )
 def test_templates_have_no_inline_script(template):
     """The CSP only allows scripts from files; keep inline code out of the templates."""
-    html = template.read_text()
-    for match in re.finditer(r"<script\b([^>]*)>", html):
-        attrs = match.group(1)
-        assert "src=" in attrs or 'type="application/json"' in attrs, f"inline <script> in {template.name}"
-    assert not re.search(r"\son[a-z]+\s*=", html), f"inline event handler in {template.name}"
-    assert "javascript:" not in html, f"javascript: URL in {template.name}"
-    assert not re.search(r'hx-trigger="[^"]*\[', html), f"htmx trigger filter (needs eval) in {template.name}"
-    assert "hx-on" not in html and "js:" not in html, f"htmx inline JS in {template.name}"
+    finder = _InlineCodeFinder()
+    finder.feed(template.read_text())
+    finder.close()
+    assert not finder.problems, f"{template.name}: {finder.problems}"
+
+
+@pytest.mark.parametrize(
+    "markup",
+    [
+        "<SCRIPT>alert(1)</SCRIPT>",
+        "<script >alert(1)</script>",
+        '<script type="module">alert(1)</script>',
+        '<div ONCLICK="alert(1)"></div>',
+        "<img src=x onerror=alert(1)>",
+        '<a href="  JavaScript:alert(1)">x</a>',
+        '<button hx-on:click="alert(1)"></button>',
+        '<div hx-trigger="every 1s [alert(1)]"></div>',
+        '<div hx-vals="js:{a: alert(1)}"></div>',
+    ],
+)
+def test_inline_code_finder_catches_variants(markup):
+    finder = _InlineCodeFinder()
+    finder.feed(markup)
+    assert finder.problems, markup
+
+
+def test_inline_code_finder_allows_external_and_data_scripts():
+    finder = _InlineCodeFinder()
+    finder.feed(
+        '<script src="/static/js/admin.js" defer></script><script type="application/json" id="d">{"a": 1}</script>'
+    )
+    assert not finder.problems
