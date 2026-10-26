@@ -1,5 +1,8 @@
 """Security hardening: response headers, NUL bytes, URL validation, secret key, upload limits."""
 
+import re
+from pathlib import Path
+
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
@@ -14,6 +17,8 @@ async def test_security_headers(client):
     csp = admin.headers["content-security-policy"]
     assert admin.headers["x-frame-options"] == "DENY" and "frame-ancestors 'none'" in csp
     assert "object-src 'none'" in csp and "base-uri 'self'" in csp and "form-action 'self'" in csp
+    script_src = next(d for d in csp.split(";") if d.strip().startswith("script-src")).split()[1:]
+    assert script_src == ["'self'"]  # no inline scripts, no eval
     assert admin.headers["x-content-type-options"] == "nosniff"
     assert admin.headers["referrer-policy"] == "strict-origin-when-cross-origin"
     assert (
@@ -25,7 +30,7 @@ async def test_security_headers(client):
     # Status pages may be embedded elsewhere, but still don't load foreign scripts.
     assert "x-frame-options" not in public.headers
     assert "frame-ancestors" not in public.headers["content-security-policy"]
-    assert "unsafe-eval" not in public.headers["content-security-policy"]
+    assert "script-src 'self';" in public.headers["content-security-policy"]
 
     docs = await client.get("/api/docs")
     assert (
@@ -195,3 +200,21 @@ async def test_saved_legacy_logo_stays_readable(client, auth, session):
         f"/api/v1/status-pages/{page['id']}", json={"logo_url": "http://legacy.example/x.png"}, headers=auth
     )
     assert bad.status_code == 422
+
+
+TEMPLATES = Path(__file__).resolve().parent.parent / "src/statora/templates"
+
+
+@pytest.mark.parametrize(
+    "template", sorted(TEMPLATES.rglob("*.html")), ids=lambda p: str(p.relative_to(TEMPLATES))
+)
+def test_templates_have_no_inline_script(template):
+    """The CSP only allows scripts from files; keep inline code out of the templates."""
+    html = template.read_text()
+    for match in re.finditer(r"<script\b([^>]*)>", html):
+        attrs = match.group(1)
+        assert "src=" in attrs or 'type="application/json"' in attrs, f"inline <script> in {template.name}"
+    assert not re.search(r"\son[a-z]+\s*=", html), f"inline event handler in {template.name}"
+    assert "javascript:" not in html, f"javascript: URL in {template.name}"
+    assert not re.search(r'hx-trigger="[^"]*\[', html), f"htmx trigger filter (needs eval) in {template.name}"
+    assert "hx-on" not in html and "js:" not in html, f"htmx inline JS in {template.name}"

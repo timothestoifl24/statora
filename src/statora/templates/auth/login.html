@@ -10,14 +10,7 @@
   <link rel="stylesheet" href="{{ asset('vendor/fontawesome/fontawesome.min.css') }}">
   <link rel="stylesheet" href="{{ asset('css/fonts.css') }}">
   <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
-  <script>
-    (function () {
-      var theme = null;
-      try { theme = localStorage.getItem("statora-theme"); } catch (e) {}
-      if (!theme) theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      document.documentElement.setAttribute("data-bs-theme", theme);
-    })();
-  </script>
+  <script src="{{ asset('js/theme-init.js') }}"></script>
 </head>
 <body class="d-flex flex-column">
 <div class="page page-center">

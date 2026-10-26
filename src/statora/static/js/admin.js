@@ -157,3 +157,40 @@ document.addEventListener("input", function (event) {
       .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 100);
   }
 });
+
+// Form behaviour that used to live in inline onchange handlers (not allowed by the CSP).
+document.addEventListener("change", function (event) {
+  var el = event.target;
+  // Monitor type: groups have no target.
+  if (el.matches("[data-monitor-type]")) {
+    var targetRow = document.getElementById("target-row");
+    if (targetRow) targetRow.hidden = el.value === "group";
+  }
+  // Group monitor: redundancy settings only for redundancy groups.
+  if (el.matches("[data-group-mode]")) {
+    var options = document.getElementById("redundancy-options");
+    if (options) options.hidden = el.value !== "redundancy";
+  }
+  // SQL monitor: default port, Oracle hint and default query follow the engine.
+  if (el.matches("[data-sql-engine]")) {
+    var port = document.getElementById("cfg_port");
+    var hint = document.getElementById("cfg_database_hint");
+    var query = document.getElementById("cfg_query");
+    if (port) port.placeholder = el.selectedOptions[0].dataset.port || "";
+    if (hint) hint.hidden = el.value !== "oracle";
+    if (query) query.placeholder = el.value === "oracle" ? "SELECT 1 FROM DUAL" : "SELECT 1";
+  }
+  // Switches that save on change (e.g. the local sign-in form on the Authentication page).
+  if (el.matches("[data-autosubmit]") && el.form) el.form.requestSubmit();
+});
+
+// Auto-refreshing blocks marked data-pause-while-busy skip a round while a dropdown menu or a dialog
+// is open, so the menu doesn't close under the pointer. (Replaces an htmx trigger filter, which
+// would need eval.)
+document.body.addEventListener("htmx:beforeRequest", function (event) {
+  var elt = event.detail.elt;
+  if (elt && elt.matches && elt.matches("[data-pause-while-busy]") &&
+      document.querySelector(".dropdown-menu.show, #app-modal.show")) {
+    event.preventDefault();
+  }
+});

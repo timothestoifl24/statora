@@ -2,17 +2,18 @@
 
 from statora.config import get_settings
 
-# Pages still use inline scripts and styles (theme switch, page editor) and htmx evaluates trigger
-# filters, so inline code is allowed; everything else is limited to this site. Images may come from
-# https because favicons, logos and monitor icons can be external URLs.
+# Scripts only from this site: templates have no inline scripts, inline event handlers or
+# javascript: URLs, and htmx runs with allowEval off. Styles may be inline (style attributes and
+# the per-page accent colour). Images may come from https because favicons, logos and monitor
+# icons can be external URLs.
 _BASE_POLICY = (
-    "default-src 'self'; script-src 'self' 'unsafe-inline'{eval}; style-src 'self' 'unsafe-inline'; "
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
     "img-src 'self' https: data:; font-src 'self'; connect-src 'self'; object-src 'none'; "
     "base-uri 'self'; form-action 'self'{frames}"
 )
-ADMIN_POLICY = _BASE_POLICY.format(eval=" 'unsafe-eval'", frames="; frame-ancestors 'none'")
+ADMIN_POLICY = _BASE_POLICY.format(frames="; frame-ancestors 'none'")
 # Status pages may be embedded in other sites, so they don't restrict frame-ancestors.
-PUBLIC_POLICY = _BASE_POLICY.format(eval="", frames="")
+PUBLIC_POLICY = _BASE_POLICY.format(frames="")
 
 # Signed-in areas: never shown inside another site's frame (clickjacking).
 _PRIVATE_PREFIXES = ("/admin", "/login", "/logout", "/auth/")

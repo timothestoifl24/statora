@@ -93,10 +93,7 @@
   {% set stored_password = source and source.type == 'sql' and (source.config or {}).get('password') %}
   <div class="col-md-5">
     <label class="form-label required" for="cfg_engine">Database engine</label>
-    <select class="form-select" id="cfg_engine" name="cfg_engine"
-            onchange="document.getElementById('cfg_port').placeholder = this.selectedOptions[0].dataset.port;
-                      document.getElementById('cfg_database_hint').hidden = this.value !== 'oracle';
-                      document.getElementById('cfg_query').placeholder = this.value === 'oracle' ? 'SELECT 1 FROM DUAL' : 'SELECT 1'">
+    <select class="form-select" id="cfg_engine" name="cfg_engine" data-sql-engine>
       {% for value, label in [('postgresql', 'PostgreSQL'), ('mysql', 'MySQL / MariaDB'), ('mssql', 'Microsoft SQL Server'), ('oracle', 'Oracle')] %}
         <option value="{{ value }}" data-port="{{ ports[value] }}" {{ 'selected' if engine == value }}>{{ label }}</option>
       {% endfor %}
@@ -165,7 +162,7 @@
     <label class="form-label">Group type</label>
     <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column flex-md-row gap-2">
       <label class="form-selectgroup-item flex-fill">
-        <input type="radio" name="cfg_mode" value="stack" class="form-selectgroup-input" {{ 'checked' if mode == 'stack' }} onchange="document.getElementById('redundancy-options').hidden = this.value !== 'redundancy'">
+        <input type="radio" name="cfg_mode" value="stack" class="form-selectgroup-input" {{ 'checked' if mode == 'stack' }} data-group-mode>
         <div class="form-selectgroup-label d-flex align-items-center p-3">
           <span class="form-selectgroup-check me-3"></span>
           <div class="text-start">
@@ -175,7 +172,7 @@
         </div>
       </label>
       <label class="form-selectgroup-item flex-fill">
-        <input type="radio" name="cfg_mode" value="redundancy" class="form-selectgroup-input" {{ 'checked' if mode == 'redundancy' }} onchange="document.getElementById('redundancy-options').hidden = this.value !== 'redundancy'">
+        <input type="radio" name="cfg_mode" value="redundancy" class="form-selectgroup-input" {{ 'checked' if mode == 'redundancy' }} data-group-mode>
         <div class="form-selectgroup-label d-flex align-items-center p-3">
           <span class="form-selectgroup-check me-3"></span>
           <div class="text-start">

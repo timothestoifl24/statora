@@ -183,7 +183,7 @@ async def test_powered_by_toggle_and_theme_switch(client, auth):
     ).json()
     shown = await client.get("/s/brand")
     assert "Powered by Statora" in shown.text
-    assert 'id="theme-toggle"' in shown.text and "statora-theme" in shown.text
+    assert 'id="theme-toggle"' in shown.text and "js/theme-init.js" in shown.text
 
     await client.patch(f"/api/v1/status-pages/{page['id']}", json={"show_powered_by": False}, headers=auth)
     hidden = await client.get("/s/brand")

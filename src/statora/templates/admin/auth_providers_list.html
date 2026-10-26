@@ -39,7 +39,7 @@
       <input type="hidden" name="hide" value="{{ '0' if hide_local_login else '1' }}">
       <label class="form-check form-switch mb-0" {% if not hide_local_login and enabled_count == 0 %}title="Enable an authentication provider first"{% endif %}>
         <input class="form-check-input" type="checkbox" {{ 'checked' if not hide_local_login }}
-               {{ 'disabled' if not hide_local_login and enabled_count == 0 }} onchange="this.form.requestSubmit()"
+               {{ 'disabled' if not hide_local_login and enabled_count == 0 }} data-autosubmit
                aria-describedby="local-form-hint">
         <span class="form-check-label">Show the local sign-in form</span>
       </label>

@@ -30,8 +30,8 @@
 </div>
 {% endif %}
 {% if kiosk %}<a href="/admin" class="kiosk-exit btn btn-sm"><i class="fa-solid fa-xmark me-1"></i>Exit wallboard</a>{% endif %}
-{# Skips a refresh while a row's options menu is open, so the menu doesn't close under the pointer. #}
-<div id="monitor-list" hx-get="/admin{{ '?kiosk=1' if kiosk }}" hx-trigger="every 15s [!document.querySelector('.dropdown-menu.show')]" hx-swap="innerHTML">
+{# admin.js skips a refresh while a row's options menu or a dialog is open (data-pause-while-busy). #}
+<div id="monitor-list" hx-get="/admin{{ '?kiosk=1' if kiosk }}" hx-trigger="every 15s" data-pause-while-busy hx-swap="innerHTML">
   {% include partial %}
 </div>
 {% endblock %}

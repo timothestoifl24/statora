@@ -15,8 +15,8 @@
       <input type="hidden" name="type" value="{{ monitor.type }}">
     {% else %}
       <select class="form-select" id="type" name="type"
-              hx-get="/admin/monitors/config-fields" hx-target="#config-fields" hx-include="this"
-              onchange="document.getElementById('target-row').hidden = this.value === 'group'">
+              hx-get="/admin/monitors/config-fields" hx-target="#config-fields" hx-swap="innerHTML"
+                  hx-include="this" data-monitor-type>
         {% for t in types %}<option value="{{ t }}" {{ 'selected' if values.type == t }}>{{ 'GROUP (stack / redundancy)' if t == 'group' else t|upper }}</option>{% endfor %}
       </select>
     {% endif %}

@@ -20,10 +20,8 @@
   <link rel="stylesheet" href="{{ asset('css/public.css') }}">
   <noscript><meta http-equiv="refresh" content="{{ refresh }}"></noscript>
   <style>:root { --accent: {{ s.page.accent_color }}; }</style>
-  <script>
-    // Apply a saved theme before first paint to avoid a flash.
-    try { var t = localStorage.getItem("statora-theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {}
-  </script>
+  <script src="{{ asset('js/theme-init.js') }}" data-page="public"></script>
+  <meta name="htmx-config" content='{"allowEval": false, "allowScriptTags": false}'>
 </head>
 <body>
   <main class="wrap">
