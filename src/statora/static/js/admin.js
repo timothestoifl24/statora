@@ -97,6 +97,7 @@ document.addEventListener("click", function (event) {
       if (event.key === "Escape" && target === search) { search.value = ""; apply(); search.blur(); }
       return;
     }
+    if (document.querySelector("#app-modal.show")) return; // never replace a form someone is filling in
     if (event.key === "/") { event.preventDefault(); search.focus(); }
     var link = document.querySelector('[data-shortcut="' + event.key + '"]');
     if (link) { event.preventDefault(); link.click(); }

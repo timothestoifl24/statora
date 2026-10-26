@@ -91,6 +91,10 @@ class StatusPageUpdate(BaseModel):
 class StatusPageRead(StatusPageBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    # Stored values are returned as they are: pages saved before the stricter URL rules (e.g. an
+    # http logo) must stay readable. The rules apply when a value is written.
+    logo_url: str | None = None
+    favicon: str | None = None
     groups: list[StatusPageGroupRead]
     created_at: datetime
     updated_at: datetime

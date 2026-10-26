@@ -44,6 +44,7 @@ async def _render_login(request: Request, session: AsyncSession, error: str | No
             and (not get_settings().disable_local_login or has_ldap or forced),
             "sso_providers": [p for p in providers if p.type != AuthProviderType.LDAP],
             "has_ldap": has_ldap,
+            "local_forced": forced,
         },
         status_code=status,
     )

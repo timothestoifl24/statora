@@ -14,14 +14,17 @@ import xml.etree.ElementTree as ET
 
 from PIL import Image, ImageOps
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from statora.db.base import utcnow
 from statora.db.models import Media
 
 MAX_BYTES = 256 * 1024
 MAX_SIDE = 2048  # largest accepted input image, in pixels per side (checked before decoding)
 STORED_SIDE = 256  # raster images are scaled down to fit this; icons and favicons never need more
 MAX_SVG_ELEMENTS = 5000
+MAX_SVG_DEPTH = 32
 MEDIA_REF = re.compile(r"^media:([0-9a-f]{64})$")
 
 
@@ -37,6 +40,7 @@ class MediaError(ValueError):
         "svg_invalid": "This SVG file isn't valid XML.",
         "svg_unsafe": "SVG files can't contain a DOCTYPE or entities.",
         "svg_empty": "Nothing drawable is left in this SVG after removing unsupported content.",
+        "svg_too_deep": f"SVG elements can be nested at most {MAX_SVG_DEPTH} levels deep.",
     }
 
     def __init__(self, code: str) -> None:
@@ -151,7 +155,9 @@ def _local(tag: str) -> tuple[str | None, str]:
     return None, tag
 
 
-def _copy(src: ET.Element, count: list[int]) -> ET.Element | None:
+def _copy(src: ET.Element, count: list[int], depth: int = 0) -> ET.Element | None:
+    if depth > MAX_SVG_DEPTH:
+        raise MediaError("svg_too_deep")
     ns, name = _local(src.tag) if isinstance(src.tag, str) else (None, "")
     if ns not in (SVG_NS, None) or name not in _SVG_TAGS:
         return None  # drops script, style, foreignObject, image, a, animate, set, metadata, …
@@ -179,7 +185,7 @@ def _copy(src: ET.Element, count: list[int]) -> ET.Element | None:
     if name in ("title", "desc", "text", "tspan") and src.text:
         dst.text = src.text[:2000]
     for child in src:
-        if (copied := _copy(child, count)) is not None:
+        if (copied := _copy(child, count, depth + 1)) is not None:
             copied.tail = child.tail if name in ("text", "tspan") and child.tail else None
             dst.append(copied)
     return dst
@@ -224,12 +230,13 @@ def sanitize(data: bytes) -> tuple[bytes, str]:
 async def store(session: AsyncSession, data: bytes) -> Media:
     clean, content_type = sanitize(data)
     digest = hashlib.sha256(clean).hexdigest()
-    media = await session.scalar(select(Media).where(Media.sha256 == digest))
-    if media is None:
-        media = Media(sha256=digest, content_type=content_type, size=len(clean), data=clean)
-        session.add(media)
-        await session.flush()
-    return media
+    # Two uploads of the same image at once must both succeed, so let the database settle it.
+    await session.execute(
+        pg_insert(Media)
+        .values(sha256=digest, content_type=content_type, size=len(clean), data=clean, created_at=utcnow())
+        .on_conflict_do_nothing(index_elements=[Media.sha256])
+    )
+    return await session.scalar(select(Media).where(Media.sha256 == digest))
 
 
 def ref(media: Media) -> str:

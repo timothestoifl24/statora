@@ -184,7 +184,10 @@ code, pre { font-family: var(--font-mono); font-size: .88em; }
 .dot-down { background: var(--down); }
 .dot-maintenance { background: var(--maintenance); }
 @media (max-width: 600px) {
-  .member-uptime, .component-uptime { display: none; }
+  .member-uptime { display: none; }
+  .component-head { align-items: flex-start; }
+  .component-meta { flex-direction: column; align-items: flex-end; gap: 0; }
+  .component-uptime { font-size: .78rem; }
   /* Show the most recent 45 of the 120 bars on phones so they stay tappable. */
   .bar:nth-child(-n+75) { display: none; }
   .bars-legend span:first-child { visibility: hidden; }

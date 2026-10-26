@@ -990,3 +990,58 @@ async def test_hide_local_sign_in_form(client, auth):
     token = csrf_from((await client.get("/admin/settings/auth")).text)
     await client.post(toggle, data={"csrf_token": token, "hide": "0"})
     assert "The local sign-in form is shown again" in (await client.get("/admin/settings/auth")).text
+
+
+async def test_uploaded_logo_concurrent_uploads_and_deep_svgs(client, auth):
+    import asyncio
+
+    same = image_bytes("PNG", (40, 40))
+    first, second = await asyncio.gather(
+        upload(client, auth, "a.png", same), upload(client, auth, "b.png", same)
+    )
+    assert first.status_code == second.status_code == 201 and first.json()["ref"] == second.json()["ref"]
+
+    ref = first.json()["ref"]
+    await client.post(
+        "/api/v1/status-pages", json={"slug": "logo", "title": "Logo", "logo_url": ref}, headers=auth
+    )
+    assert f'src="/media/{ref[6:]}"' in (await client.get("/s/logo")).text
+
+    deep = (
+        b'<svg xmlns="http://www.w3.org/2000/svg">'
+        + b"<g>" * 200
+        + b'<rect width="1" height="1"/>'
+        + b"</g>" * 200
+        + b"</svg>"
+    )
+    response = await upload(client, auth, "deep.svg", deep, "image/svg+xml")
+    assert response.status_code == 422 and "nested" in response.json()["detail"]
+
+
+async def test_icon_preview_is_validated_on_the_server(client, auth):
+    await login(client)
+    media_ref = "media:" + "b" * 64
+    cases = {
+        media_ref: "/media/" + "b" * 64,
+        "https://cdn.example/i.png": "https://cdn.example/i.png",
+        "fa:brands:github": None,
+        "javascript:alert(1)": None,
+        "http://cdn.example/i.png": None,
+        '"><img src=x onerror=alert(1)>': None,
+    }
+    for ref, expected in cases.items():
+        response = await client.get("/admin/media/preview", params={"ref": ref})
+        assert response.status_code == 200 and response.json()["src"] == expected, ref
+
+
+async def test_pages_overview_shows_status_without_history(client, auth):
+    page = (
+        await client.post("/api/v1/status-pages", json={"slug": "ov", "title": "Overview"}, headers=auth)
+    ).json()
+    await client.post(
+        "/api/v1/incidents",
+        json={"page_id": page["id"], "title": "Down", "impact": "critical", "message": "x"},
+        headers=auth,
+    )
+    await login(client)
+    assert "Major outage" in (await client.get("/admin/pages")).text

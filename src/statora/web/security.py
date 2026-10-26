@@ -78,7 +78,7 @@ class RejectNulBytes:
             return await self.app(scope, receive, send)
 
         # Buffer the (small) text body, check it, then replay it to the app.
-        chunks, size = [], 0
+        chunks, size, more_body = [], 0, False
         while True:
             message = await receive()
             if message["type"] != "http.request":
@@ -86,7 +86,8 @@ class RejectNulBytes:
             body = message.get("body", b"")
             size += len(body)
             chunks.append(body)
-            if size > self.MAX_SCANNED_BODY or not message.get("more_body"):
+            more_body = message.get("more_body", False)
+            if size > self.MAX_SCANNED_BODY or not more_body:
                 break
         body = b"".join(chunks)
         encoded_nul = b"%00" if content_type.startswith(b"application/x-www-form-urlencoded") else b"\\u0000"
@@ -98,7 +99,8 @@ class RejectNulBytes:
             nonlocal replayed
             if not replayed:
                 replayed = True
-                return {"type": "http.request", "body": body, "more_body": size > self.MAX_SCANNED_BODY}
+                # Anything after the scanned part is passed through unchecked, as it arrives.
+                return {"type": "http.request", "body": body, "more_body": more_body}
             return await receive()
 
         await self.app(scope, replay, send)

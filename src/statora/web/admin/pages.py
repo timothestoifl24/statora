@@ -9,7 +9,7 @@ from statora import cache
 from statora.db.models import HistoryResolution, Monitor, StatusPage, User, UserRole
 from statora.schemas.pages import StatusPageCreate, StatusPageUpdate
 from statora.services import crud
-from statora.services.status import get_page_summary
+from statora.services.status import page_overall
 from statora.web.deps import current_user, get_session, not_found, ui_role
 
 from .common import checkbox, done, error_messages, flash, opt, redirect, render, render_form, rollback
@@ -23,11 +23,8 @@ async def list_pages(
     request: Request, user: User = Depends(current_user), session: AsyncSession = Depends(get_session)
 ):
     pages = (await session.scalars(crud.page_query().order_by(StatusPage.title))).all()
-    # Current overall status of each published page, from the same cache the public pages use.
-    overall = {}
-    for page in pages:
-        if page.published and (summary := await get_page_summary(session, page.slug)):
-            overall[page.id] = summary["overall"]
+    # Current overall status of each published page (no uptime history needed for that).
+    overall = await page_overall(session, [p for p in pages if p.published])
     return render(request, "admin/pages_list.html", user, pages=pages, overall=overall)
 
 

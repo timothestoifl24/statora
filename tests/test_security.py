@@ -140,3 +140,58 @@ def test_serve_refuses_a_placeholder_secret_key(monkeypatch):
     assert CliRunner().invoke(cli.app, ["serve", "--no-migrate"]).exit_code == 0 and started
     monkeypatch.undo()  # restore the test environment's key before settings are read again
     get_settings.cache_clear()
+
+
+@needs_services
+async def test_large_text_body_is_not_cut_off(client, auth):
+    # Bodies over the scanned size must still reach the app complete (the request used to hang).
+    description = "x" * (1536 * 1024)
+    response = await client.post(
+        "/api/v1/status-pages", json={"slug": "big", "title": "Big", "description": description}, headers=auth
+    )
+    assert response.status_code == 201 and len(response.json()["description"]) == len(description)
+
+
+@needs_services
+async def test_failed_fallback_login_keeps_the_form(client, auth):
+    oidc = {
+        "name": "SSO",
+        "type": "oidc",
+        "config": {"client_id": "x", "discovery_url": "https://sso.example/.well-known/openid-configuration"},
+    }
+    await client.post("/api/v1/auth-providers", json=oidc, headers=auth)
+    from .test_ui import csrf_from, login
+
+    await login(client)
+    token = csrf_from((await client.get("/admin/settings/auth")).text)
+    await client.post("/admin/settings/auth/local-form", data={"csrf_token": token, "hide": "1"})
+    client.cookies.clear()
+
+    page = await client.get("/login?local=1")
+    assert 'action="/login?local=1"' in page.text
+    failed = await client.post(
+        "/login?local=1",
+        data={"username": "admin", "password": "wrong", "csrf_token": csrf_from(page.text), "next": "/admin"},
+    )
+    assert failed.status_code == 401 and 'id="username"' in failed.text  # the admin can try again
+
+
+@needs_services
+async def test_saved_legacy_logo_stays_readable(client, auth, session):
+    from statora.db.models import StatusPage
+
+    page = (
+        await client.post("/api/v1/status-pages", json={"slug": "old", "title": "Old"}, headers=auth)
+    ).json()
+    stored = await session.get(StatusPage, page["id"])
+    stored.logo_url = "http://legacy.example/logo.png"  # saved before the https-only rule
+    await session.commit()
+    assert (await client.get(f"/api/v1/status-pages/{page['id']}", headers=auth)).json()[
+        "logo_url"
+    ] == "http://legacy.example/logo.png"
+    assert (await client.get("/api/v1/status-pages", headers=auth)).status_code == 200
+    # Writes still follow the new rules.
+    bad = await client.patch(
+        f"/api/v1/status-pages/{page['id']}", json={"logo_url": "http://legacy.example/x.png"}, headers=auth
+    )
+    assert bad.status_code == 422

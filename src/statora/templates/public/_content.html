@@ -51,7 +51,7 @@
   </span>
 {% endset %}
 {% if m.body_html %}
-<details class="maint{{ ' is-active' if m.active }}" data-key="maintenance-{{ loop.index }}">
+<details class="maint{{ ' is-active' if m.active }}" data-key="maintenance-{{ m.id }}">
   <summary>{{ head }}{{ svg('chevron', 'chevron') }}</summary>
   <div class="update-body">{{ m.body_html|safe }}</div>
 </details>

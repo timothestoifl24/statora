@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from statora.db.models import User, UserRole
+from statora.schemas.common import IconRef
 from statora.services import media
 from statora.web.deps import get_session, ui_role
 
@@ -28,3 +30,16 @@ async def upload_media(
     await session.commit()
     ref = media.ref(stored)
     return {"ref": ref, "url": media.url(ref)}
+
+
+_ICON_REF = TypeAdapter(IconRef)
+
+
+@router.get("/media/preview")
+async def preview_ref(ref: str = "", user: User = Depends(ui_role(UserRole.EDITOR))):
+    """Image URL for a typed reference, after the same validation as saving it (icon picker preview)."""
+    try:
+        valid = _ICON_REF.validate_python(ref.strip() or None)
+    except ValidationError:
+        return {"src": None}
+    return {"src": media.url(valid) if valid and not valid.startswith("fa:") else None}

@@ -21,7 +21,7 @@
       <div class="card-body">
         <div class="d-flex align-items-start gap-3">
           <span class="page-card-icon">
-            {% set icon = media_url(page.favicon) or page.logo_url %}
+            {% set icon = media_url(page.favicon) or media_url(page.logo_url) %}
             {% if icon %}<img src="{{ icon }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% else %}<i class="fa-solid fa-signal"></i>{% endif %}
           </span>
           <div class="min-w-0 flex-grow-1">

@@ -6,36 +6,46 @@
   var LIMIT = 120;
 
   var FA_REF = /^fa:(solid|regular|brands):([a-z0-9-]+)$/;
-  var MEDIA_REF = /^media:([0-9a-f]{64})$/;
+  var MEDIA_REF = /^media:[0-9a-f]{64}$/;
 
-  // Image URL for a reference, or null. Mirrors the server's rules (schemas/common.py):
-  // uploads are served from /media/<sha256>, external images must be well-formed https URLs.
-  function imageSrc(ref) {
-    var media = MEDIA_REF.exec(ref);
-    if (media) return "/media/" + media[1];
-    var parsed;
-    try { parsed = new URL(ref); } catch (e) { return null; }
-    if (parsed.protocol !== "https:" || !parsed.hostname || parsed.username || parsed.password) return null;
-    return parsed.href;
-  }
-
-  function preview(box, ref) {
+  function showPreview(box, el) {
     var target = box.querySelector(".ref-preview");
-    target.querySelectorAll(":scope > :not(.ref-empty)").forEach(function (el) { el.remove(); });
-    var fa = FA_REF.exec(ref);
-    var src = fa ? null : imageSrc(ref);
-    var el = null;
-    if (fa) {
-      el = document.createElement("i");
-      el.className = STYLE_CLASS[fa[1]] + " fa-" + fa[2];
-    } else if (src) {
-      el = document.createElement("img");
-      el.alt = "";
-      el.referrerPolicy = "no-referrer";
-      el.src = src;
-    }
+    target.querySelectorAll(":scope > :not(.ref-empty)").forEach(function (old) { old.remove(); });
     target.classList.toggle("has-icon", !!el);
     if (el) target.prepend(el);
+  }
+
+  // Font Awesome icons are drawn here; anything else is checked by the server, which answers with
+  // a safe image URL (an upload or a valid https URL) or nothing. Typed text never becomes a src.
+  var pending = new WeakMap();
+  function preview(box, ref) {
+    var fa = FA_REF.exec(ref);
+    if (fa || !ref) {
+      var icon = null;
+      if (fa) {
+        icon = document.createElement("i");
+        icon.className = STYLE_CLASS[fa[1]] + " fa-" + fa[2];
+      }
+      showPreview(box, icon);
+      return;
+    }
+    clearTimeout(pending.get(box));
+    pending.set(box, setTimeout(function () {
+      fetch("/admin/media/preview?ref=" + encodeURIComponent(ref), { headers: { Accept: "application/json" } })
+        .then(function (r) { return r.ok ? r.json() : { src: null }; })
+        .then(function (data) {
+          if (box.querySelector(".ref-value").value.trim() !== ref) return; // typed on meanwhile
+          var img = null;
+          if (data.src) {
+            img = document.createElement("img");
+            img.alt = "";
+            img.referrerPolicy = "no-referrer";
+            img.src = data.src;
+          }
+          showPreview(box, img);
+        })
+        .catch(function () { showPreview(box, null); });
+    }, 250));
   }
 
   function setValue(box, ref) {

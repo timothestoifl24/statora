@@ -31,7 +31,7 @@
         <h2 class="h2 text-center mb-4">Sign in</h2>
         {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
         {% if show_password_form %}
-        <form method="post" action="/login" autocomplete="on">
+        <form method="post" action="/login{{ '?local=1' if local_forced }}" autocomplete="on">
           {{ csrf_input(request) }}
           <input type="hidden" name="next" value="{{ next }}">
           <div class="mb-3">
