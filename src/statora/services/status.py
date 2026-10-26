@@ -24,7 +24,7 @@ from statora.db.models import (
     StatusPage,
     maintenance_pages,
 )
-from statora.services import crud
+from statora.services import crud, media
 from statora.services.markdown import render_markdown
 from statora.services.monitoring import STATUS_COUNTER, monitors_in_maintenance
 
@@ -282,6 +282,8 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
                 {
                     "id": item.id,
                     "name": item.label,
+                    "icon": monitor.icon,
+                    "link_url": monitor.link_url,
                     "status": status,
                     "status_label": COMPONENT_LABELS.get(status, "Unknown"),
                     "uptime": uptime,
@@ -290,6 +292,8 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
                     "members": [
                         {
                             "name": member.name,
+                            "icon": member.icon,
+                            "link_url": member.link_url,
                             "status": (member_status := effective_status(member)),
                             "status_label": COMPONENT_LABELS.get(member_status, "Unknown"),
                             "uptime": bars_and_uptime(member)[1],
@@ -340,7 +344,8 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
             "slug": page.slug,
             "title": page.title,
             "description_html": render_markdown(page.description or ""),
-            "logo_url": page.logo_url,
+            "logo_url": media.url(page.logo_url),  # uploads resolve to /media/…
+            "favicon_url": media.url(page.favicon),
             "accent_color": page.accent_color,
             "footer_html": render_markdown(page.footer_text or ""),
             "show_powered_by": page.show_powered_by,
@@ -353,6 +358,55 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
         "maintenances": [_maintenance_dict(m, now) for m in maintenances],
         "generated_at": now.isoformat(),
     }
+
+
+async def page_overall(session: AsyncSession, pages: list[StatusPage]) -> dict[int, dict[str, Any]]:
+    """Current overall status of several pages, without building uptime bars (admin overview).
+
+    Uses the same rules as build_page_summary: component states, active incidents' impact and
+    ongoing maintenance. Expects pages loaded with crud.page_query() (groups, items, monitors).
+    """
+    if not pages:
+        return {}
+    now = utcnow()
+    in_maintenance = await monitors_in_maintenance(session, now)
+    page_ids = [p.id for p in pages]
+    impacts: dict[int, list[IncidentImpact]] = {pid: [] for pid in page_ids}
+    for page_id, impact in await session.execute(
+        select(Incident.page_id, Incident.impact).where(
+            Incident.page_id.in_(page_ids), Incident.resolved_at.is_(None)
+        )
+    ):
+        impacts[page_id].append(IncidentImpact(impact))
+    under_maintenance = set(
+        (
+            await session.scalars(
+                select(maintenance_pages.c.page_id)
+                .join(Maintenance, maintenance_pages.c.maintenance_id == Maintenance.id)
+                .where(
+                    maintenance_pages.c.page_id.in_(page_ids),
+                    Maintenance.starts_at <= now,
+                    Maintenance.ends_at > now,
+                )
+            )
+        ).all()
+    )
+
+    def status(monitor) -> MonitorStatus:
+        if not monitor.active:
+            return MonitorStatus.PENDING
+        if monitor.id in in_maintenance:
+            return MonitorStatus.MAINTENANCE
+        return MonitorStatus(monitor.status)
+
+    result = {}
+    for page in pages:
+        statuses = [status(item.monitor) for group in page.groups for item in group.items]
+        overall = overall_status(statuses, impacts[page.id])
+        if overall == Overall.OPERATIONAL and page.id in under_maintenance:
+            overall = Overall.MAINTENANCE
+        result[page.id] = {"status": overall, "label": OVERALL_LABELS[overall]}
+    return result
 
 
 async def get_page_summary(session: AsyncSession, slug: str | None) -> dict[str, Any] | None:

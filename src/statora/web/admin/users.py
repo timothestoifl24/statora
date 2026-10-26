@@ -12,15 +12,17 @@ from statora.auth import passwords, tokens
 from statora.auth.providers import base as provider_base
 from statora.auth.providers.base import AuthError
 from statora.auth.providers.saml import sp_urls
+from statora.auth.service import enabled_providers, local_form_hidden
 from statora.config import get_settings
 from statora.db.base import utcnow
 from statora.db.models import ApiToken, AuthProvider, AuthProviderType, TokenScope, User, UserRole
 from statora.schemas.auth_provider import CONFIG_MODELS, SECRET_FIELDS, AuthProviderBase
 from statora.schemas.users import UserCreate, UserUpdate
+from statora.services import app_settings
 from statora.services.auth_providers import test_provider
 from statora.web.deps import current_user, get_session, not_found, ui_role
 
-from .common import checkbox, error_messages, flash, opt, redirect, render, rollback
+from .common import checkbox, done, error_messages, flash, opt, redirect, render, render_form, rollback
 
 router = APIRouter()
 admin = ui_role(UserRole.ADMIN)
@@ -42,7 +44,7 @@ async def list_users(
 
 @router.get("/users/new")
 async def new_user(request: Request, user: User = Depends(admin)):
-    return render(
+    return render_form(
         request,
         "admin/user_form.html",
         user,
@@ -71,7 +73,7 @@ async def create_user(
         if await session.scalar(select(User.id).where(func.lower(User.username) == data.username.lower())):
             raise ValueError(f"Username {data.username!r} is taken")
     except (ValidationError, ValueError) as exc:
-        return render(
+        return render_form(
             request,
             "admin/user_form.html",
             user,
@@ -86,7 +88,7 @@ async def create_user(
     )
     await session.commit()
     flash(request, f"User {data.username} created")
-    return redirect("/admin/users")
+    return done(request, "/admin/users")
 
 
 async def _get_user(session: AsyncSession, user_id: int) -> User:
@@ -110,7 +112,7 @@ async def edit_user(
         "role": target.role,
         "active": target.active,
     }
-    return render(
+    return render_form(
         request, "admin/user_form.html", user, target=target, values=values, errors=[], roles=list(UserRole)
     )
 
@@ -136,7 +138,7 @@ async def update_user(
         if data.password and not target.is_local:
             raise ValueError("Passwords of external users are managed by their identity provider")
     except (ValidationError, ValueError) as exc:
-        return render(
+        return render_form(
             request,
             "admin/user_form.html",
             user,
@@ -152,7 +154,7 @@ async def update_user(
         target.password_hash = passwords.hash_password(data.password)
     await session.commit()
     flash(request, "User saved")
-    return redirect("/admin/users")
+    return done(request, "/admin/users")
 
 
 @router.post("/users/{user_id}/delete")
@@ -223,7 +225,7 @@ async def _provider_form(request, user, provider_type, provider=None, values=Non
             "mapping": _mapping_text(provider.group_role_mapping) if provider else "",
             "config": provider_base.public_config(provider) if provider else {},
         }
-    return render(
+    return render_form(
         request,
         "admin/auth_provider_form.html",
         user,
@@ -272,6 +274,7 @@ async def list_providers(
     request: Request, user: User = Depends(admin), session: AsyncSession = Depends(get_session)
 ):
     providers = (await session.scalars(select(AuthProvider).order_by(AuthProvider.name))).all()
+    enabled = [p for p in providers if p.enabled]
     counts = dict(
         (
             await session.execute(
@@ -289,7 +292,31 @@ async def list_providers(
         counts=counts,
         types=list(AuthProviderType),
         local_disabled=get_settings().disable_local_login,
+        open_id=request.query_params.get("open", ""),
+        hide_local_login=bool(await app_settings.get(session, app_settings.HIDE_LOCAL_LOGIN, False)),
+        local_form_hidden=await local_form_hidden(session, enabled),
+        enabled_count=len(enabled),
+        has_enabled_ldap=any(p.type == AuthProviderType.LDAP for p in enabled),
     )
+
+
+@router.post("/settings/auth/local-form")
+async def set_local_form(
+    request: Request, user: User = Depends(admin), session: AsyncSession = Depends(get_session)
+):
+    """Show or hide the username/password form on the sign-in page."""
+    hide = (await request.form()).get("hide") == "1"
+    if hide and not await enabled_providers(session):
+        flash(
+            request, "Enable an authentication provider first, so there is another way to sign in.", "danger"
+        )
+        return redirect("/admin/settings/auth")
+    await app_settings.put(session, app_settings.HIDE_LOCAL_LOGIN, hide)
+    await session.commit()
+    flash(
+        request, "The local sign-in form is now hidden" if hide else "The local sign-in form is shown again"
+    )
+    return redirect("/admin/settings/auth")
 
 
 @router.get("/settings/auth/new/{provider_type}")
@@ -338,8 +365,12 @@ async def create_provider(
         await rollback(session, user)
         return await _provider_form(request, user, provider_type, None, values, error_messages(exc), 422)
     await session.commit()
-    flash(request, f"Provider “{provider.name}” created")
-    return redirect(f"/admin/settings/auth/{provider.id}")
+    flash(
+        request,
+        f"Provider “{provider.name}” created. Copy the values for your identity provider from its settings.",
+    )
+    # Back to the list with the new provider's settings open: they include the callback/ACS URLs.
+    return done(request, f"/admin/settings/auth?open={provider.id}")
 
 
 async def _get_provider(session: AsyncSession, provider_id: int) -> AuthProvider:
@@ -377,7 +408,7 @@ async def update_provider(
         return await _provider_form(request, user, provider.type, provider, values, error_messages(exc), 422)
     await session.commit()
     flash(request, "Provider saved")
-    return redirect(f"/admin/settings/auth/{provider.id}")
+    return done(request, "/admin/settings/auth")
 
 
 @router.post("/settings/auth/{provider_id}/test")

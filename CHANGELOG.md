@@ -4,7 +4,34 @@ All notable changes to Statora are documented in this file. The format is based 
 
 Changes collect under the upcoming version while it's being developed, and you can try them with the [`beta` image](https://statora.stoifl.app/reference/images#beta-preview-of-the-next-release). The date is set when the version is released. Each section also appears in the matching [GitHub release](https://github.com/timothestoifl24/statora/releases).
 
-## [1.1.2] - Unreleased
+## [1.2.0] - Unreleased
+
+### Added
+
+- **Monitor dashboard:** a summary bar shows how many monitors are up and how many need attention. Down and degraded monitors come first, tinted, with how long they've been failing. Search and filter chips (Problems, HTTP, TCP, Ping, DNS, SQL, Groups) survive the auto-refresh, groups expand inline to show their members, and `/` focuses the search, `n` opens a new monitor.
+- **Tile view and wallboard:** switch the monitor list to tiles, or open `/admin?kiosk=1` for a full-screen wallboard without the sidebar. Failing monitors get bigger tiles with the last error and buttons to report an incident or pause them.
+- **Open incidents badge** in the admin navigation.
+- **Hide the local sign-in form:** under Authentication → Local accounts, hide the username and password form so the sign-in page only shows your identity providers. It needs at least one enabled provider, comes back by itself if none is left, and `/login?local=1` still shows it for local admins.
+- **Monitor icons and links:** give a monitor an icon (pick one of the bundled Font Awesome icons, including brand logos, or upload or link your own image) and a link to the app behind it. Status pages show the icon and link the component name to the app; the monitor list and tiles show them too. New `icon` and `link_url` fields in the monitor API.
+- **Status page favicon:** each status page can have its own browser-tab icon, uploaded or as a URL (`favicon` in the API).
+- **Image uploads:** `POST /api/v1/media` stores a PNG, JPEG, WebP, GIF, ICO or SVG image (up to 256 KB) in the database and returns a `media:` reference for `favicon` and `icon`. Uploaded SVGs must not contain scripts and are served sandboxed.
+
+### Changed
+
+- **Admin layout:** the navigation moved into a sidebar, with the user menu and theme toggle at its bottom.
+- **Status pages in the admin panel:** a new overview shows each page's status, favicon and size. Create a page and edit its settings in a dialog; creating a page takes you straight to its components, which have their own editor.
+- **Forms in dialogs:** creating and editing monitors (including clone), incidents, maintenance windows, users and authentication providers opens a dialog over the current page instead of a separate page. Validation errors stay in the dialog, and edit dialogs have their Delete button (and for providers, Test connection) in the footer. A newly created provider reopens right away, so its callback URLs are at hand. Direct links still open the full page.
+- **Bigger buttons:** the row menus and other icon buttons in the admin panel are at least 32 px, so they're easier to hit.
+- **Public status page:** a calmer status card replaces the coloured banner and says how many components are affected. Active incidents show as a timeline inside it, maintenance as a slim strip, and each component shows its uptime next to its status.
+- **Fonts and icons:** the admin panel and status pages use Inter and JetBrains Mono, shipped with Statora (no requests to font CDNs). Icons now come from Font Awesome Free instead of Tabler Icons; login buttons for Google, GitHub, GitLab and Microsoft providers show the provider's logo.
+
+### Security
+
+- **`statora serve` refuses a placeholder secret key:** it now exits with an error instead of a warning when `STATORA_SECRET_KEY` still has the default or the Kubernetes example value. With a known key, anyone could forge a session cookie. Set a long random value (for example `openssl rand -hex 32`) before upgrading.
+- **Uploaded images are rebuilt, never stored as uploaded:** raster images (PNG, JPEG, WebP, GIF, ICO) are decoded and re-encoded as a clean PNG (at most 256 px), which removes anything hidden in the file. SVGs are rebuilt from an allowlist of shapes and attributes, without scripts, style sheets, event handlers, links or embedded content. The file type is detected from its contents, oversized dimensions are refused before decoding, and upload requests over 512 KB are refused before they're read.
+- **Stricter URLs:** links must be well-formed http(s) URLs without user names or passwords, and image URLs (favicon, logo, monitor icon) must use https. A status page's logo URL is now validated too, and can also be an upload. Logos saved earlier with an http URL stay in the API but are no longer shown; change them to https.
+- **Security headers:** every response sends `X-Content-Type-Options`, `Referrer-Policy` and a strict Content-Security-Policy: scripts only load from Statora itself (no inline scripts, no `eval`). The admin panel and sign-in page can't be shown inside another site's frame; status pages still can. `Strict-Transport-Security` is sent when `STATORA_SECURE_COOKIES` is on.
+- **NUL characters** in URLs or request bodies are refused with 400 instead of causing a server error.
 
 ## [1.1.1] - 2026-10-25
 
@@ -62,7 +89,7 @@ First public release.
 - **Deployment:** single container image, Docker Compose and Kubernetes manifests, horizontal scaling with a scheduler leader lock, and serialized migrations.
 - **Releases:** stable images (`X.Y.Z`, `X.Y`, `latest`) from `main`, beta images (`X.Y.Z-beta.N`, `beta`) from `develop`, and GitHub releases whose notes come from this changelog.
 
-[1.1.2]: https://github.com/timothestoifl24/statora/releases/tag/v1.1.2
+[1.2.0]: https://github.com/timothestoifl24/statora/releases/tag/v1.2.0
 [1.1.1]: https://github.com/timothestoifl24/statora/releases/tag/v1.1.1
 [1.1.0]: https://github.com/timothestoifl24/statora/releases/tag/v1.1.0
 [1.0.0]: https://github.com/timothestoifl24/statora/releases/tag/v1.0.0

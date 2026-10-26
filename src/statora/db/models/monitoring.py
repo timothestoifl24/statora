@@ -24,6 +24,10 @@ class Monitor(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(150))
     description: Mapped[str | None] = mapped_column(Text)
+    # Shown next to the name: "fa:<style>:<name>", "media:<sha256>" or an http(s) image URL.
+    icon: Mapped[str | None] = mapped_column(String(2048))
+    # The app behind the monitor; status pages link the component name to it.
+    link_url: Mapped[str | None] = mapped_column(String(2048))
     type: Mapped[MonitorType] = mapped_column(String(16))
     # URL for http, host for tcp/ping, hostname for dns; empty for groups.
     target: Mapped[str] = mapped_column(String(2048))

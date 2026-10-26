@@ -1,66 +1,68 @@
-{% extends "admin/base.html" %}
+{% extends "admin/_form_layout.html" %}
 {% block title %}{{ 'Edit maintenance' if item else 'Schedule maintenance' }}{% endblock %}
-{% block actions %}
+{% block form_action %}{{ '/admin/maintenance/' ~ item.id ~ '/edit' if item else '/admin/maintenance/new' }}{% endblock %}
+{% block cancel_url %}/admin/maintenance{% endblock %}
+{% block form_actions %}
   {% if item %}
   <form method="post" action="/admin/maintenance/{{ item.id }}/delete" data-confirm="Delete this maintenance window?">
     {{ csrf_input(request) }}
-    <button class="btn btn-outline-danger" type="submit"><i class="ti ti-trash me-1"></i>Delete</button>
+    <button class="btn btn-outline-danger" type="submit"><i class="fa-regular fa-trash-can me-1"></i>Delete</button>
   </form>
   {% endif %}
 {% endblock %}
-{% block content %}
-<form method="post" class="card">
-  {{ csrf_input(request) }}
-  <div class="card-body">
-    <div class="row g-3">
-      <div class="col-12">
-        <label class="form-label required" for="title">Title</label>
-        <input class="form-control" id="title" name="title" value="{{ values.title }}" required maxlength="255">
-      </div>
-      <div class="col-md-6">
-        <label class="form-label required" for="starts_at">Starts (UTC)</label>
-        <input type="datetime-local" class="form-control" id="starts_at" name="starts_at" required
-               value="{{ values.starts_at.strftime('%Y-%m-%dT%H:%M') if values.starts_at else '' }}">
-      </div>
-      <div class="col-md-6">
-        <label class="form-label required" for="ends_at">Ends (UTC)</label>
-        <input type="datetime-local" class="form-control" id="ends_at" name="ends_at" required
-               value="{{ values.ends_at.strftime('%Y-%m-%dT%H:%M') if values.ends_at else '' }}">
-      </div>
-      <div class="col-12">
-        <label class="form-label" for="body">Details <span class="text-secondary">(Markdown, shown publicly)</span></label>
-        <textarea class="form-control" id="body" name="body" rows="3">{{ values.body or '' }}</textarea>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label" for="change_number">Change number</label>
-        <input class="form-control" id="change_number" name="change_number" value="{{ values.change_number or '' }}" maxlength="100"
-               placeholder="e.g. CHG0004567">
-      </div>
-      <div class="col-md-8">
-        <label class="form-label" for="change_url">Change / documentation URL</label>
-        <input type="url" class="form-control" id="change_url" name="change_url" value="{{ values.change_url or '' }}" maxlength="2048"
-               placeholder="https://itsm.example.com/…" pattern="https?://.+">
-        <small class="form-hint">Internal reference; not shown on the public status page.</small>
-      </div>
-      <div class="col-12">
-        <label class="form-label" for="monitor_ids">Affected monitors</label>
-        <select class="form-select" id="monitor_ids" name="monitor_ids" multiple size="6"
-                data-dual-list data-available-label="Monitors" data-selected-label="Affected" data-noun="monitors">
-          {% for m in all_monitors %}<option value="{{ m.id }}" {{ 'selected' if m.id in values.monitor_ids }}>{{ m.name }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="col-12">
-        <label class="form-label" for="page_ids">Announce on status pages</label>
-        <select class="form-select" id="page_ids" name="page_ids" multiple size="6"
-                data-dual-list data-available-label="Status pages" data-selected-label="Announce on" data-noun="pages">
-          {% for p in all_pages %}<option value="{{ p.id }}" {{ 'selected' if p.id in values.page_ids }}>{{ p.title }}</option>{% endfor %}
-        </select>
-      </div>
+{% block modal_actions %}
+  {% if item %}<button type="submit" form="modal-delete-form" class="btn btn-ghost-danger"><i class="fa-regular fa-trash-can me-1"></i>Delete</button>{% endif %}
+{% endblock %}
+{% block after_form %}
+  {% if modal and item %}
+  <form method="post" action="/admin/maintenance/{{ item.id }}/delete" id="modal-delete-form" data-confirm="Delete this maintenance window?" hidden>{{ csrf_input(request) }}</form>
+  {% endif %}
+{% endblock %}
+{% block form_body %}
+  <div class="row g-3">
+    <div class="col-12">
+      <label class="form-label required" for="title">Title</label>
+      <input class="form-control" id="title" name="title" value="{{ values.title }}" required maxlength="255">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label required" for="starts_at">Starts (UTC)</label>
+      <input type="datetime-local" class="form-control" id="starts_at" name="starts_at" required
+             value="{{ values.starts_at.strftime('%Y-%m-%dT%H:%M') if values.starts_at else '' }}">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label required" for="ends_at">Ends (UTC)</label>
+      <input type="datetime-local" class="form-control" id="ends_at" name="ends_at" required
+             value="{{ values.ends_at.strftime('%Y-%m-%dT%H:%M') if values.ends_at else '' }}">
+    </div>
+    <div class="col-12">
+      <label class="form-label" for="body">Details <span class="text-secondary">(Markdown, shown publicly)</span></label>
+      <textarea class="form-control" id="body" name="body" rows="3">{{ values.body or '' }}</textarea>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" for="change_number">Change number</label>
+      <input class="form-control" id="change_number" name="change_number" value="{{ values.change_number or '' }}" maxlength="100"
+             placeholder="e.g. CHG0004567">
+    </div>
+    <div class="col-md-8">
+      <label class="form-label" for="change_url">Change / documentation URL</label>
+      <input type="url" class="form-control" id="change_url" name="change_url" value="{{ values.change_url or '' }}" maxlength="2048"
+             placeholder="https://itsm.example.com/…" pattern="https?://.+">
+      <small class="form-hint">Internal reference; not shown on the public status page.</small>
+    </div>
+    <div class="col-12">
+      <label class="form-label" for="monitor_ids">Affected monitors</label>
+      <select class="form-select" id="monitor_ids" name="monitor_ids" multiple size="6"
+              data-dual-list data-available-label="Monitors" data-selected-label="Affected" data-noun="monitors">
+        {% for m in all_monitors %}<option value="{{ m.id }}" {{ 'selected' if m.id in values.monitor_ids }}>{{ m.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-12">
+      <label class="form-label" for="page_ids">Announce on status pages</label>
+      <select class="form-select" id="page_ids" name="page_ids" multiple size="6"
+              data-dual-list data-available-label="Status pages" data-selected-label="Announce on" data-noun="pages">
+        {% for p in all_pages %}<option value="{{ p.id }}" {{ 'selected' if p.id in values.page_ids }}>{{ p.title }}</option>{% endfor %}
+      </select>
     </div>
   </div>
-  <div class="card-footer d-flex">
-    <a href="/admin/maintenance" class="btn btn-link">Cancel</a>
-    <button type="submit" class="btn btn-primary ms-auto">{{ 'Save' if item else 'Schedule' }}</button>
-  </div>
-</form>
 {% endblock %}
+{% block submit %}<button type="submit" class="btn btn-primary">{{ 'Save' if item else 'Schedule' }}</button>{% endblock %}

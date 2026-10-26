@@ -19,10 +19,13 @@ from statora.db import session as db
 from statora.scheduler import Scheduler
 from statora.services.crud import ValidationProblem
 from statora.web import auth_routes
+from statora.web import media as media_routes
 from statora.web.admin import router as admin_router
 from statora.web.api.v1 import router as api_router
 from statora.web.deps import LoginRequired
+from statora.web.media import UploadSizeLimit
 from statora.web.public import router as public_router
+from statora.web.security import RejectNulBytes, SecurityHeaders
 from statora.web.templating import templates
 
 log = logging.getLogger("statora")
@@ -102,6 +105,10 @@ def create_app() -> FastAPI:
         redoc_url=None,
         generate_unique_id_function=_operation_id,
     )
+    # The image itself is limited to 256 KB; leave room for the multipart envelope.
+    app.add_middleware(UploadSizeLimit, paths=("/admin/media", "/api/v1/media"), max_bytes=512 * 1024)
+    app.add_middleware(RejectNulBytes)
+    app.add_middleware(SecurityHeaders)
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
@@ -191,5 +198,6 @@ def create_app() -> FastAPI:
         app.include_router(api_router)
         app.include_router(auth_routes.router)
         app.include_router(admin_router)
+        app.include_router(media_routes.router)
         app.include_router(public_router)
     return app

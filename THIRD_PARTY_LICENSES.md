@@ -9,7 +9,9 @@ These files are shipped inside the repository, the Python package and the contai
 | Component | Version | License | Files | Upstream |
 |---|---|---|---|---|
 | Tabler | 1.4.0 | MIT | `tabler.min.css`, `tabler.min.js` | https://github.com/tabler/tabler |
-| Tabler Icons (webfont) | 3.31.0 | MIT | `tabler-icons.min.css`, `fonts/tabler-icons.woff2` | https://github.com/tabler/tabler-icons |
+| Font Awesome Free | 6.7.2 | Icons CC BY 4.0, fonts OFL-1.1, code MIT | `fontawesome/fontawesome.min.css`, `fontawesome/webfonts/*.woff2`, `fontawesome/icons.json` and `icons-index.json` (generated from the icon metadata by `scripts/build_fa_catalog.py`), inline SVGs in `templates/_icons.html` | https://github.com/FortAwesome/Font-Awesome |
+| Inter | 4.1 (Fontsource 5.2.5) | OFL-1.1 | `fonts/inter-*.woff2` | https://github.com/rsms/inter |
+| JetBrains Mono | 2.304 (Fontsource 5.2.5) | OFL-1.1 | `fonts/jetbrains-mono-*.woff2` | https://github.com/JetBrains/JetBrainsMono |
 | htmx | 2.0.4 | 0BSD | `htmx.min.js` | https://github.com/bigskysoftware/htmx |
 | ApexCharts | 3.54.1 | MIT | `apexcharts.min.js` | https://github.com/apexcharts/apexcharts.js |
 | Swagger UI | 5.17.14 | Apache-2.0 (with NOTICE) | `swagger-ui-bundle.js`, `swagger-ui.css` | https://github.com/swagger-api/swagger-ui |

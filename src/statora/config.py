@@ -4,6 +4,10 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Example values shipped in this repository (defaults, .env and Kubernetes examples). `statora serve`
+# refuses to start with one of them.
+PLACEHOLDER_SECRET_KEYS = frozenset({"change-me-in-production", "change-me-to-a-long-random-value"})
+
 
 class Role(StrEnum):
     ALL = "all"

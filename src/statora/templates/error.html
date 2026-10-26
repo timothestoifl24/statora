@@ -6,6 +6,7 @@
   {% include '_brand_head.html' %}
   <title>{{ status_code }} · Statora</title>
   <link rel="stylesheet" href="{{ asset('vendor/tabler.min.css') }}">
+  <link rel="stylesheet" href="{{ asset('css/fonts.css') }}">
 </head>
 <body class="d-flex flex-column">
   <div class="page page-center">
@@ -14,9 +15,10 @@
       <div class="empty">
         <div class="empty-header">{{ status_code }}</div>
         <p class="empty-title">{{ detail if detail is string else 'Something went wrong' }}</p>
-        <div class="empty-action"><a href="javascript:history.back()" class="btn btn-primary">Go back</a></div>
+        <div class="empty-action"><a href="/" class="btn btn-primary" data-history-back>Go back</a></div>
       </div>
     </div>
   </div>
+  <script src="{{ asset('js/error.js') }}" defer></script>
 </body>
 </html>

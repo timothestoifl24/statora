@@ -20,7 +20,177 @@ document.addEventListener("click", function (event) {
   if (!el) return;
   navigator.clipboard.writeText(el.value || el.textContent.trim()).then(function () {
     var label = button.innerHTML;
-    button.innerHTML = '<i class="ti ti-check"></i> Copied';
+    button.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
     setTimeout(function () { button.innerHTML = label; }, 1500);
   });
+});
+
+// Monitor list: search, filter chips and expanded groups. The rows are replaced by the
+// 15s HTMX refresh, so the state lives here and is re-applied after every swap.
+(function () {
+  var search = document.getElementById("monitor-search");
+  if (!search) return;
+  var STORE = "statora-monitor-filter";
+  var state = { filter: "all", open: [] };
+  try { Object.assign(state, JSON.parse(localStorage.getItem(STORE)) || {}); } catch (e) {}
+
+  function save() {
+    try { localStorage.setItem(STORE, JSON.stringify({ filter: state.filter, open: state.open })); } catch (e) {}
+  }
+
+  function matches(row, query) {
+    var status = row.dataset.status, type = row.dataset.type;
+    if (state.filter === "problems" && status !== "down" && status !== "degraded") return false;
+    if (state.filter !== "all" && state.filter !== "problems" && type !== state.filter) return false;
+    return !query || row.dataset.name.indexOf(query) !== -1;
+  }
+
+  function apply() {
+    var query = search.value.trim().toLowerCase();
+    var shown = 0;
+    document.querySelectorAll(".filter-chip").forEach(function (chip) {
+      chip.setAttribute("aria-pressed", String(chip.dataset.filter === state.filter));
+    });
+    document.querySelectorAll("[data-status][data-name]").forEach(function (row) {
+      var visible = matches(row, query);
+      row.hidden = !visible;
+      if (visible) shown++;
+    });
+    document.querySelectorAll(".group-toggle").forEach(function (button) {
+      var id = button.dataset.group;
+      var open = state.open.indexOf(id) !== -1;
+      var parentRow = button.closest("[data-status]");
+      button.setAttribute("aria-expanded", String(open));
+      document.querySelectorAll('.member-row[data-parent="' + id + '"]').forEach(function (row) {
+        row.hidden = !open || parentRow.hidden;
+      });
+    });
+    var empty = document.querySelector(".filter-empty");
+    if (empty) empty.hidden = shown > 0;
+  }
+
+  search.addEventListener("input", apply);
+  document.addEventListener("click", function (event) {
+    var chip = event.target.closest(".filter-chip");
+    if (chip) {
+      state.filter = chip.dataset.filter;
+      save();
+      apply();
+      return;
+    }
+    var toggle = event.target.closest(".group-toggle");
+    if (toggle) {
+      var id = toggle.dataset.group;
+      var at = state.open.indexOf(id);
+      if (at === -1) state.open.push(id); else state.open.splice(at, 1);
+      save();
+      apply();
+    }
+  });
+  document.body.addEventListener("htmx:afterSwap", apply);
+
+  // Shortcuts: "/" focuses the search, "n" opens the new-monitor form.
+  document.addEventListener("keydown", function (event) {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    var target = event.target;
+    if (target.closest("input, textarea, select, [contenteditable]")) {
+      if (event.key === "Escape" && target === search) { search.value = ""; apply(); search.blur(); }
+      return;
+    }
+    if (document.querySelector("#app-modal.show")) return; // never replace a form someone is filling in
+    if (event.key === "/") { event.preventDefault(); search.focus(); }
+    var link = document.querySelector('[data-shortcut="' + event.key + '"]');
+    if (link) { event.preventDefault(); link.click(); }
+  });
+
+  apply();
+})();
+
+// Create/edit forms in the shared modal (admin/base.html). Links with data-modal load their form
+// into it; the href stays a normal page for new tabs and for browsers without JavaScript.
+document.addEventListener("click", function (event) {
+  var link = event.target.closest("a[data-modal]");
+  if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  event.preventDefault();
+  window.htmx.ajax("GET", link.getAttribute("href"), { target: "#app-modal-content", swap: "innerHTML" });
+});
+// A full page instead of a form fragment (e.g. the login page after the session expired): go there.
+document.body.addEventListener("htmx:beforeSwap", function (event) {
+  var id = event.detail.target.id;
+  if ((id === "app-modal-content" || id === "app-modal-form") && /<html[\s>]/i.test(event.detail.serverResponse || "")) {
+    event.detail.shouldSwap = false;
+    window.location.href = event.detail.xhr.responseURL || event.detail.pathInfo.requestPath;
+  }
+});
+document.body.addEventListener("htmx:afterSwap", function (event) {
+  if (event.detail.target.id !== "app-modal-content") return;
+  var modal = document.getElementById("app-modal");
+  var size = modal.querySelector("[data-modal-size]")?.dataset.modalSize || "lg";
+  modal.querySelector(".modal-dialog").classList.toggle("modal-xl", size === "xl");
+  modal.querySelector(".modal-dialog").classList.toggle("modal-lg", size !== "xl");
+  var Modal = (window.tabler || window.bootstrap).Modal; // Tabler bundles Bootstrap's components
+  Modal.getOrCreateInstance(modal).show();
+  modal.addEventListener("shown.bs.modal", function () {
+    modal.querySelector(".modal-body input:not([type=hidden]):not([disabled]), .modal-body select, .modal-body textarea")?.focus();
+  }, { once: true });
+});
+// Connection test results land at the top of the form; bring them into view.
+document.body.addEventListener("htmx:afterSwap", function (event) {
+  if (event.detail.target.id === "test-result") event.detail.target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+});
+// A link marked data-autoopen (e.g. a provider just created) opens its dialog right away.
+document.querySelector("a[data-modal][data-autoopen]")?.click();
+// Don't let a half-filled form linger: clear the modal when it closes.
+document.getElementById("app-modal")?.addEventListener("hidden.bs.modal", function () {
+  document.getElementById("app-modal-content").replaceChildren();
+});
+
+// New page: fill the slug from the title until the slug is edited by hand.
+document.addEventListener("input", function (event) {
+  var form = event.target.closest("form");
+  if (!form) return;
+  var slug = form.querySelector("[data-slug-target]");
+  if (!slug) return;
+  if (event.target === slug) { slug.dataset.touched = "1"; return; }
+  if (event.target.matches("[data-slug-source]") && !slug.dataset.touched) {
+    slug.value = event.target.value.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 100);
+  }
+});
+
+// Form behaviour that used to live in inline onchange handlers (not allowed by the CSP).
+document.addEventListener("change", function (event) {
+  var el = event.target;
+  // Monitor type: groups have no target.
+  if (el.matches("[data-monitor-type]")) {
+    var targetRow = document.getElementById("target-row");
+    if (targetRow) targetRow.hidden = el.value === "group";
+  }
+  // Group monitor: redundancy settings only for redundancy groups.
+  if (el.matches("[data-group-mode]")) {
+    var options = document.getElementById("redundancy-options");
+    if (options) options.hidden = el.value !== "redundancy";
+  }
+  // SQL monitor: default port, Oracle hint and default query follow the engine.
+  if (el.matches("[data-sql-engine]")) {
+    var port = document.getElementById("cfg_port");
+    var hint = document.getElementById("cfg_database_hint");
+    var query = document.getElementById("cfg_query");
+    if (port) port.placeholder = el.selectedOptions[0].dataset.port || "";
+    if (hint) hint.hidden = el.value !== "oracle";
+    if (query) query.placeholder = el.value === "oracle" ? "SELECT 1 FROM DUAL" : "SELECT 1";
+  }
+  // Switches that save on change (e.g. the local sign-in form on the Authentication page).
+  if (el.matches("[data-autosubmit]") && el.form) el.form.requestSubmit();
+});
+
+// Auto-refreshing blocks marked data-pause-while-busy skip a round while a dropdown menu or a dialog
+// is open, so the menu doesn't close under the pointer. (Replaces an htmx trigger filter, which
+// would need eval.)
+document.body.addEventListener("htmx:beforeRequest", function (event) {
+  var elt = event.detail.elt;
+  if (elt && elt.matches && elt.matches("[data-pause-while-busy]") &&
+      document.querySelector(".dropdown-menu.show, #app-modal.show")) {
+    event.preventDefault();
+  }
 });

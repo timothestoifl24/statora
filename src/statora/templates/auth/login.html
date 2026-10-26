@@ -1,4 +1,5 @@
 <!doctype html>
+{% from "_icons.html" import provider_icon %}
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -6,16 +7,10 @@
   {% include '_brand_head.html' %}
   <title>Sign in · Statora</title>
   <link rel="stylesheet" href="{{ asset('vendor/tabler.min.css') }}">
-  <link rel="stylesheet" href="{{ asset('vendor/tabler-icons.min.css') }}">
+  <link rel="stylesheet" href="{{ asset('vendor/fontawesome/fontawesome.min.css') }}">
+  <link rel="stylesheet" href="{{ asset('css/fonts.css') }}">
   <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
-  <script>
-    (function () {
-      var theme = null;
-      try { theme = localStorage.getItem("statora-theme"); } catch (e) {}
-      if (!theme) theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      document.documentElement.setAttribute("data-bs-theme", theme);
-    })();
-  </script>
+  <script src="{{ asset('js/theme-init.js') }}"></script>
 </head>
 <body class="d-flex flex-column">
 <div class="page page-center">
@@ -29,7 +24,7 @@
         <h2 class="h2 text-center mb-4">Sign in</h2>
         {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
         {% if show_password_form %}
-        <form method="post" action="/login" autocomplete="on">
+        <form method="post" action="/login{{ '?local=1' if local_forced }}" autocomplete="on">
           {{ csrf_input(request) }}
           <input type="hidden" name="next" value="{{ next }}">
           <div class="mb-3">
@@ -49,7 +44,7 @@
           <div class="d-grid gap-2">
             {% for p in sso_providers %}
               <a class="btn" href="/auth/{{ p.type }}/{{ p.id }}/login?next={{ next|urlencode }}">
-                <i class="ti ti-{{ 'key' if p.type == 'oidc' else 'certificate' }} me-2"></i>{{ p.button_label or 'Sign in with ' ~ p.name }}
+                {{ provider_icon(p, 'me-2') }}{{ p.button_label or 'Sign in with ' ~ p.name }}
               </a>
             {% endfor %}
           </div>

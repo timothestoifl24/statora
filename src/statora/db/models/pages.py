@@ -17,6 +17,8 @@ class StatusPage(TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(150))
     description: Mapped[str | None] = mapped_column(Text)
     logo_url: Mapped[str | None] = mapped_column(String(2048))
+    # Browser tab icon: "media:<sha256>" (uploaded) or an http(s) URL.
+    favicon: Mapped[str | None] = mapped_column(String(2048))
     accent_color: Mapped[str] = mapped_column(String(7), default="#1f6feb")
     footer_text: Mapped[str | None] = mapped_column(Text)
     published: Mapped[bool] = mapped_column(default=True)

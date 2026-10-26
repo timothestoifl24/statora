@@ -12,7 +12,7 @@ from statora import cache
 from statora.auth import ratelimit
 from statora.auth.providers import oidc, saml
 from statora.auth.providers.base import AuthError
-from statora.auth.service import authenticate_password, enabled_providers, provision_user
+from statora.auth.service import authenticate_password, enabled_providers, local_form_hidden, provision_user
 from statora.config import get_settings
 from statora.db.models import AuthProvider, AuthProviderType
 from statora.web.deps import get_session, local_path, login_user, not_found, optional_user, verify_csrf
@@ -30,16 +30,21 @@ def _relay_key(relay: str) -> str:
 
 async def _render_login(request: Request, session: AsyncSession, error: str | None = None, status: int = 200):
     providers = await enabled_providers(session)
+    has_ldap = any(p.type == AuthProviderType.LDAP for p in providers)
+    # /login?local=1 always shows the form: the way back in when the identity provider is down.
+    forced = request.query_params.get("local") == "1"
+    hidden = not forced and await local_form_hidden(session, providers)
     return templates.TemplateResponse(
         request,
         "auth/login.html",
         {
             "error": error,
             "next": local_path(request.query_params.get("next")),
-            "show_password_form": not get_settings().disable_local_login
-            or any(p.type == AuthProviderType.LDAP for p in providers),
+            "show_password_form": not hidden
+            and (not get_settings().disable_local_login or has_ldap or forced),
             "sso_providers": [p for p in providers if p.type != AuthProviderType.LDAP],
-            "has_ldap": any(p.type == AuthProviderType.LDAP for p in providers),
+            "has_ldap": has_ldap,
+            "local_forced": forced,
         },
         status_code=status,
     )

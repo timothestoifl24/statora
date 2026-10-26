@@ -1,28 +1,53 @@
 {% extends "admin/base.html" %}
-{% set type_icons = {'ldap': 'address-book', 'oidc': 'key', 'saml': 'certificate'} %}
+{% from "_icons.html" import provider_icon %}
+{% set type_icons = {'ldap': 'fa-solid fa-address-book', 'oidc': 'fa-solid fa-key', 'saml': 'fa-solid fa-certificate'} %}
 {% set type_labels = {'ldap': 'LDAP / Active Directory', 'oidc': 'OAuth2 / OpenID Connect', 'saml': 'SAML 2.0'} %}
 {% block title %}Authentication{% endblock %}
 {% block actions %}
 <div class="dropdown">
-  <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown"><i class="ti ti-plus me-1"></i>Add provider</button>
+  <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown"><i class="fa-solid fa-plus me-1"></i>Add provider</button>
   <div class="dropdown-menu dropdown-menu-end">
     {% for t in types %}
-      <a class="dropdown-item" href="/admin/settings/auth/new/{{ t }}"><i class="ti ti-{{ type_icons[t] }} me-2"></i>{{ type_labels[t] }}</a>
+      <a class="dropdown-item" href="/admin/settings/auth/new/{{ t }}" data-modal><i class="{{ type_icons[t] }} me-2"></i>{{ type_labels[t] }}</a>
     {% endfor %}
   </div>
 </div>
 {% endblock %}
 {% block content %}
 <div class="card mb-3">
-  <div class="card-body d-flex align-items-center">
-    <span class="avatar bg-green-lt me-3"><i class="ti ti-lock"></i></span>
-    <div>
+  <div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <span class="avatar bg-green-lt"><i class="fa-solid fa-lock"></i></span>
+    <div class="flex-grow-1 min-w-0">
       <div class="fw-medium">Local accounts</div>
       <div class="text-secondary small">
         {% if local_disabled %}Disabled for regular users (<code>STATORA_DISABLE_LOCAL_LOGIN</code>). Local admins can still sign in as a fallback.
         {% else %}Username and password stored in this instance. Always available to local admins.{% endif %}
       </div>
+      <div class="small mt-1">
+        {% if local_form_hidden %}
+          <span class="text-warning"><i class="fa-regular fa-eye-slash me-1"></i>The sign-in page only shows your providers.</span>
+          <span class="text-secondary">Local accounts still work at <a href="/login?local=1" class="link-secondary"><code>/login?local=1</code></a>.</span>
+        {% elif hide_local_login and enabled_count == 0 %}
+          <span class="text-secondary"><i class="fa-regular fa-eye me-1"></i>Set to hidden, but shown because no provider is enabled.</span>
+        {% elif hide_local_login and has_enabled_ldap %}
+          <span class="text-secondary"><i class="fa-regular fa-eye me-1"></i>Set to hidden, but shown because LDAP accounts sign in with the same form.</span>
+        {% endif %}
+      </div>
     </div>
+    <form method="post" action="/admin/settings/auth/local-form" class="local-form-toggle">
+      {{ csrf_input(request) }}
+      <input type="hidden" name="hide" value="{{ '0' if hide_local_login else '1' }}">
+      <label class="form-check form-switch mb-0" {% if not hide_local_login and enabled_count == 0 %}title="Enable an authentication provider first"{% endif %}>
+        <input class="form-check-input" type="checkbox" {{ 'checked' if not hide_local_login }}
+               {{ 'disabled' if not hide_local_login and enabled_count == 0 }} data-autosubmit
+               aria-describedby="local-form-hint">
+        <span class="form-check-label">Show the local sign-in form</span>
+      </label>
+      <noscript><button type="submit" class="btn btn-sm mt-1">{{ 'Show' if hide_local_login else 'Hide' }}</button></noscript>
+      <div id="local-form-hint" class="form-hint mt-1">
+        {% if enabled_count == 0 %}Needs at least one enabled provider to hide it.{% else %}Hide it so people sign in with your identity provider.{% endif %}
+      </div>
+    </form>
   </div>
 </div>
 <div class="card">
@@ -33,12 +58,12 @@
       <tbody>
       {% for p in providers %}
         <tr>
-          <td class="fw-medium"><i class="ti ti-{{ type_icons[p.type] }} me-2 text-secondary"></i>{{ p.name }}</td>
+          <td class="fw-medium">{{ provider_icon(p, 'me-2 text-secondary') }}{{ p.name }}</td>
           <td>{{ type_labels[p.type] }}</td>
           <td>{{ counts.get(p.id, 0) }}</td>
           <td>{{ 'Yes, as ' ~ p.default_role if p.auto_create_users else 'No' }}</td>
           <td>{% if p.enabled %}<span class="badge bg-success-lt">enabled</span>{% else %}<span class="badge bg-secondary-lt">disabled</span>{% endif %}</td>
-          <td class="text-end"><a href="/admin/settings/auth/{{ p.id }}" class="btn btn-sm">Configure</a></td>
+          <td class="text-end"><a href="/admin/settings/auth/{{ p.id }}" class="btn btn-sm" data-modal{% if open_id == p.id|string %} data-autoopen{% endif %}>Configure</a></td>
         </tr>
       {% endfor %}
       </tbody>
@@ -46,7 +71,7 @@
   </div>
   {% else %}
   <div class="empty">
-    <div class="empty-icon"><i class="ti ti-shield-lock fs-1"></i></div>
+    <div class="empty-icon"><i class="fa-solid fa-shield-halved fs-1"></i></div>
     <p class="empty-title">No external providers</p>
     <p class="empty-subtitle text-secondary">Let users sign in with LDAP / Active Directory, an OpenID Connect provider (Keycloak, Entra ID, Google, Authentik…) or SAML 2.0.</p>
   </div>

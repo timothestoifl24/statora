@@ -10,7 +10,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import func, select
 
-from statora.config import get_settings
+from statora.config import PLACEHOLDER_SECRET_KEYS, get_settings
 
 app = typer.Typer(help="Self-hosted monitoring and status pages.", no_args_is_help=True)
 
@@ -323,12 +323,16 @@ def serve(
 ) -> None:
     """Production entrypoint."""
     settings = get_settings()
-    if settings.secret_key == "change-me-in-production":
+    if settings.secret_key in PLACEHOLDER_SECRET_KEYS:
+        # A publicly known key lets anyone forge a session cookie (and sign in as any user) and
+        # decrypt the stored provider and database secrets, so refuse to run with one.
         typer.secho(
-            "WARNING: STATORA_SECRET_KEY is not set; sessions and secrets are insecure.",
+            "STATORA_SECRET_KEY is not set (it still has the example value). Set it to a long random value, "
+            'for example the output of: python -c "import secrets; print(secrets.token_urlsafe(48))"',
             fg="red",
             err=True,
         )
+        raise typer.Exit(1)
     if migrate_db:
         run_migrations()
     _uvicorn(reload=False, host=host or settings.host, port=port or settings.port)

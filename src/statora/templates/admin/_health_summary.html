@@ -1,0 +1,29 @@
+{# Health summary above the monitor list and tiles: headline, stacked bar, legend. #}
+{% set active_total = rows|length - counts.paused %}
+{% set segments = [('down', 'Down', 'danger'), ('degraded', 'Degraded', 'warning'), ('maintenance', 'Maintenance', 'info'),
+                   ('pending', 'Pending', 'secondary'), ('up', 'Up', 'success'), ('paused', 'Paused', 'paused')] %}
+<div class="card health-summary mb-3">
+  <div class="card-body">
+    <div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-2">
+      <div>
+        <span class="health-headline">{{ counts.up }} of {{ active_total }} up</span>
+        {% if counts.down or counts.degraded %}
+          <span class="text-{{ 'danger' if counts.down else 'warning' }} ms-2">
+            <i class="fa-solid fa-triangle-exclamation me-1"></i>{{ counts.down + counts.degraded }} need{{ 's' if counts.down + counts.degraded == 1 }} attention
+          </span>
+        {% endif %}
+      </div>
+      <span class="text-secondary small">{% if last_check %}Last check {{ last_check|since }} ago{% else %}No checks yet{% endif %}</span>
+    </div>
+    <div class="health-bar" role="img" aria-label="{% for key, label, _ in segments if counts[key] %}{{ counts[key] }} {{ label|lower }}{{ ', ' if not loop.last }}{% endfor %}">
+      {% for key, label, color in segments if counts[key] %}
+        <span class="health-seg bg-{{ color }}" style="flex: {{ counts[key] }}" title="{{ counts[key] }} {{ label|lower }}"></span>
+      {% endfor %}
+    </div>
+    <div class="health-legend">
+      {% for key, label, color in segments if counts[key] or key in ('up', 'down') %}
+        <span><span class="status-dot bg-{{ color }}"></span>{{ counts[key] }} {{ label|lower }}</span>
+      {% endfor %}
+    </div>
+  </div>
+</div>

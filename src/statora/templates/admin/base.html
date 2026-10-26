@@ -7,75 +7,73 @@
   <meta name="csrf-token" content="{{ csrf_token(request) }}">
   <title>{% block title %}Admin{% endblock %} · Statora</title>
   <link rel="stylesheet" href="{{ asset('vendor/tabler.min.css') }}">
-  <link rel="stylesheet" href="{{ asset('vendor/tabler-icons.min.css') }}">
+  <link rel="stylesheet" href="{{ asset('vendor/fontawesome/fontawesome.min.css') }}">
+  <link rel="stylesheet" href="{{ asset('css/fonts.css') }}">
   <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
-  <script>
-    (function () {
-      var theme = null;
-      try { theme = localStorage.getItem("statora-theme"); } catch (e) {}
-      if (!theme) theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      document.documentElement.setAttribute("data-bs-theme", theme);
-    })();
-  </script>
+  <script src="{{ asset('js/theme-init.js') }}"></script>
+  <meta name="htmx-config" content='{"allowEval": false, "allowScriptTags": false}'>
 </head>
-<body hx-headers='{"X-CSRF-Token": "{{ csrf_token(request) }}"}'>
+<body{% if kiosk %} class="kiosk"{% endif %} hx-headers='{"X-CSRF-Token": "{{ csrf_token(request) }}"}'>
 <div class="page">
-  <header class="navbar navbar-expand-md d-print-none">
-    <div class="container-xl">
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu"
-              aria-controls="navbar-menu" aria-expanded="false" aria-label="Toggle navigation">
+  <aside class="navbar navbar-vertical navbar-expand-lg d-print-none sidebar">
+    <div class="container-fluid">
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu"
+              aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
-      <a href="/admin" class="navbar-brand pe-0 pe-md-3" aria-label="Statora">
+      <a href="/admin" class="navbar-brand navbar-brand-autodark" aria-label="Statora">
         <img src="{{ asset('brand/logo.svg') }}" alt="Statora" height="30" class="brand-logo brand-logo-light">
         <img src="{{ asset('brand/logo-dark.svg') }}" alt="Statora" height="30" class="brand-logo brand-logo-dark">
       </a>
-      <div class="navbar-nav flex-row order-md-last">
-        <button type="button" class="nav-link px-0 me-2 btn btn-link" id="theme-toggle" title="Toggle dark mode"
-                aria-label="Toggle dark mode">
-          <i class="ti ti-moon fs-2 theme-icon-dark"></i><i class="ti ti-sun fs-2 theme-icon-light"></i>
-        </button>
-        <div class="nav-item dropdown">
-          <a href="#" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" aria-label="Open user menu">
-            <span class="avatar avatar-sm">{{ (user.display_name or user.username)[:2]|upper }}</span>
-            <div class="d-none d-xl-block ps-2">
-              <div>{{ user.display_name or user.username }}</div>
-              <div class="mt-1 small text-secondary">{{ user.role|capitalize }}</div>
-            </div>
-          </a>
-          <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-            <a href="/admin/profile/tokens" class="dropdown-item"><i class="ti ti-key me-2"></i>API tokens</a>
-            <a href="/api/docs" class="dropdown-item" target="_blank" rel="noopener"><i class="ti ti-api me-2"></i>API docs</a>
-            <div class="dropdown-divider"></div>
-            <form method="post" action="/logout">
-              {{ csrf_input(request) }}
-              <button class="dropdown-item" type="submit"><i class="ti ti-logout me-2"></i>Log out</button>
-            </form>
-          </div>
-        </div>
-      </div>
-      <div class="collapse navbar-collapse" id="navbar-menu">
-        <ul class="navbar-nav">
-          {% macro navlink(href, icon, label, active=None) -%}
-            <li class="nav-item {{ 'active' if (active if active is not none else nav.startswith(href)) }}">
-              <a class="nav-link" href="{{ href }}">
-                <span class="nav-link-icon"><i class="ti ti-{{ icon }}"></i></span>
-                <span class="nav-link-title">{{ label }}</span>
-              </a>
-            </li>
-          {%- endmacro %}
-          {{ navlink('/admin', 'activity', 'Monitors', active=(nav == '/admin' or nav.startswith('/admin/monitors'))) }}
-          {{ navlink('/admin/pages', 'layout-dashboard', 'Status pages') }}
-          {{ navlink('/admin/incidents', 'alert-triangle', 'Incidents') }}
-          {{ navlink('/admin/maintenance', 'tool', 'Maintenance') }}
+      <div class="collapse navbar-collapse" id="sidebar-menu">
+        {% macro navlink(href, icon, label, active=None, badge_url=None) -%}
+          <li class="nav-item {{ 'active' if (active if active is not none else nav.startswith(href)) }}">
+            <a class="nav-link" href="{{ href }}">
+              <span class="nav-link-icon"><i class="fa-solid fa-{{ icon }}"></i></span>
+              <span class="nav-link-title">{{ label }}</span>
+              {% if badge_url %}<span class="ms-auto" hx-get="{{ badge_url }}" hx-trigger="load, every 60s"></span>{% endif %}
+            </a>
+          </li>
+        {%- endmacro %}
+        <ul class="navbar-nav pt-lg-3">
+          {{ navlink('/admin', 'wave-square', 'Monitors', active=(nav == '/admin' or nav.startswith('/admin/monitors'))) }}
+          {{ navlink('/admin/pages', 'table-columns', 'Status pages') }}
+          {{ navlink('/admin/incidents', 'triangle-exclamation', 'Incidents', badge_url='/admin/incidents/open-count') }}
+          {{ navlink('/admin/maintenance', 'screwdriver-wrench', 'Maintenance') }}
+          <li class="nav-section">Settings</li>
           {% if user.role == 'admin' %}
             {{ navlink('/admin/users', 'users', 'Users') }}
-            {{ navlink('/admin/settings/auth', 'shield-lock', 'Authentication') }}
+            {{ navlink('/admin/settings/auth', 'shield-halved', 'Authentication') }}
           {% endif %}
+          {{ navlink('/admin/profile/tokens', 'key', 'API tokens') }}
         </ul>
+        <div class="sidebar-footer">
+          <div class="dropdown flex-grow-1 min-w-0">
+            <a href="#" class="d-flex align-items-center gap-2 text-reset text-decoration-none" data-bs-toggle="dropdown" aria-label="Open user menu">
+              <span class="avatar avatar-sm">{{ (user.display_name or user.username)[:2]|upper }}</span>
+              <span class="min-w-0">
+                <span class="d-block text-truncate">{{ user.display_name or user.username }}</span>
+                <span class="d-block small text-secondary">{{ user.role|capitalize }}</span>
+              </span>
+            </a>
+            <div class="dropdown-menu">
+              <a href="/api/docs" class="dropdown-item" target="_blank" rel="noopener"><i class="fa-solid fa-code me-2"></i>API docs</a>
+              <a href="/" class="dropdown-item" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square me-2"></i>Public page</a>
+              <div class="dropdown-divider"></div>
+              <form method="post" action="/logout">
+                {{ csrf_input(request) }}
+                <button class="dropdown-item" type="submit"><i class="fa-solid fa-right-from-bracket me-2"></i>Log out</button>
+              </form>
+            </div>
+          </div>
+          <button type="button" class="btn btn-icon btn-ghost-secondary" id="theme-toggle" title="Toggle dark mode"
+                  aria-label="Toggle dark mode">
+            <i class="fa-solid fa-moon theme-icon-dark"></i><i class="fa-solid fa-sun theme-icon-light"></i>
+          </button>
+        </div>
       </div>
     </div>
-  </header>
+  </aside>
 
   <div class="page-wrapper">
     <div class="page-header d-print-none">
@@ -113,10 +111,17 @@
     </footer>
   </div>
 </div>
+{# Shared modal for create/edit forms: links with data-modal load their form into it (admin.js). #}
+<div class="modal modal-blur fade" id="app-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content" id="app-modal-content"></div>
+  </div>
+</div>
 <script src="{{ asset('vendor/tabler.min.js') }}" defer></script>
 <script src="{{ asset('vendor/htmx.min.js') }}" defer></script>
 <script src="{{ asset('js/admin.js') }}" defer></script>
 <script src="{{ asset('js/dual-list.js') }}" defer></script>
+<script src="{{ asset('js/icon-picker.js') }}" defer></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

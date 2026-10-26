@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import HTMLResponse
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from statora import cache
@@ -27,7 +28,7 @@ from statora.schemas.pages import (
 from statora.services import crud
 from statora.web.deps import current_user, get_session, not_found, ui_role
 
-from .common import error_messages, flash, int_list, opt, redirect, render, rollback
+from .common import done, error_messages, flash, int_list, opt, redirect, render, render_form, rollback
 
 router = APIRouter()
 editor = ui_role(UserRole.EDITOR)
@@ -56,6 +57,17 @@ async def list_incidents(
     return render(request, "admin/incidents_list.html", user, incidents=incidents, pages=pages)
 
 
+@router.get("/incidents/open-count")
+async def open_incident_count(
+    user: User = Depends(current_user), session: AsyncSession = Depends(get_session)
+):
+    """Badge for the sidebar, loaded with HTMX so every admin page doesn't pay for the query."""
+    count = await session.scalar(
+        select(func.count()).select_from(Incident).where(Incident.resolved_at.is_(None))
+    )
+    return HTMLResponse(f'<span class="badge bg-red text-red-fg">{count}</span>' if count else "")
+
+
 @router.get("/incidents/new")
 async def new_incident(
     request: Request, user: User = Depends(editor), session: AsyncSession = Depends(get_session)
@@ -70,7 +82,7 @@ async def new_incident(
         "ticket_number": "",
         "ticket_url": "",
     }
-    return render(
+    return render_form(
         request, "admin/incident_form.html", user, values=values, errors=[], **await _choices(session)
     )
 
@@ -93,7 +105,7 @@ async def create_incident(
         incident = await crud.create_incident(session, IncidentCreate.model_validate(values))
     except (ValidationError, ValueError) as exc:
         await rollback(session, user)
-        return render(
+        return render_form(
             request,
             "admin/incident_form.html",
             user,
@@ -104,7 +116,7 @@ async def create_incident(
         )
     await session.commit()
     flash(request, "Incident published")
-    return redirect(f"/admin/incidents/{incident.id}")
+    return done(request, f"/admin/incidents/{incident.id}")
 
 
 def _ticket_from_form(form) -> dict:
@@ -271,7 +283,7 @@ async def list_maintenance(
 async def new_maintenance(
     request: Request, user: User = Depends(editor), session: AsyncSession = Depends(get_session)
 ):
-    return render(
+    return render_form(
         request,
         "admin/maintenance_form.html",
         user,
@@ -291,7 +303,7 @@ async def create_maintenance(
         await crud.create_maintenance(session, MaintenanceCreate.model_validate(values))
     except (ValidationError, ValueError) as exc:
         await rollback(session, user)
-        return render(
+        return render_form(
             request,
             "admin/maintenance_form.html",
             user,
@@ -303,7 +315,7 @@ async def create_maintenance(
         )
     await session.commit()
     flash(request, "Maintenance scheduled")
-    return redirect("/admin/maintenance")
+    return done(request, "/admin/maintenance")
 
 
 async def _get_maintenance(session: AsyncSession, item_id: int) -> Maintenance:
@@ -318,7 +330,7 @@ async def edit_maintenance(
     item_id: int, request: Request, user: User = Depends(editor), session: AsyncSession = Depends(get_session)
 ):
     item = await _get_maintenance(session, item_id)
-    return render(
+    return render_form(
         request,
         "admin/maintenance_form.html",
         user,
@@ -340,7 +352,7 @@ async def update_maintenance(
     except (ValidationError, ValueError) as exc:
         await rollback(session, user)
         item = await _get_maintenance(session, item_id)
-        return render(
+        return render_form(
             request,
             "admin/maintenance_form.html",
             user,
@@ -352,7 +364,7 @@ async def update_maintenance(
         )
     await session.commit()
     flash(request, "Maintenance saved")
-    return redirect("/admin/maintenance")
+    return done(request, "/admin/maintenance")
 
 
 @router.post("/maintenance/{item_id}/delete")

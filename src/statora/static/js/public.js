@@ -14,16 +14,16 @@ function localizeTimes(root) {
 }
 localizeTimes(document);
 
-// Keep expanded groups open across the periodic HTMX refresh.
+// Keep expanded groups and maintenance notes open across the periodic HTMX refresh.
 var openGroups = new Set();
 document.body.addEventListener("htmx:beforeSwap", function (event) {
-  openGroups = new Set(Array.from(event.target.querySelectorAll("details.members[open]"), function (d) {
+  openGroups = new Set(Array.from(event.target.querySelectorAll("details[data-key][open]"), function (d) {
     return d.dataset.key;
   }));
 });
 document.body.addEventListener("htmx:afterSwap", function (event) {
   localizeTimes(event.target);
-  event.target.querySelectorAll("details.members").forEach(function (d) {
+  event.target.querySelectorAll("details[data-key]").forEach(function (d) {
     if (openGroups.has(d.dataset.key)) d.open = true;
   });
 });

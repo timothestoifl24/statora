@@ -1,70 +1,64 @@
-{% extends "admin/base.html" %}
+{% extends "admin/_form_layout.html" %}
 {% block title %}Report incident{% endblock %}
-{% block content %}
-<form method="post" class="card">
-  {{ csrf_input(request) }}
-  <div class="card-body">
-    <div class="row g-3">
-      <div class="col-md-8">
-        <label class="form-label required" for="title">Title</label>
-        <input class="form-control" id="title" name="title" value="{{ values.title }}" required maxlength="255"
-               placeholder="e.g. Elevated error rates on the API">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label required" for="page_id">Status page</label>
-        <select class="form-select" id="page_id" name="page_id" required>
-          {% for p in all_pages %}<option value="{{ p.id }}" {{ 'selected' if values.page_id|string == p.id|string }}>{{ p.title }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">Impact</label>
-        <div class="form-selectgroup">
-          {% for i in impacts %}
-            <label class="form-selectgroup-item">
-              <input type="radio" name="impact" value="{{ i }}" class="form-selectgroup-input" {{ 'checked' if values.impact == i }}>
-              <span class="form-selectgroup-label">{{ i|capitalize }}</span>
-            </label>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">Status</label>
-        <div class="form-selectgroup">
-          {% for s in statuses %}
-            <label class="form-selectgroup-item">
-              <input type="radio" name="status" value="{{ s }}" class="form-selectgroup-input" {{ 'checked' if values.status == s }}>
-              <span class="form-selectgroup-label">{{ s|capitalize }}</span>
-            </label>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="col-12">
-        <label class="form-label required" for="message">Message <span class="text-secondary">(Markdown, shown publicly)</span></label>
-        <textarea class="form-control" id="message" name="message" rows="4" required>{{ values.message }}</textarea>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label" for="ticket_number">Ticket number</label>
-        <input class="form-control" id="ticket_number" name="ticket_number" value="{{ values.ticket_number or '' }}" maxlength="100"
-               placeholder="e.g. INC0012345">
-      </div>
-      <div class="col-md-8">
-        <label class="form-label" for="ticket_url">Ticket / documentation URL</label>
-        <input type="url" class="form-control" id="ticket_url" name="ticket_url" value="{{ values.ticket_url or '' }}" maxlength="2048"
-               placeholder="https://itsm.example.com/…" pattern="https?://.+">
-        <small class="form-hint">Internal reference; not shown on the public status page.</small>
-      </div>
-      <div class="col-12">
-        <label class="form-label" for="monitor_ids">Affected monitors</label>
-        <select class="form-select" id="monitor_ids" name="monitor_ids" multiple size="6"
-                data-dual-list data-available-label="Monitors" data-selected-label="Affected" data-noun="monitors">
-          {% for m in all_monitors %}<option value="{{ m.id }}" {{ 'selected' if m.id in values.monitor_ids }}>{{ m.name }}</option>{% endfor %}
-        </select>
+{% block form_action %}/admin/incidents/new{% endblock %}
+{% block cancel_url %}/admin/incidents{% endblock %}
+{% block form_body %}
+  <div class="row g-3">
+    <div class="col-md-8">
+      <label class="form-label required" for="title">Title</label>
+      <input class="form-control" id="title" name="title" value="{{ values.title }}" required maxlength="255"
+             placeholder="e.g. Elevated error rates on the API">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label required" for="page_id">Status page</label>
+      <select class="form-select" id="page_id" name="page_id" required>
+        {% for p in all_pages %}<option value="{{ p.id }}" {{ 'selected' if values.page_id|string == p.id|string }}>{{ p.title }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Impact</label>
+      <div class="form-selectgroup">
+        {% for i in impacts %}
+          <label class="form-selectgroup-item">
+            <input type="radio" name="impact" value="{{ i }}" class="form-selectgroup-input" {{ 'checked' if values.impact == i }}>
+            <span class="form-selectgroup-label">{{ i|capitalize }}</span>
+          </label>
+        {% endfor %}
       </div>
     </div>
+    <div class="col-md-6">
+      <label class="form-label">Status</label>
+      <div class="form-selectgroup">
+        {% for s in statuses %}
+          <label class="form-selectgroup-item">
+            <input type="radio" name="status" value="{{ s }}" class="form-selectgroup-input" {{ 'checked' if values.status == s }}>
+            <span class="form-selectgroup-label">{{ s|capitalize }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="col-12">
+      <label class="form-label required" for="message">Message <span class="text-secondary">(Markdown, shown publicly)</span></label>
+      <textarea class="form-control" id="message" name="message" rows="4" required>{{ values.message }}</textarea>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" for="ticket_number">Ticket number</label>
+      <input class="form-control" id="ticket_number" name="ticket_number" value="{{ values.ticket_number or '' }}" maxlength="100"
+             placeholder="e.g. INC0012345">
+    </div>
+    <div class="col-md-8">
+      <label class="form-label" for="ticket_url">Ticket / documentation URL</label>
+      <input type="url" class="form-control" id="ticket_url" name="ticket_url" value="{{ values.ticket_url or '' }}" maxlength="2048"
+             placeholder="https://itsm.example.com/…" pattern="https?://.+">
+      <small class="form-hint">Internal reference; not shown on the public status page.</small>
+    </div>
+    <div class="col-12">
+      <label class="form-label" for="monitor_ids">Affected monitors</label>
+      <select class="form-select" id="monitor_ids" name="monitor_ids" multiple size="6"
+              data-dual-list data-available-label="Monitors" data-selected-label="Affected" data-noun="monitors">
+        {% for m in all_monitors %}<option value="{{ m.id }}" {{ 'selected' if m.id in values.monitor_ids }}>{{ m.name }}</option>{% endfor %}
+      </select>
+    </div>
   </div>
-  <div class="card-footer d-flex">
-    <a href="/admin/incidents" class="btn btn-link">Cancel</a>
-    <button type="submit" class="btn btn-danger ms-auto">Publish incident</button>
-  </div>
-</form>
 {% endblock %}
+{% block submit %}<button type="submit" class="btn btn-danger">Publish incident</button>{% endblock %}

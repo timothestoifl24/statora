@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from statora.config import get_settings
 from statora.db.base import utcnow
 from statora.db.models import AuthProvider, AuthProviderType, User, UserRole
+from statora.services import app_settings
 
 from . import passwords
 from .providers import ldap
@@ -83,6 +84,17 @@ async def enabled_providers(
     if type_:
         query = query.where(AuthProvider.type == type_)
     return list((await session.scalars(query)).all())
+
+
+async def local_form_hidden(session: AsyncSession, providers: list[AuthProvider]) -> bool:
+    """The admin chose to hide the local sign-in form, and there is another way to sign in.
+
+    Without an enabled provider the form always shows, so nobody gets locked out. LDAP accounts
+    sign in through the same form, so it also stays while an LDAP provider is enabled.
+    """
+    if not providers or any(p.type == AuthProviderType.LDAP for p in providers):
+        return False
+    return bool(await app_settings.get(session, app_settings.HIDE_LOCAL_LOGIN, False))
 
 
 async def authenticate_password(session: AsyncSession, username: str, password: str) -> User:

@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from statora.db.models import MonitorStatus, MonitorType
+from statora.schemas.common import IconRef, LinkUrl
 
 _STATUS_RANGE = re.compile(r"^\d{3}(-\d{3})?$")
 
@@ -151,6 +152,8 @@ Retries = Annotated[int, Field(ge=0, le=10, description="Extra failures tolerate
 class MonitorBase(BaseModel):
     name: str = Field(min_length=1, max_length=150)
     description: str | None = None
+    icon: IconRef = None
+    link_url: LinkUrl = Field(default=None, description="The app behind the monitor; status pages link to it")
     type: MonitorType
     target: str = Field(default="", max_length=2048, description="Not used by group monitors")
     interval_s: Interval = 60
@@ -191,6 +194,8 @@ class MonitorUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=150)
     description: str | None = None
+    icon: IconRef = None
+    link_url: LinkUrl = None
     target: str | None = Field(default=None, max_length=2048)
     interval_s: Interval | None = None
     timeout_s: Timeout | None = None
@@ -206,6 +211,8 @@ class MonitorRead(BaseModel):
     id: int
     name: str
     description: str | None
+    icon: str | None
+    link_url: str | None
     type: MonitorType
     target: str
     interval_s: int

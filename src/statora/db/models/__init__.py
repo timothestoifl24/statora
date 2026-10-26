@@ -9,6 +9,7 @@ from .enums import (
     TokenScope,
     UserRole,
 )
+from .media import Media
 from .monitoring import Heartbeat, Monitor, MonitorDailyStat, monitor_group_members
 from .pages import (
     Incident,
@@ -21,9 +22,11 @@ from .pages import (
     maintenance_monitors,
     maintenance_pages,
 )
+from .settings import AppSetting
 
 __all__ = [
     "ApiToken",
+    "AppSetting",
     "AuthProvider",
     "AuthProviderType",
     "Heartbeat",
@@ -33,6 +36,7 @@ __all__ = [
     "IncidentStatus",
     "IncidentUpdate",
     "Maintenance",
+    "Media",
     "Monitor",
     "MonitorDailyStat",
     "MonitorStatus",

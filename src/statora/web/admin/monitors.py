@@ -13,7 +13,18 @@ from statora.services import crud
 from statora.services.monitoring import monitors_in_maintenance, uptime_days, uptime_since
 from statora.web.deps import current_user, get_session, local_path, not_found, ui_role
 
-from .common import checkbox, error_messages, flash, int_list, opt, redirect, render, rollback
+from .common import (
+    checkbox,
+    done,
+    error_messages,
+    flash,
+    int_list,
+    opt,
+    redirect,
+    render,
+    render_form,
+    rollback,
+)
 
 router = APIRouter()
 editor = ui_role(UserRole.EDITOR)
@@ -50,7 +61,16 @@ async def _dashboard_rows(session: AsyncSession) -> list[dict]:
         )
         for row in await session.execute(select(ranked).where(ranked.c.rn <= 30).order_by(ranked.c.ts)):
             recent[row.monitor_id].append(row)
-    return [{"monitor": m, "uptime_24h": uptime.get(m.id), "recent": recent[m.id]} for m in monitors]
+    rows = [{"monitor": m, "uptime_24h": uptime.get(m.id), "recent": recent[m.id]} for m in monitors]
+    # Problems first, paused monitors last; names keep the order stable within a status.
+    return sorted(rows, key=lambda r: _status_rank(r["monitor"]))
+
+
+_STATUS_ORDER = {"down": 0, "degraded": 1, "maintenance": 2, "pending": 3, "up": 4}
+
+
+def _status_rank(m: Monitor) -> int:
+    return len(_STATUS_ORDER) if not m.active else _STATUS_ORDER.get(m.status, 3)
 
 
 async def dashboard(
@@ -62,8 +82,28 @@ async def dashboard(
         for s in ("up", "down", "degraded", "pending", "maintenance")
     }
     counts["paused"] = sum(1 for r in rows if not r["monitor"].active)
-    template = "admin/_monitor_rows.html" if request.headers.get("HX-Request") else "admin/dashboard.html"
-    return render(request, template, user, rows=rows, counts=counts)
+    checked = [r["monitor"].last_checked_at for r in rows if r["monitor"].last_checked_at]
+    last_check = max(checked) if checked else None
+    # List or tile view; an explicit ?view= is remembered for the session. Kiosk mode is the
+    # tile view without the sidebar and toolbar, for wall screens.
+    kiosk = request.query_params.get("kiosk") == "1"
+    view = request.query_params.get("view")
+    if view in ("list", "tiles"):
+        request.session["dashboard_view"] = view
+    view = "tiles" if kiosk else request.session.get("dashboard_view", "list")
+    partial = "admin/_monitor_tiles.html" if view == "tiles" else "admin/_monitor_rows.html"
+    template = partial if request.headers.get("HX-Request") else "admin/dashboard.html"
+    return render(
+        request,
+        template,
+        user,
+        rows=rows,
+        counts=counts,
+        last_check=last_check,
+        view=view,
+        partial=partial,
+        kiosk=kiosk,
+    )
 
 
 async def _member_choices(session: AsyncSession, exclude_id: int | None) -> list[Monitor]:
@@ -77,6 +117,8 @@ def _monitor_values(monitor: Monitor | None) -> dict:
     return {
         "name": monitor.name if monitor else "",
         "description": monitor.description if monitor else "",
+        "icon": monitor.icon if monitor else "",
+        "link_url": monitor.link_url if monitor else "",
         "type": monitor.type if monitor else MonitorType.HTTP,
         "target": monitor.target if monitor else "",
         "interval_s": monitor.interval_s if monitor else 60,
@@ -99,6 +141,8 @@ async def _form_context(
     return {
         "monitor": monitor,
         "values": values,
+        "form_action": f"/admin/monitors/{monitor.id}/edit" if monitor else "/admin/monitors/new",
+        "cancel_url": f"/admin/monitors/{monitor.id}" if monitor else "/admin",
         "errors": errors or [],
         "types": list(MonitorType),
         "member_choices": await _member_choices(session, monitor.id if monitor else None),
@@ -133,6 +177,8 @@ def _values_from_form(form) -> dict:
     return {
         "name": str(form.get("name", "")).strip(),
         "description": opt(form.get("description")),
+        "icon": opt(form.get("icon")),
+        "link_url": opt(form.get("link_url")),
         "type": form.get("type", "http"),
         "target": str(form.get("target", "")).strip(),
         "interval_s": form.get("interval_s") or 60,
@@ -147,7 +193,7 @@ def _values_from_form(form) -> dict:
 async def new_monitor(
     request: Request, user: User = Depends(editor), session: AsyncSession = Depends(get_session)
 ):
-    return render(request, "admin/monitor_form.html", user, **await _form_context(session, None))
+    return render_form(request, "admin/monitor_form.html", user, **await _form_context(session, None))
 
 
 @router.get("/monitors/{monitor_id}/clone")
@@ -160,7 +206,7 @@ async def clone_monitor(
     """The new-monitor form, prefilled from an existing monitor. Nothing is saved until it's submitted."""
     source = await _get(session, monitor_id)
     values = _monitor_values(source) | {"name": f"{source.name} (copy)"[:150], "active": True}
-    return render(
+    return render_form(
         request,
         "admin/monitor_form.html",
         user,
@@ -204,7 +250,7 @@ async def create_monitor(
         monitor = await crud.create_monitor(session, MonitorCreate.model_validate(values))
     except (ValidationError, ValueError) as exc:
         values.setdefault("config", {})
-        return render(
+        return render_form(
             request,
             "admin/monitor_form.html",
             user,
@@ -215,7 +261,7 @@ async def create_monitor(
     await session.commit()
     await crud.notify_monitor_changed(monitor.id)
     flash(request, f"Monitor “{monitor.name}” created")
-    return redirect(f"/admin/monitors/{monitor.id}")
+    return done(request, f"/admin/monitors/{monitor.id}")
 
 
 async def _get(session: AsyncSession, monitor_id: int) -> Monitor:
@@ -288,7 +334,7 @@ async def edit_monitor(
     user: User = Depends(editor),
     session: AsyncSession = Depends(get_session),
 ):
-    return render(
+    return render_form(
         request,
         "admin/monitor_form.html",
         user,
@@ -314,7 +360,7 @@ async def update_monitor(
     except (ValidationError, ValueError) as exc:
         await rollback(session, user, monitor)
         values.setdefault("config", {})
-        return render(
+        return render_form(
             request,
             "admin/monitor_form.html",
             user,
@@ -324,7 +370,7 @@ async def update_monitor(
     await session.commit()
     await crud.notify_monitor_changed(monitor.id)
     flash(request, "Monitor saved")
-    return redirect(f"/admin/monitors/{monitor.id}")
+    return done(request, f"/admin/monitors/{monitor.id}")
 
 
 @router.post("/monitors/{monitor_id}/toggle")
