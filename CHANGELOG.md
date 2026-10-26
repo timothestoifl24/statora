@@ -24,6 +24,7 @@ Changes collect under the upcoming version while it's being developed, and you c
 - **Bigger buttons:** the row menus and other icon buttons in the admin panel are at least 32 px, so they're easier to hit.
 - **Public status page:** a calmer status card replaces the coloured banner and says how many components are affected. Active incidents show as a timeline inside it, maintenance as a slim strip, and each component shows its uptime next to its status.
 - **Fonts and icons:** the admin panel and status pages use Inter and JetBrains Mono, shipped with Statora (no requests to font CDNs). Icons now come from Font Awesome Free instead of Tabler Icons; login buttons for Google, GitHub, GitLab and Microsoft providers show the provider's logo.
+- **Python 3.13 or newer:** Python 3.12 is no longer supported; CI tests Python 3.13 to 3.15.
 
 ### Security
 
