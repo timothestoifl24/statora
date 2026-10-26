@@ -40,7 +40,7 @@
 - **REST API:** OpenAPI 3.1 with Swagger UI at `/api/docs` and ReDoc at `/api/redoc`. It uses API tokens and has stable `operationId`s, so it is ready for a Terraform provider.
 
 Stack:
-- Python 3.12+ (the container image runs 3.15), FastAPI and SQLAlchemy 2 (async)
+- Python 3.13+ (the container image runs 3.15), FastAPI and SQLAlchemy 2 (async)
 - PostgreSQL for storage, Redis for caching and coordination (tested with PostgreSQL 18 and Redis 8.8)
 - One container image for the app
 
@@ -71,7 +71,7 @@ Step-by-step guides:
 
 ## Quick start (development)
 
-You need Python 3.12+, [uv](https://docs.astral.sh/uv/), and Docker or Podman for PostgreSQL and Redis. On Python 3.15, SAML's `xmlsec` is compiled from source; see [development](https://statora.stoifl.app/reference/development).
+You need Python 3.13+, [uv](https://docs.astral.sh/uv/), and Docker or Podman for PostgreSQL and Redis. On Python 3.15, SAML's `xmlsec` is compiled from source; see [development](https://statora.stoifl.app/reference/development).
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d      # PostgreSQL :5432, Redis :6379

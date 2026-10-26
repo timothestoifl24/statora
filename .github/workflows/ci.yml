@@ -1,9 +1,11 @@
 name: CI
 
 on:
+  # main only receives merges from develop, which must already pass CI.
   push:
-    branches: [main, develop]
+    branches: [develop]
   pull_request:
+    branches: [develop]
   workflow_dispatch:
 
 permissions:
@@ -33,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.12", "3.13", "3.14", "3.15"]
+        python: ["3.13", "3.14", "3.15"]
     services:
       postgres:
         image: postgres:18-alpine
