@@ -80,12 +80,6 @@ def comment_body(env: dict[str, str], deleted: bool) -> str:
             f"Built from {env.get('SHA', '')[:7]} as version `{env.get('VERSION', '')}`."
             + (f" To pin exactly this build, use `{pinned}`." if pinned else ""),
             "",
-            "With the Docker Compose setup from the repository:",
-            "",
-            "```bash",
-            f"STATORA_VERSION={tag_name(env['PR_NUMBER'])} docker compose up -d",
-            "```",
-            "",
             "The image is rebuilt on every push to this pull request (the previous one is deleted) and"
             " deleted when the pull request is merged or closed.",
         ]
