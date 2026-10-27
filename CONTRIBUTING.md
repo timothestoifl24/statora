@@ -64,7 +64,7 @@ On Python 3.15, SAML's `xmlsec` is compiled from source and needs system librari
 
 ## Describing your pull request
 
-The pull request template asks two short questions. Tick every box that applies:
+The pull request template is for pull requests into `develop`. It asks two short questions. Tick every box that applies:
 
 - **Type of change** (at least one): bug fix, new feature, breaking change, documentation, refactoring, API changes, performance, tests.
 - **AI usage:** whether AI was used to write or to review the change. Leave both empty if it wasn't. Using AI is fine; we just want to know, so reviews can take it into account.
@@ -72,6 +72,10 @@ The pull request template asks two short questions. Tick every box that applies:
 The pull request is **labelled automatically** from these boxes (`bug`, `enhancement`, `breaking-change`, …, `ai-written`, `ai-reviewed`), and the labels follow when you change the boxes later. The labels sort your change into the right section of the release notes, so please pick carefully, especially **Breaking change** for anything that needs action when upgrading. You don't need to edit the changelog; the maintainer writes it when releasing.
 
 Other labels are added for you, so you don't need to set any: `area: …` and `chore` from the files you change, `security` from a `security/…` branch or a title that mentions security or a CVE, and `hotfix` / `release` from the branch.
+
+## Trying your pull request's image
+
+Every pull request into `develop` from a branch of this repository gets its own container image, `ghcr.io/timothestoifl24/statora:develop-pr-N` (N is the pull request number). A comment on the pull request shows how to pull it. Each push rebuilds the image and replaces the previous one, and the image is deleted when the pull request is merged or closed. Pull requests from forks are built and tested, but don't get a published image.
 
 ## Accepting these guidelines
 

@@ -2,6 +2,9 @@
 Thanks for contributing! Pull requests go to the `develop` branch.
 Please read the contributing guidelines before you open one:
 https://github.com/timothestoifl24/statora/blob/develop/CONTRIBUTING.md
+
+This template is for pull requests into `develop`. Releases (develop → main) and hotfixes
+(hotfix/* → main) don't need it: replace it with a short description.
 -->
 
 ## What and why

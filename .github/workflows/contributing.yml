@@ -6,6 +6,8 @@ name: PR checklist
 #   - "AI usage" boxes → labels ai-written / ai-reviewed,
 #   - without any checkbox: security (security/* branch or title), hotfix (hotfix/* branch) and
 #     release (develop → main),
+#   - the template is only for pull requests into develop: releases (develop → main) and hotfixes
+#     (hotfix/* → main) skip the checklist,
 #   - pull requests into main only come from develop or hotfix/* branches.
 # Keep "Guidelines accepted" a required status check for main and develop.
 #
@@ -69,8 +71,8 @@ jobs:
           SKIP: ${{ steps.check.outputs.skip }}
           ERRORS: ${{ steps.check.outputs.errors }}
         run: |
-          if [ "$SKIP" = "true" ]; then
-            echo "Bot or release pull request: no checklist needed."
+          if [ -z "$ERRORS" ] && [ "$SKIP" = "true" ]; then
+            echo "Bot, release or hotfix pull request: no checklist needed."
             exit 0
           fi
           if [ -z "$ERRORS" ]; then

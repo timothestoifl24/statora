@@ -5,10 +5,12 @@ Output: key=value lines for GITHUB_OUTPUT (or stdout):
   errors         problems to fix, separated by " | " (empty when the checklist is complete)
   labels_add     comma-separated labels to add
   labels_remove  comma-separated managed labels to remove (boxes that were unticked)
-  skip           "true" for bots and release pull requests (develop → main)
+  skip           "true" for bots and pull requests into main (releases and hotfixes), which don't
+                 use the template; "false" when such a pull request comes from another branch
 
 Besides the checkboxes, some labels are set from the branch and title alone, so contributors never
-have to pick them: security, hotfix and release.
+have to pick them: security, hotfix and release. The checklist is only required for pull requests
+into develop.
 """
 
 import json
@@ -37,6 +39,7 @@ AUTO = {
     "release": ("release", "0e8a16", "Release from develop to main"),
 }
 MANAGED = {label for label, _, _ in [*TYPES.values(), *AI.values(), *AUTO.values()]}
+AUTOMATIC = {label for label, _, _ in AUTO.values()}
 CHECKED = re.compile(r"^\s*[-*]\s+\[[xX]\]\s+(.+?)\s*$", re.MULTILINE)
 ACCEPTED = re.compile(r"I have read and accept the .*contributing guidelines", re.IGNORECASE)
 SECURITY = re.compile(r"security|vulnerab|CVE-\d", re.IGNORECASE)
@@ -49,25 +52,36 @@ def evaluate(
     if author_type == "Bot":
         result["skip"] = "true"
         return result
-    if base == "main" and head == "develop":
-        result["skip"] = "true"
-        result["labels_add"] = "" if "release" in current else "release"
+
+    # Labels set from the branch and title alone, for every pull request.
+    auto = set()
+    if head.startswith("security/") or SECURITY.search(title or ""):
+        auto.add("security")
+    if head.startswith("hotfix/"):
+        auto.add("hotfix")
+
+    # The template and its checklist are for pull requests into develop. Pull requests into main
+    # are releases (from develop) or hotfixes, and only get the automatic labels.
+    if base == "main":
+        if head == "develop":
+            auto.add("release")
+        elif not head.startswith("hotfix/"):
+            result["errors"] = (
+                "Please open your pull request against the develop branch. main only receives releases "
+                "from develop (and hotfix/* branches)."
+            )
+        result["skip"] = "false" if result["errors"] else "true"
+        result["labels_add"] = ",".join(sorted(auto - set(current)))
+        # Only the automatic labels: type labels on releases and hotfixes are set by hand.
+        result["labels_remove"] = ",".join(sorted((AUTOMATIC & set(current)) - auto))
         return result
 
     checked = [text.replace("**", "") for text in CHECKED.findall(body or "")]
     wanted = {spec[0] for text in checked for prefix, spec in {**TYPES, **AI}.items() if text.startswith(prefix)}
-    if head.startswith("security/") or SECURITY.search(title or ""):
-        wanted.add("security")
-    if head.startswith("hotfix/"):
-        wanted.add("hotfix")
+    wanted |= auto
     picked_type = any(text.startswith(prefix) for text in checked for prefix in TYPES)
 
     errors = []
-    if base == "main" and not head.startswith("hotfix/"):
-        errors.append(
-            "Please open your pull request against the develop branch. main only receives releases "
-            "from develop (and hotfix/* branches)."
-        )
     if not picked_type:
         errors.append('Tick at least one box under "Type of change" in the pull request description.')
     if not any(ACCEPTED.search(text) for text in checked):

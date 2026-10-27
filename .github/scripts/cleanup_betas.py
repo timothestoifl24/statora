@@ -11,81 +11,18 @@ deletes:
 Reads RELEASE_VERSION (X.Y.Z or vX.Y.Z), OWNER, REPOSITORY (owner/name), PACKAGE, GH_TOKEN and
 DRY_RUN ("true" only lists what would be deleted). Needs a token with packages: write and
 contents: write, and the repository must have the Admin role on the package (package settings →
-Manage Actions access).
+Manage Actions access). The GHCR helpers live in ghcr.py.
 """
 
-import base64
-import json
 import os
 import re
-import sys
 import urllib.error
-import urllib.request
 
-API = "https://api.github.com"
+from ghcr import API, delete_versions, package_versions, paginate, report, request, tags, with_orphans
+
 SEMVER = re.compile(r"^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 BETA = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-beta\.\d+$")
 DISPOSABLE = re.compile(r"^(beta|sha-[0-9a-f]+|sha256-[0-9a-f]{64}(\.\w+)?)$")
-INDEX_TYPES = ", ".join(
-    [
-        "application/vnd.oci.image.index.v1+json",
-        "application/vnd.docker.distribution.manifest.list.v2+json",
-        "application/vnd.oci.image.manifest.v1+json",
-        "application/vnd.docker.distribution.manifest.v2+json",
-    ]
-)
-
-
-def fail(message: str) -> None:
-    print(f"::error::{message}")
-    sys.exit(1)
-
-
-def request(
-    url: str,
-    token: str,
-    method: str = "GET",
-    accept: str = "application/vnd.github+json",
-    basic: bool = False,
-):
-    auth = f"Basic {token}" if basic else f"Bearer {token}"
-    req = urllib.request.Request(url, method=method, headers={"Authorization": auth, "Accept": accept})
-    with urllib.request.urlopen(req) as response:
-        body = response.read()
-        return (json.loads(body) if body else None), response.headers
-
-
-def paginate(url: str, token: str) -> list[dict]:
-    items, url = [], f"{url}?per_page=100"
-    while url:
-        page, headers = request(url, token)
-        items += page
-        url = next(
-            (
-                part.split(";")[0].strip("<> ")
-                for part in headers.get("Link", "").split(",")
-                if 'rel="next"' in part
-            ),
-            None,
-        )
-    return items
-
-
-def registry_token(owner: str, package: str, token: str) -> str:
-    basic = base64.b64encode(f"{owner}:{token}".encode()).decode()
-    url = f"https://ghcr.io/token?service=ghcr.io&scope=repository:{owner}/{package}:pull"
-    return request(url, basic, basic=True)[0]["token"]
-
-
-def children(owner: str, package: str, digest: str, token: str) -> set[str]:
-    """Digests an image index points to (platform images, attestation manifests)."""
-    url = f"https://ghcr.io/v2/{owner}/{package}/manifests/{digest}"
-    try:
-        manifest = request(url, token, accept=INDEX_TYPES)[0]
-    except urllib.error.HTTPError as error:
-        print(f"::warning::Could not read manifest {digest}: {error}")
-        return set()
-    return {entry["digest"] for entry in manifest.get("manifests", [])}
 
 
 def superseded(name: str, released: tuple[int, ...]) -> bool:
@@ -93,23 +30,12 @@ def superseded(name: str, released: tuple[int, ...]) -> bool:
     return bool(match) and tuple(int(part) for part in match.groups()) <= released
 
 
-def report(title: str, entries: list[str]) -> None:
-    lines = [f"### {title}", "", *(entries or ["_Nothing to delete._"]), ""]
-    print("\n".join(lines))
-    if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
-        with open(summary, "a") as fh:
-            fh.write("\n".join(lines) + "\n")
-
-
 def clean_images(owner: str, package: str, token: str, released: tuple[int, ...], dry_run: bool) -> None:
-    kind = "orgs" if request(f"{API}/users/{owner}", token)[0]["type"] == "Organization" else "users"
-    base = f"{API}/{kind}/{owner}/packages/container/{package}/versions"
-    versions = paginate(base, token)
-    tags = {v["id"]: v["metadata"]["container"]["tags"] for v in versions}
+    base, versions = package_versions(owner, package, token)
 
     doomed: dict[int, dict] = {}
     for version in versions:
-        names = tags[version["id"]]
+        names = tags(version)
         betas = [t for t in names if superseded(t, released)]
         if not betas:
             continue
@@ -118,40 +44,8 @@ def clean_images(owner: str, package: str, token: str, released: tuple[int, ...]
             continue
         doomed[version["id"]] = version
 
-    # Attestations pushed next to an image are tagged sha256-<digest of that image>.
-    doomed_digests = {v["name"] for v in doomed.values()}
-    for version in versions:
-        if any(t.split(".")[0].replace("sha256-", "sha256:") in doomed_digests for t in tags[version["id"]]):
-            doomed.setdefault(version["id"], version)
-
-    # Untagged platform images and attestation manifests behind the deleted indexes, unless a
-    # kept tagged version still points to them.
-    if doomed:
-        registry = registry_token(owner, package, token)
-        orphans: set[str] = set()
-        for version in doomed.values():
-            orphans |= children(owner, package, version["name"], registry)
-        for version in versions:
-            if version["id"] not in doomed and tags[version["id"]]:
-                orphans -= children(owner, package, version["name"], registry)
-        for version in versions:
-            if version["name"] in orphans and not tags[version["id"]]:
-                doomed.setdefault(version["id"], version)
-
-    entries = []
-    for version in sorted(doomed.values(), key=lambda v: v["created_at"]):
-        entries.append(f"- `{version['name'][:19]}` {', '.join(tags[version['id']]) or 'untagged'}")
-        if not dry_run:
-            try:
-                request(f"{base}/{version['id']}", token, method="DELETE")
-            except urllib.error.HTTPError as error:
-                report("Images (stopped)", entries)
-                if error.code == 403:
-                    fail(
-                        "Not allowed to delete package versions. Give this repository the Admin role in the "
-                        "package settings (Manage Actions access)."
-                    )
-                raise
+    with_orphans(doomed, versions, owner, package, token)
+    entries = delete_versions(base, doomed, token, dry_run)
     report(f"{'Would delete' if dry_run else 'Deleted'} {len(doomed)} image versions", entries)
 
 
