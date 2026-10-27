@@ -7,7 +7,10 @@ const route = useRoute()
 
 <template>
   <div v-if="site.base === '/dev/'" class="dev-banner">
-    Development docs for the next release, built from <code>develop</code>.
+    <span class="message">
+      <span class="long">Development docs for the next release, built from <code>develop</code>.</span>
+      <span class="short">Development docs</span>
+    </span>
     <a :href="'/' + route.path.slice(site.base.length)" target="_self">Switch to production</a>
   </div>
 </template>
@@ -28,13 +31,28 @@ const route = useRoute()
   background-color: var(--vp-c-warning-soft);
   color: var(--vp-c-text-1);
   font-size: 13px;
-  text-align: center;
   white-space: nowrap;
+}
+/* Only the message gives way on narrow screens; the link always stays whole. */
+.message {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .dev-banner a {
+  flex-shrink: 0;
   color: var(--vp-c-brand-1);
   font-weight: 500;
+}
+.short {
+  display: none;
+}
+@media (max-width: 640px) {
+  .long {
+    display: none;
+  }
+  .short {
+    display: inline;
+  }
 }
 </style>
