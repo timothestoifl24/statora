@@ -1,8 +1,12 @@
 name: Website & docs
 
+# GitHub Pages hosts one site per repository, so every deployment builds both branches:
+#   main    → statora.stoifl.app/      (production)
+#   develop → statora.stoifl.app/dev/  (development, see DOCS_CHANNEL in docs/.vitepress/config.mts)
+# A push to either branch deploys both. Pull requests only build their own docs.
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "docs/**"
       - CHANGELOG.md # included in the website
@@ -17,13 +21,15 @@ on:
 permissions:
   contents: read
 
+# One group for all deployments: a newer run builds both branches anyway.
 concurrency:
-  group: pages-${{ github.ref }}
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'site' }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  check:
     name: Build
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -38,17 +44,62 @@ jobs:
         working-directory: docs
       - run: npm run docs:build
         working-directory: docs
-      - uses: actions/configure-pages@v6
-        if: github.event_name != 'pull_request'
-      - uses: actions/upload-pages-artifact@v5
-        if: github.event_name != 'pull_request'
+        env:
+          DOCS_CHANNEL: ${{ github.base_ref == 'develop' && 'development' || 'production' }}
+
+  build:
+    name: Build main and develop
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
         with:
-          path: docs/.vitepress/dist
+          ref: main
+          path: production
+          fetch-depth: 0 # "last updated" dates come from git history
+      - uses: actions/checkout@v7
+        with:
+          ref: develop
+          path: development
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            production/docs/package-lock.json
+            development/docs/package-lock.json
+
+      - name: Build production (main)
+        working-directory: production/docs
+        env:
+          DOCS_CHANNEL: production
+        run: |
+          npm ci
+          npm run docs:build
+
+      - name: Build development (develop)
+        working-directory: development/docs
+        env:
+          DOCS_CHANNEL: development
+        run: |
+          npm ci
+          npm run docs:build
+
+      - name: Combine into one site
+        run: |
+          site=production/docs/.vitepress/dist
+          cp -R development/docs/.vitepress/dist "$site/dev"
+          rm -f "$site/dev/CNAME" # the custom domain belongs to the site root
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: production/docs/.vitepress/dist
 
   deploy:
     name: Deploy to GitHub Pages
     needs: build
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       pages: write

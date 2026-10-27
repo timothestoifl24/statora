@@ -21,6 +21,9 @@
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
+> [!NOTE]
+> The documentation at [statora.stoifl.app](https://statora.stoifl.app) describes the latest release. To see what's in development for the next one (the `develop` branch), visit [statora.stoifl.app/dev](https://statora.stoifl.app/dev/). The switch at the top of every page moves between the two.
+
 <p align="center"><img src="docs/public/screenshots/status-page-light.webp" alt="Statora status page" width="820"></p>
 
 - **Monitors:** HTTP(S) (status codes, keyword, headers/body, TLS verification), TCP port, ICMP ping, DNS (any record type, expected value), SQL queries against PostgreSQL, MySQL/MariaDB, SQL Server and Oracle (expected value, minimum rows). Each has an interval, a timeout, retries before going down, and a "degraded" latency threshold.
@@ -215,7 +218,7 @@ src/statora/
   migrations/    Alembic
 branding/        brand kit: logo/icon SVG sources, PNG/ICO exports, generator script
 deploy/          Kubernetes (Kustomize) manifests
-docs/            website and documentation (VitePress), published to statora.stoifl.app
+docs/            website and documentation (VitePress): main at statora.stoifl.app, develop at /dev
 .github/         CI, container image and GitHub Pages workflows
 ```
 
