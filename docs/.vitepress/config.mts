@@ -1,30 +1,42 @@
-import { defineConfig } from 'vitepress'
+import { defineConfig, type HeadConfig } from 'vitepress'
 
 const repo = 'https://github.com/timothestoifl24/statora'
 const site = 'https://statora.stoifl.app'
+// pages.yml builds main at / (production) and develop at /dev/ (development) into one site.
+const dev = process.env.DOCS_CHANNEL === 'development'
+const base = dev ? '/dev/' : '/'
+// Search engines should only list the production docs; the banner needs room above the nav.
+const devHead: HeadConfig[] = dev
+  ? [
+      ['meta', { name: 'robots', content: 'noindex' }],
+      ['style', {}, ':root { --vp-layout-top-height: 40px; }'],
+    ]
+  : []
 const description =
   'Self-hosted uptime monitoring and status pages: HTTP, TCP, ping, DNS and SQL checks, service groups, incidents, maintenance and SSO in one container.'
 
 export default defineConfig({
   lang: 'en-US',
+  base,
   title: 'Statora',
   titleTemplate: ':title · Statora',
   description,
   cleanUrls: true,
   lastUpdated: true,
-  sitemap: { hostname: site },
+  sitemap: { hostname: `${site}${base}` },
   // Setup guides point readers at their own http://localhost:8000; every other link is checked.
   ignoreDeadLinks: 'localhostLinks',
 
   head: [
-    ['link', { rel: 'icon', href: '/brand/favicon.svg', type: 'image/svg+xml' }],
-    ['link', { rel: 'icon', href: '/brand/favicon.ico', sizes: '32x32' }],
-    ['link', { rel: 'apple-touch-icon', href: '/brand/apple-touch-icon.png' }],
+    ['link', { rel: 'icon', href: `${base}brand/favicon.svg`, type: 'image/svg+xml' }],
+    ['link', { rel: 'icon', href: `${base}brand/favicon.ico`, sizes: '32x32' }],
+    ['link', { rel: 'apple-touch-icon', href: `${base}brand/apple-touch-icon.png` }],
     ['meta', { name: 'theme-color', content: '#1f6feb' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:site_name', content: 'Statora' }],
     ['meta', { property: 'og:image', content: `${site}/brand/og-image.png` }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ...devHead,
   ],
 
   themeConfig: {
