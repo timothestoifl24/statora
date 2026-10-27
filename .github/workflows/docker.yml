@@ -4,7 +4,7 @@ name: Container image
 #   creates the release vX.Y.Z, then opens a pull request moving develop on to X.Y.Z+1.
 # develop (pre-release): every push publishes X.Y.Z-beta.N and beta and creates a pre-release.
 # Pull requests into develop (from this repository): every push publishes develop-pr-N, deletes the
-#   image it replaces and comments on the pull request how to pull it. pr-image-cleanup.yml deletes
+#   image it replaces (also when the run is cancelled) and comments on the pull request how to pull it. pr-image-cleanup.yml deletes
 #   the image when the pull request is merged or closed.
 # Other pull requests (forks, into main): build and smoke test only.
 # See .github/scripts/release_version.py for the rules.
@@ -198,8 +198,13 @@ jobs:
       attestations: write
     outputs:
       digest: ${{ steps.manifest.outputs.digest }}
-      previous: ${{ steps.previous.outputs.digest }}
     steps:
+      - uses: actions/checkout@v7
+        if: needs.version.outputs.channel == 'pr'
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -246,6 +251,19 @@ jobs:
           docker buildx imagetools inspect "$first"
           echo "digest=$(docker buildx imagetools inspect "$first" --format '{{json .Manifest}}' | jq -r .digest)" >> "$GITHUB_OUTPUT"
 
+      - name: Delete the image this build replaces
+        # Here rather than in a later job, and also when the run is cancelled (a newer push or
+        # closing the pull request): otherwise the old image would be left behind once the tag
+        # has moved. An image that still carries the pull request tag is kept.
+        if: always() && needs.version.outputs.channel == 'pr' && steps.previous.outputs.digest != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+          PACKAGE: statora
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          OLD_DIGEST: ${{ steps.previous.outputs.digest }}
+        run: python3 .github/scripts/pr_image.py replace
+
       - name: Attest build provenance
         # Pull request images are short-lived; they go without provenance.
         if: needs.version.outputs.channel != 'pr'
@@ -262,7 +280,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      packages: write # delete the replaced image
       pull-requests: write # comment how to pull the image
     env:
       GH_TOKEN: ${{ github.token }}
@@ -276,10 +293,6 @@ jobs:
         with:
           sparse-checkout: .github/scripts
           persist-credentials: false
-      - name: Delete the image this build replaces
-        env:
-          OLD_DIGEST: ${{ needs.publish.outputs.previous }}
-        run: python3 .github/scripts/pr_image.py replace
       - name: Comment how to pull the image
         env:
           SHA: ${{ github.event.pull_request.head.sha }}

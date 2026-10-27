@@ -21,10 +21,15 @@ on:
 permissions:
   contents: read
 
-# Same group as docker.yml for the pull request, so closing it cancels a build that is still
-# running. Manual runs get their own group: they must never cancel a beta or release build.
+# Same group as the pull request's builds in docker.yml, so closing it cancels a build that is
+# still running. Built from the number: once a pull request is merged, github.ref is the base
+# branch, and that group would cancel the beta build of the merge instead. Manual runs get their
+# own group: they must never cancel a beta or release build.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('image-{0}', github.ref) || 'pr-image-cleanup' }}
+  group: >-
+    ${{ github.event_name == 'pull_request'
+    && format('image-refs/pull/{0}/merge', github.event.pull_request.number)
+    || 'pr-image-cleanup' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

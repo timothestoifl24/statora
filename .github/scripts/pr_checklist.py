@@ -39,6 +39,7 @@ AUTO = {
     "release": ("release", "0e8a16", "Release from develop to main"),
 }
 MANAGED = {label for label, _, _ in [*TYPES.values(), *AI.values(), *AUTO.values()]}
+AUTOMATIC = {label for label, _, _ in AUTO.values()}
 CHECKED = re.compile(r"^\s*[-*]\s+\[[xX]\]\s+(.+?)\s*$", re.MULTILINE)
 ACCEPTED = re.compile(r"I have read and accept the .*contributing guidelines", re.IGNORECASE)
 SECURITY = re.compile(r"security|vulnerab|CVE-\d", re.IGNORECASE)
@@ -71,6 +72,8 @@ def evaluate(
             )
         result["skip"] = "false" if result["errors"] else "true"
         result["labels_add"] = ",".join(sorted(auto - set(current)))
+        # Only the automatic labels: type labels on releases and hotfixes are set by hand.
+        result["labels_remove"] = ",".join(sorted((AUTOMATIC & set(current)) - auto))
         return result
 
     checked = [text.replace("**", "") for text in CHECKED.findall(body or "")]

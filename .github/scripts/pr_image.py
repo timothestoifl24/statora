@@ -1,7 +1,7 @@
 """Manage the container image of a pull request into develop (tag develop-pr-N).
 
   replace           after a push: delete the image the tag pointed to before (OLD_DIGEST), unless
-                    it is the new image (DIGEST) or still tagged otherwise,
+                    the tag still points to it or it carries another tag,
   delete            after the pull request is merged or closed: delete the develop-pr-N image,
   comment           create or update the pull request comment that explains how to pull the image,
   comment --deleted update that comment once the image is gone.
@@ -34,6 +34,10 @@ def delete(env: dict[str, str], dry_run: bool, *, tag: str = "", digest: str = "
     owner, package, token = env["OWNER"], env.get("PACKAGE", "statora"), env["GH_TOKEN"]
     base, versions = package_versions(owner, package, token)
     matches = [v for v in versions if (tag and tag in tags(v)) or (digest and v["name"] == digest)]
+    if digest and any(tag_name(env["PR_NUMBER"]) in tags(v) for v in matches):
+        # The tag never moved (the build failed or was cancelled before): it is still current.
+        print(f"{digest[:19]} is still {tag_name(env['PR_NUMBER'])}; keeping it.")
+        return
 
     doomed: dict[int, dict] = {}
     for version in matches:
