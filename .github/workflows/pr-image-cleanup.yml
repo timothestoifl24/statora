@@ -1,0 +1,56 @@
+name: Clean up pull request image
+
+# Deletes the develop-pr-N image (see docker.yml) once its pull request is merged or closed, and
+# updates the pull request comment. Reopening the pull request builds the image again.
+# See .github/scripts/pr_image.py for the rules.
+on:
+  pull_request:
+    types: [closed]
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      pr-number:
+        description: Pull request number whose develop-pr-N image to delete
+        required: true
+        type: string
+      dry-run:
+        description: Only list what would be deleted
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# Same group as docker.yml for the pull request, so closing it cancels a build that is still
+# running. Manual runs get their own group: they must never cancel a beta or release build.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('image-{0}', github.ref) || 'pr-image-cleanup' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  cleanup:
+    name: Delete develop-pr-${{ inputs.pr-number || github.event.pull_request.number }}
+    # Pull requests from forks never get an image.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write # delete the image
+      pull-requests: write # update the comment
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OWNER: ${{ github.repository_owner }}
+      REPOSITORY: ${{ github.repository }}
+      PACKAGE: statora
+      PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
+      DRY_RUN: ${{ inputs.dry-run && 'true' || 'false' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.ref || github.ref }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Delete the image
+        run: python3 .github/scripts/pr_image.py delete
+      - name: Update the comment
+        run: python3 .github/scripts/pr_image.py comment --deleted

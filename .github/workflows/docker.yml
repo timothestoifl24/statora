@@ -3,21 +3,15 @@ name: Container image
 # main (production): merging a new version from pyproject.toml publishes X.Y.Z, X.Y, latest and
 #   creates the release vX.Y.Z, then opens a pull request moving develop on to X.Y.Z+1.
 # develop (pre-release): every push publishes X.Y.Z-beta.N and beta and creates a pre-release.
-# Pull requests: build and smoke test only. See .github/scripts/release_version.py for the rules.
+# Pull requests into develop (from this repository): every push publishes develop-pr-N, deletes the
+#   image it replaces and comments on the pull request how to pull it. pr-image-cleanup.yml deletes
+#   the image when the pull request is merged or closed.
+# Other pull requests (forks, into main): build and smoke test only.
+# See .github/scripts/release_version.py for the rules.
 on:
   push:
     branches: [main, develop]
   pull_request:
-    paths:
-      - Dockerfile
-      - .dockerignore
-      - pyproject.toml
-      - uv.lock
-      - "src/**"
-      - .github/workflows/docker.yml
-      - .github/scripts/release_version.py
-      - .github/scripts/changelog.py
-      - CHANGELOG.md
   workflow_dispatch:
 
 # Read-only by default; the jobs that publish or release ask for more themselves.
@@ -47,6 +41,9 @@ jobs:
           fetch-depth: 0 # tags decide the next beta number and whether a version is released
       - name: Decide version and tags
         id: version
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
         run: python3 .github/scripts/release_version.py
       - name: Summary
         env:
@@ -199,6 +196,9 @@ jobs:
       packages: write
       id-token: write
       attestations: write
+    outputs:
+      digest: ${{ steps.manifest.outputs.digest }}
+      previous: ${{ steps.previous.outputs.digest }}
     steps:
       - name: Download digests
         uses: actions/download-artifact@v8
@@ -216,6 +216,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Image the pull request tag points to now
+        id: previous
+        if: needs.version.outputs.channel == 'pr'
+        env:
+          IMAGE_TAGS: ${{ needs.version.outputs.image_tags }}
+        run: |
+          # Empty on the first build; pr_image.py deletes this image once the tag has moved on.
+          digest=$(docker buildx imagetools inspect "$IMAGE_TAGS" --format '{{json .Manifest}}' 2>/dev/null | jq -r .digest || true)
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
         env:
@@ -230,22 +240,56 @@ jobs:
       - name: Manifest digest
         id: manifest
         env:
-          VERSION: ${{ needs.version.outputs.version }}
+          IMAGE_TAGS: ${{ needs.version.outputs.image_tags }}
         run: |
-          docker buildx imagetools inspect "${IMAGE}:${VERSION}"
-          echo "digest=$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" --format '{{json .Manifest}}' | jq -r .digest)" >> "$GITHUB_OUTPUT"
+          first=${IMAGE_TAGS%% *}
+          docker buildx imagetools inspect "$first"
+          echo "digest=$(docker buildx imagetools inspect "$first" --format '{{json .Manifest}}' | jq -r .digest)" >> "$GITHUB_OUTPUT"
 
       - name: Attest build provenance
+        # Pull request images are short-lived; they go without provenance.
+        if: needs.version.outputs.channel != 'pr'
         uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.manifest.outputs.digest }}
           push-to-registry: true
 
+  pr-image:
+    name: Pull request image
+    needs: [version, publish]
+    if: needs.version.outputs.channel == 'pr'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write # delete the replaced image
+      pull-requests: write # comment how to pull the image
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OWNER: ${{ github.repository_owner }}
+      REPOSITORY: ${{ github.repository }}
+      PACKAGE: statora
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      DIGEST: ${{ needs.publish.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Delete the image this build replaces
+        env:
+          OLD_DIGEST: ${{ needs.publish.outputs.previous }}
+        run: python3 .github/scripts/pr_image.py replace
+      - name: Comment how to pull the image
+        env:
+          SHA: ${{ github.event.pull_request.head.sha }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: python3 .github/scripts/pr_image.py comment
+
   release:
     name: Release ${{ needs.version.outputs.tag }}
     needs: [version, publish]
-    if: needs.version.outputs.publish == 'true'
+    if: needs.version.outputs.publish == 'true' && needs.version.outputs.channel != 'pr'
     runs-on: ubuntu-24.04
     # Records a GitHub deployment per release, which GitHub for Jira links to the shipped issues.
     environment:

@@ -5,9 +5,14 @@
   CHANGELOG.md must have a dated section for the version.
 - develop (pre-release): every push becomes vX.Y.Z-beta.N with the image tags X.Y.Z-beta.N and
   beta. Fails if vX.Y.Z is already released, because develop must hold the next version.
-- anything else (pull requests, other branches): build and test only.
+- pull requests into develop from this repository: version X.Y.Z-pr.N with the single image tag
+  develop-pr-N, replaced on every push and deleted once the pull request is merged or closed
+  (see pr_image.py). No git tag or release.
+- anything else (pull requests from forks, by Dependabot or into main, other branches): build and
+  test only.
 
-Reads GITHUB_EVENT_NAME, GITHUB_REF, GITHUB_SHA and IMAGE; writes key=value pairs to
+Reads GITHUB_EVENT_NAME, GITHUB_REF, GITHUB_SHA, IMAGE, and for pull requests GITHUB_BASE_REF,
+GITHUB_REPOSITORY, GITHUB_ACTOR, PR_NUMBER and HEAD_REPO; writes key=value pairs to
 GITHUB_OUTPUT (or stdout). Run from the repository root with tags fetched.
 """
 
@@ -74,6 +79,23 @@ def main() -> None:
         beta = f"{version}-beta.{max(numbers, default=0) + 1}"
         result.update(
             channel="beta", publish="true", version=beta, tag=f"v{beta}", image_tags=[beta, "beta", f"sha-{sha}"]
+        )
+
+    elif (
+        event == "pull_request"
+        and os.environ.get("GITHUB_BASE_REF") == "develop"
+        and os.environ.get("PR_NUMBER", "").isdigit()
+        # Pull requests from forks, and runs Dependabot starts, get a read-only token: they can't
+        # push images.
+        and os.environ.get("HEAD_REPO") == os.environ.get("GITHUB_REPOSITORY")
+        and os.environ.get("GITHUB_ACTOR") != "dependabot[bot]"
+    ):
+        number = os.environ["PR_NUMBER"]
+        result.update(
+            channel="pr",
+            publish="true",
+            version=f"{version}-pr.{number}",
+            image_tags=[f"develop-pr-{number}"],
         )
 
     if isinstance(result["image_tags"], list):

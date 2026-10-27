@@ -3,7 +3,7 @@ name: Clean up betas
 # After a stable release X.Y.Z, deletes every beta up to and including X.Y.Z (e.g. 1.2.1 removes
 # 1.1.2-beta.*, 1.2.0-beta.* and 1.2.1-beta.*): container images, pre-releases and git tags.
 # Betas of newer versions stay.
-# See .github/scripts/cleanup_betas.py for the rules.
+# See .github/scripts/cleanup_betas.py for the rules (and ghcr.py for the shared GHCR helpers).
 #
 # docker.yml calls this after it releases: releases it creates with GITHUB_TOKEN don't trigger
 # other workflows, so the release event below only covers releases published by hand.
