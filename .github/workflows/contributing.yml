@@ -56,7 +56,7 @@ jobs:
           SPECS: ${{ steps.check.outputs.label_specs }}
         run: |
           # Create (or update) the labels first, so adding them can't fail on a fresh repository.
-          IFS=';' read -ra specs <<< "$SPECS"
+          IFS=$'\t' read -ra specs <<< "$SPECS"
           for spec in "${specs[@]}"; do
             IFS='|' read -r name colour description <<< "$spec"
             gh label create "$name" --color "$colour" --description "$description" --force
