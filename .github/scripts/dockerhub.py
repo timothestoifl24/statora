@@ -68,7 +68,9 @@ def hub_token(env: dict[str, str]) -> str:
     """Bearer token for the Docker Hub API, from DOCKERHUB_USERNAME and DOCKERHUB_TOKEN."""
     credentials = {"username": env["DOCKERHUB_USERNAME"], "password": env["DOCKERHUB_TOKEN"]}
     try:
-        return request(f"{HUB}/users/login", accept="application/json", data=credentials)[0]["token"]
+        return request(f"{HUB}/users/login", method="POST", accept="application/json", data=credentials)[0][
+            "token"
+        ]
     except urllib.error.HTTPError as error:
         fail(
             f"Docker Hub login failed ({error.code}). Check the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets."
