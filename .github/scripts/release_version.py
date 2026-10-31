@@ -47,7 +47,7 @@ def main() -> None:
     event = os.environ.get("GITHUB_EVENT_NAME", "")
     ref = os.environ.get("GITHUB_REF", "")
     sha = os.environ.get("GITHUB_SHA", "0000000")[:7]
-    image = os.environ.get("IMAGE", "ghcr.io/example/statora")
+    image = os.environ.get("IMAGE", "docker.io/example/statora")
     existing = tags()
 
     result = {"channel": "none", "publish": "false", "version": f"{version}-dev", "tag": "", "image_tags": ""}
@@ -85,8 +85,8 @@ def main() -> None:
         event == "pull_request"
         and os.environ.get("GITHUB_BASE_REF") == "develop"
         and os.environ.get("PR_NUMBER", "").isdigit()
-        # Pull requests from forks, and runs Dependabot starts, get a read-only token: they can't
-        # push images.
+        # Pull requests from forks, and runs Dependabot starts, get no repository secrets: they
+        # can't log in to Docker Hub to push images.
         and os.environ.get("HEAD_REPO") == os.environ.get("GITHUB_REPOSITORY")
         and os.environ.get("GITHUB_ACTOR") != "dependabot[bot]"
     ):

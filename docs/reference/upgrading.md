@@ -20,7 +20,7 @@ docker compose pull && docker compose up -d
 ## Docker
 
 ```bash
-docker pull ghcr.io/timothestoifl24/statora:0.2.0
+docker pull docker.io/timothestoifl24/statora:0.2.0
 docker rm -f statora   # then start it again with the new tag
 ```
 

@@ -75,7 +75,7 @@ Other labels are added for you, so you don't need to set any: `area: …` and `c
 
 ## Trying your pull request's image
 
-Every pull request into `develop` from a branch of this repository gets its own container image, `ghcr.io/timothestoifl24/statora:develop-pr-N` (N is the pull request number). A comment on the pull request shows how to pull it. Each push rebuilds the image and replaces the previous one, and the image is deleted when the pull request is merged or closed. Pull requests from forks are built and tested, but don't get a published image.
+Every pull request into `develop` from a branch of this repository gets its own container image, `docker.io/timothestoifl24/statora:develop-pr-N` (N is the pull request number). A comment on the pull request shows how to pull it. Each push rebuilds the image and replaces the previous one, and the image is deleted when the pull request is merged or closed. Pull requests from forks are built and tested, but don't get a published image.
 
 ## Accepting these guidelines
 

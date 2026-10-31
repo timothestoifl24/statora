@@ -6,20 +6,28 @@
   comment           create or update the pull request comment that explains how to pull the image,
   comment --deleted update that comment once the image is gone.
 
-Images go with their untagged platform images and attestation manifests (see ghcr.py). An image
-that carries a tag other than develop-pr-N or an attestation tag is never deleted.
+Images go with their attestation tags (see dockerhub.py). An image that carries a tag other than
+develop-pr-N or an attestation tag is never deleted.
 
-Reads GH_TOKEN, OWNER, REPOSITORY (owner/name), PACKAGE, PR_NUMBER, and depending on the command
-IMAGE, DIGEST, OLD_DIGEST, SHA, VERSION and DRY_RUN ("true" only lists what would be deleted).
-Needs packages: write and pull-requests: write, and the repository must have the Admin role on the
-package (package settings → Manage Actions access).
+Reads GH_TOKEN, REPOSITORY (owner/name), DOCKERHUB_NAMESPACE, DOCKERHUB_REPOSITORY, PR_NUMBER,
+and depending on the command DOCKERHUB_USERNAME, DOCKERHUB_TOKEN, IMAGE, DIGEST, OLD_DIGEST, SHA,
+VERSION and DRY_RUN ("true" only lists what would be deleted). GH_TOKEN needs pull-requests: write.
 """
 
 import os
 import re
 import sys
 
-from ghcr import API, delete_versions, package_versions, paginate, report, request, tags, with_orphans
+from dockerhub import (
+    API,
+    delete_images,
+    hub_token,
+    paginate,
+    report,
+    repository_images,
+    request,
+    with_attestations,
+)
 
 MARKER = "<!-- statora-pr-image -->"
 DISPOSABLE = re.compile(r"^sha256-[0-9a-f]{64}(\.\w+)?$")
@@ -30,30 +38,34 @@ def tag_name(number: str) -> str:
 
 
 def delete(env: dict[str, str], dry_run: bool, *, tag: str = "", digest: str = "") -> None:
-    """Delete the image with this tag or digest, and what only it uses."""
-    owner, package, token = env["OWNER"], env.get("PACKAGE", "statora"), env["GH_TOKEN"]
-    base, versions = package_versions(owner, package, token)
-    matches = [v for v in versions if (tag and tag in tags(v)) or (digest and v["name"] == digest)]
-    if digest and any(tag_name(env["PR_NUMBER"]) in tags(v) for v in matches):
+    """Delete the image with this tag or digest, and its attestations."""
+    namespace, repository = env["DOCKERHUB_NAMESPACE"], env.get("DOCKERHUB_REPOSITORY", "statora")
+    token = hub_token(env)
+    images = repository_images(namespace, repository, token)
+    matches = {d: names for d, names in images.items() if (tag and tag in names) or (digest and d == digest)}
+    if digest and any(tag_name(env["PR_NUMBER"]) in names for names in matches.values()):
         # The tag never moved (the build failed or was cancelled before): it is still current.
         print(f"{digest[:19]} is still {tag_name(env['PR_NUMBER'])}; keeping it.")
         return
 
-    doomed: dict[int, dict] = {}
-    for version in matches:
-        others = [t for t in tags(version) if t != tag and not DISPOSABLE.match(t)]
+    doomed: dict[str, list[str]] = {}
+    for match, names in matches.items():
+        others = [t for t in names if t != tag and not DISPOSABLE.match(t)]
         if others:
-            print(f"::warning::Keeping image {version['name'][:19]}: it also carries {', '.join(others)}.")
+            print(f"::warning::Keeping image {match[:19]}: it also carries {', '.join(others)}.")
             continue
-        doomed[version["id"]] = version
+        doomed[match] = names
 
-    with_orphans(doomed, versions, owner, package, token)
-    entries = delete_versions(base, doomed, token, dry_run)
-    report(f"{'Would delete' if dry_run else 'Deleted'} {len(doomed)} image versions", entries)
+    with_attestations(doomed, images)
+    entries = delete_images(namespace, repository, doomed, token, dry_run)
+    report(f"{'Would delete' if dry_run else 'Deleted'} {len(doomed)} images", entries)
 
 
 def comment_body(env: dict[str, str], deleted: bool) -> str:
-    image = env.get("IMAGE") or f"ghcr.io/{env['OWNER']}/{env.get('PACKAGE', 'statora')}"
+    image = (
+        env.get("IMAGE")
+        or f"docker.io/{env['DOCKERHUB_NAMESPACE']}/{env.get('DOCKERHUB_REPOSITORY', 'statora')}"
+    )
     reference = f"{image}:{tag_name(env['PR_NUMBER'])}"
     if deleted:
         return "\n".join(

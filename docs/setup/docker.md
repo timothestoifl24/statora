@@ -39,7 +39,7 @@ docker run -d --name statora --network statora --restart unless-stopped \
   -e STATORA_REDIS_URL="redis://statora-redis:6379/0" \
   -e STATORA_SECRET_KEY="$STATORA_SECRET_KEY" \
   -e STATORA_BASE_URL="http://localhost:8000" \
-  ghcr.io/timothestoifl24/statora:latest
+  docker.io/timothestoifl24/statora:latest
 ```
 
 The container applies database migrations on start, then serves on port 8000. Check that it's healthy:
@@ -65,7 +65,7 @@ The image runs as an unprivileged user (UID 10001) and needs no write access out
 docker run … \
   --read-only --tmpfs /tmp \
   --cap-drop ALL --security-opt no-new-privileges \
-  ghcr.io/timothestoifl24/statora:latest
+  docker.io/timothestoifl24/statora:latest
 ```
 
 ## Ping without the sysctl
@@ -75,7 +75,7 @@ Some platforms don't allow setting `net.ipv4.ping_group_range`. Use `--cap-add N
 ## Updating
 
 ```bash
-docker pull ghcr.io/timothestoifl24/statora:latest
+docker pull docker.io/timothestoifl24/statora:latest
 docker rm -f statora
 # run the "docker run" command from step 3 again
 ```

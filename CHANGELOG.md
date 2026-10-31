@@ -18,6 +18,7 @@ Changes collect under the upcoming version while it's being developed, and you c
 
 ### Changed
 
+- **Container images move to Docker Hub:** images are now published as `docker.io/timothestoifl24/statora`, with the same tags as before. `ghcr.io/timothestoifl24/statora` gets no new images; update the image name in your `docker-compose.yml`, `docker run` command or Kubernetes manifests.
 - **Admin layout:** the navigation moved into a sidebar, with the user menu and theme toggle at its bottom.
 - **Status pages in the admin panel:** a new overview shows each page's status, favicon and size. Create a page and edit its settings in a dialog; creating a page takes you straight to its components, which have their own editor.
 - **Forms in dialogs:** creating and editing monitors (including clone), incidents, maintenance windows, users and authentication providers opens a dialog over the current page instead of a separate page. Validation errors stay in the dialog, and edit dialogs have their Delete button (and for providers, Test connection) in the footer. A newly created provider reopens right away, so its callback URLs are at hand. Direct links still open the full page.

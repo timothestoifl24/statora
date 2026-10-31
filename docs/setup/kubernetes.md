@@ -55,7 +55,7 @@ kubectl -n statora exec -it deploy/statora -- statora create-admin
 
 ```yaml
 images:
-  - name: ghcr.io/timothestoifl24/statora
+  - name: docker.io/timothestoifl24/statora
     newTag: "0.1.0"
 ```
 

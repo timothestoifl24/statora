@@ -42,7 +42,7 @@ spec:
             value: "0 2147483647"
       containers:
         - name: statora
-          image: ghcr.io/timothestoifl24/statora
+          image: docker.io/timothestoifl24/statora
           args: ["serve"]
           ports:
             - name: http

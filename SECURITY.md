@@ -43,7 +43,7 @@ We'll keep you informed along the way. Once a fix is released, we publish a GitH
 - the Statora application: admin panel, public status pages, REST API, scheduler and checks;
 - authentication and sessions: local accounts, LDAP, OIDC, SAML, API tokens, CSRF protection, rate limiting;
 - storage of secrets (encrypted provider configuration, token hashes);
-- the official container image (`ghcr.io/timothestoifl24/statora`), `docker-compose.yml` and the Kubernetes manifests in `deploy/kubernetes`.
+- the official container image (`docker.io/timothestoifl24/statora`), `docker-compose.yml` and the Kubernetes manifests in `deploy/kubernetes`.
 
 **Out of scope:**
 
