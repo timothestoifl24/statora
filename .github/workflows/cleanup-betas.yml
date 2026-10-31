@@ -3,7 +3,7 @@ name: Clean up betas
 # After a stable release X.Y.Z, deletes every beta up to and including X.Y.Z (e.g. 1.2.1 removes
 # 1.1.2-beta.*, 1.2.0-beta.* and 1.2.1-beta.*): container images, pre-releases and git tags.
 # Betas of newer versions stay.
-# See .github/scripts/cleanup_betas.py for the rules (and ghcr.py for the shared GHCR helpers).
+# See .github/scripts/cleanup_betas.py for the rules (and dockerhub.py for the shared Docker Hub helpers).
 #
 # docker.yml calls this after it releases: releases it creates with GITHUB_TOKEN don't trigger
 # other workflows, so the release event below only covers releases published by hand.
@@ -41,7 +41,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write # delete pre-releases and tags
-      packages: write # delete images
     steps:
       - uses: actions/checkout@v7
         with:
@@ -50,9 +49,11 @@ jobs:
       - name: Delete betas
         env:
           GH_TOKEN: ${{ github.token }}
-          OWNER: ${{ github.repository_owner }}
           REPOSITORY: ${{ github.repository }}
-          PACKAGE: statora
+          DOCKERHUB_NAMESPACE: ${{ github.repository_owner }}
+          DOCKERHUB_REPOSITORY: statora
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           RELEASE_VERSION: ${{ inputs.version || github.event.release.tag_name }}
           DRY_RUN: ${{ inputs.dry-run && 'true' || 'false' }}
         run: python3 .github/scripts/cleanup_betas.py

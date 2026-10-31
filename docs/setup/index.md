@@ -1,6 +1,6 @@
 # Choose a setup method
 
-Statora is one container image, `ghcr.io/timothestoifl24/statora`, plus a PostgreSQL database and a Redis instance. How you run those three is up to you:
+Statora is one container image, `docker.io/timothestoifl24/statora`, plus a PostgreSQL database and a Redis instance. How you run those three is up to you:
 
 | Method | Good for | Guide |
 |---|---|---|

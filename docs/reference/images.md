@@ -1,10 +1,14 @@
 # Container images
 
-Images are published to the GitHub Container Registry for `linux/amd64` and `linux/arm64`:
+Images are published to [Docker Hub](https://hub.docker.com/r/timothestoifl24/statora) for `linux/amd64` and `linux/arm64`:
 
 ```
-ghcr.io/timothestoifl24/statora
+docker.io/timothestoifl24/statora
 ```
+
+::: info Moved from GitHub Container Registry
+Up to version 1.1.1, images were published as `ghcr.io/timothestoifl24/statora`. Those releases are on Docker Hub as well, under the same tags, and new images are only published to Docker Hub, so switch the image name in your setup.
+:::
 
 There are two release channels.
 
@@ -49,7 +53,7 @@ They're tested by CI like every release, but they can contain unfinished feature
 Each image has an SBOM and a build provenance attestation. Verify with the GitHub CLI:
 
 ```bash
-gh attestation verify oci://ghcr.io/timothestoifl24/statora:0.2.0 --owner timothestoifl24
+gh attestation verify oci://docker.io/timothestoifl24/statora:0.2.0 --owner timothestoifl24
 ```
 
 ## What's inside

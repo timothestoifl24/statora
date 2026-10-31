@@ -59,7 +59,7 @@ Open `http://<host>:8000/admin` and sign in.
 ```yaml
 services:
   app:
-    image: ghcr.io/timothestoifl24/statora:${STATORA_VERSION:-latest}
+    image: docker.io/timothestoifl24/statora:${STATORA_VERSION:-latest}
     restart: unless-stopped
     env_file: .env
     environment:

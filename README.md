@@ -49,7 +49,7 @@ Stack:
 
 ## Installation
 
-Statora is one container image, `ghcr.io/timothestoifl24/statora`, plus PostgreSQL and Redis.
+Statora is one container image, `docker.io/timothestoifl24/statora`, plus PostgreSQL and Redis.
 
 | Image tag | Channel |
 |---|---|
