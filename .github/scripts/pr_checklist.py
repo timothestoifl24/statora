@@ -112,7 +112,8 @@ def main() -> None:
     )
     specs = label_specs()
     # Colour and description for each label to add, so the workflow can create missing labels.
-    result["label_specs"] = ";".join(
+    # Tab-separated: descriptions may contain ";" (breaking-change does).
+    result["label_specs"] = "\t".join(
         f"{label}|{specs[label][0]}|{specs[label][1]}" for label in filter(None, result["labels_add"].split(","))
     )
     lines = [f"{key}={value}" for key, value in result.items()]
