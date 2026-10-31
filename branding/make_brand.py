@@ -87,17 +87,25 @@ def wordmark_path(text: str, size: float, weight: int = 800, tracking: float = -
     return pen.getCommands(), x - tracking * size
 
 
-def horizontal_logo(text_color: str, dot_ring: str = "#fff") -> str:
+def horizontal_logo(text_color: str, dot_ring: str = "#fff", style: str = "") -> str:
     path, width = wordmark_path("Statora", 46)
     gap, mark = 14, 64
     total = mark + gap + width
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {total:.1f} 64" role="img" aria-label="Statora">
-  <defs>{GRADIENT}</defs>
+  <defs>{GRADIENT}</defs>{style}
   <rect width="64" height="64" rx="15" fill="url(#g)"/>
   {mark_group("#fff", "#fff", "url(#g)")}
-  <path transform="translate({mark + gap} 48)" fill="{text_color}" d="{path}"/>
+  <path class="wordmark" transform="translate({mark + gap} 48)" fill="{text_color}" d="{path}"/>
 </svg>
 """
+
+
+def adaptive_logo() -> str:
+    # Navy wordmark that turns white when the viewer's colour scheme is dark. Browsers pass the
+    # embedding page's color-scheme into SVG images, so this also follows a page's theme toggle.
+    style = """
+  <style>@media (prefers-color-scheme: dark) { .wordmark { fill: #fff; } }</style>"""
+    return horizontal_logo(NAVY, style=style)
 
 
 def og_image(logo_svg_inner: str) -> str:
@@ -141,6 +149,7 @@ def main() -> None:
         "statora-mark.svg": plain_mark(),
         "statora-logo.svg": horizontal_logo(NAVY),
         "statora-logo-dark.svg": horizontal_logo("#ffffff"),
+        "statora-logo-auto.svg": adaptive_logo(),
         "statora-og.svg": og_image(""),
     }
     for name, svg in files.items():
@@ -180,6 +189,7 @@ def write_web_assets(files: dict[str, str]) -> None:
         "mark.svg": OUT / "statora-mark.svg",
         "logo.svg": OUT / "statora-logo.svg",
         "logo-dark.svg": OUT / "statora-logo-dark.svg",
+        "logo-auto.svg": OUT / "statora-logo-auto.svg",
         "og-image.png": OUT / "png" / "og-image.png",
     }
     for name, src in copies.items():
