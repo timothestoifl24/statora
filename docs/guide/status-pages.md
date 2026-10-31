@@ -18,6 +18,7 @@ Status pages are public, need no login, and are built under **Status pages** in 
 
   Minute and hour bars are calculated from raw check results, so they reach back only as far as `STATORA_HEARTBEAT_RETENTION_DAYS` (default 30 days). Keep it at 5 days or more for hourly bars. A monitor that checks less often than once a minute (or hour) has bars without a check of their own. They continue the previous result, and their tooltip says so.
 - **Accent colour and logo**: shown in the header and used for links.
+  To show the Statora logo, use `https://<your-statora-host>/static/brand/logo-auto.svg`: its wordmark is dark on the light theme and white on the dark theme. Uploaded SVGs lose their styles when they're cleaned, so link this file instead of uploading it.
 - **Favicon**: the browser-tab icon of this page. Upload a PNG, SVG, ICO, WebP, GIF or JPEG (up to 256 KB) or paste an https URL. Uploads are cleaned the same way as monitor icons. Without one, the page uses the Statora icon.
 - **Published**: unpublished pages return 404.
 - **Default page**: served at `/` as well.
