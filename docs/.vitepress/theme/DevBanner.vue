@@ -28,7 +28,8 @@ const route = useRoute()
   width: 100%;
   height: 40px;
   padding: 0 16px;
-  background-color: var(--vp-c-warning-soft);
+  /* The soft tint is translucent; layer it over the page colour so scrolled content doesn't show through. */
+  background: linear-gradient(var(--vp-c-warning-soft), var(--vp-c-warning-soft)), var(--vp-c-bg);
   color: var(--vp-c-text-1);
   font-size: 13px;
   white-space: nowrap;
