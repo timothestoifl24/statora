@@ -297,8 +297,11 @@ jobs:
 
   pr-image:
     name: Pull request image
-    needs: [version, publish]
-    if: needs.version.outputs.channel == 'pr'
+    # After pr-comment, so a late removal can never delete the new comment, and re-running a failed
+    # pr-comment re-runs this job too. Posts even if pr-comment failed: posting removes old comments.
+    needs: [version, publish, pr-comment]
+    if: >-
+      always() && needs.version.outputs.channel == 'pr' && needs.publish.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
