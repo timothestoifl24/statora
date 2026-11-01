@@ -4,11 +4,18 @@
 
 Admins create local users under **Users**, with a role: viewer, editor or admin. Passwords are hashed with Argon2. Login attempts are rate-limited per IP address and per username (10 attempts per 5 minutes by default).
 
-The command line can always create an admin or reset an admin's password:
+### The initial admin
+
+A fresh instance has no users, so instead of the sign-in page the first visit asks you to create the admin account. This *initial admin* is a local admin that can't be deleted, disabled or demoted, so there is always a way in, even when your identity provider is down. Other admins can still change its email, display name and password.
+
+If you lose its password, reset it from the command line. This also re-enables the account and restores the admin role:
 
 ```bash
-statora create-admin
+statora reset-admin                    # prompts for the new password
+statora reset-admin --username root    # and renames the account
 ```
+
+Instances set up before 1.2.0 with `statora create-admin` treat their oldest local admin as the initial admin. If such an instance has no local admin left, for example because only identity-provider admins remain, `statora reset-admin` makes the local account `admin` the initial admin, creating it if needed; pass `--username` to pick another local account.
 
 ### Hiding the local sign-in form
 

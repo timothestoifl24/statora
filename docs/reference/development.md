@@ -18,7 +18,7 @@ On Python 3.13–3.14, a plain `uv sync --all-extras` is enough.
 git clone https://github.com/timothestoifl24/statora.git && cd statora
 docker compose -f docker-compose.dev.yml up -d   # PostgreSQL :5432, Redis :6379
 uv sync --all-extras
-uv run statora init --seed                       # migrate, create admin, demo data
+uv run statora init --seed                       # migrate, demo data (the first visit creates the admin)
 uv run statora dev                               # http://localhost:8000, auto-reload
 ```
 

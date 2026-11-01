@@ -3,9 +3,15 @@ import json
 import re
 from datetime import timedelta
 
+import pytest
+import typer
+from sqlalchemy import update
+
 from statora.auth import crypto
+from statora.auth.service import authenticate_local
+from statora.db import session as db
 from statora.db.base import utcnow
-from statora.db.models import Monitor, UserRole
+from statora.db.models import Monitor, User, UserRole
 
 from .conftest import make_user, needs_services
 
@@ -258,6 +264,7 @@ async def test_invalid_edit_rerenders_form_after_rollback(client, auth):
 
 async def test_static_assets_are_fingerprinted(client):
     # Regression: browsers kept a stale admin.css after an update because the URL never changed.
+    await make_user("admin", UserRole.ADMIN)
     page = await client.get("/login")
     match = re.search(r'/static/css/admin\.css\?v=([0-9a-f]{10})"', page.text)
     assert match, "admin.css is not fingerprinted"
@@ -1045,3 +1052,86 @@ async def test_pages_overview_shows_status_without_history(client, auth):
     )
     await login(client)
     assert "Major outage" in (await client.get("/admin/pages")).text
+
+
+async def test_first_run_setup_creates_the_initial_admin(client):
+    assert (await client.get("/login")).headers["location"] == "/setup"
+    page = await client.get("/setup")
+    assert page.status_code == 200 and "Create the administrator account" in page.text
+    token = csrf_from(page.text)
+    form = {"csrf_token": token, "username": "root", "password": "rootpassword"}
+
+    mismatch = await client.post("/setup", data={**form, "password_confirm": "different1"})
+    assert mismatch.status_code == 422 and "The passwords don&#39;t match" in mismatch.text
+    short = await client.post("/setup", data={**form, "password": "short", "password_confirm": "short"})
+    assert short.status_code == 422
+
+    done = await client.post("/setup", data={**form, "password_confirm": "rootpassword"})
+    assert done.status_code == 303 and done.headers["location"] == "/admin"
+    users = await client.get("/admin/users")
+    assert users.status_code == 200 and "initial admin" in users.text
+
+    # Setup is closed once a user exists.
+    client.cookies.clear()
+    assert (await client.get("/setup")).headers["location"] == "/login"
+    again = await client.post("/setup", data={**form, "username": "evil", "password_confirm": "rootpassword"})
+    assert again.status_code in (303, 403)
+    assert (await login(client, "root", "rootpassword")).status_code == 303
+
+
+async def test_initial_admin_cant_be_deleted_disabled_or_demoted(client, auth):
+    root = await make_user("root", UserRole.ADMIN, is_initial_admin=True)
+    await login(client)
+    token = csrf_from((await client.get(f"/admin/users/{root.id}/edit")).text)
+
+    await client.post(f"/admin/users/{root.id}/delete", data={"csrf_token": token})
+    assert "The initial admin can&#39;t be deleted" in (await client.get("/admin/users")).text
+    demote = await client.post(
+        f"/admin/users/{root.id}/edit", data={"csrf_token": token, "role": "viewer", "active": "on"}
+    )
+    assert demote.status_code == 422 and "can&#39;t be demoted or disabled" in demote.text
+
+    api_delete = await client.delete(f"/api/v1/users/{root.id}", headers=auth)
+    assert api_delete.status_code == 400 and api_delete.json()["code"] == "initial_admin"
+    api_disable = await client.patch(f"/api/v1/users/{root.id}", json={"active": False}, headers=auth)
+    assert api_disable.status_code == 400 and api_disable.json()["code"] == "initial_admin"
+    assert (await client.get(f"/api/v1/users/{root.id}", headers=auth)).json()["is_initial_admin"] is True
+
+
+async def test_reset_admin_command(services):
+    from statora.cli import _reset_admin
+
+    assert await _reset_admin("newpassword", None) is None  # fresh instance: the web UI's setup does it
+    root = await make_user("root", UserRole.VIEWER, is_initial_admin=True, active=False)
+    assert await _reset_admin("newpassword", "boss") == "boss"
+    async with db.session_scope() as s:
+        user = await s.get(User, root.id)
+        assert user.username == "boss" and user.role == UserRole.ADMIN and user.active
+        assert await authenticate_local(s, "boss", "newpassword") is not None
+
+
+async def test_reset_admin_restores_a_missing_initial_admin(services):
+    # Upgraded instance whose only admin signs in through an identity provider: no initial admin.
+    from statora.cli import _reset_admin
+    from statora.db.models import AuthProvider, AuthProviderType
+
+    async with db.session_scope() as s:
+        provider = AuthProvider(name="SSO", type=AuthProviderType.OIDC)
+        s.add(provider)
+        await s.flush()
+        s.add(User(username="sso", role=UserRole.ADMIN, auth_provider_id=provider.id, external_id="1"))
+    with pytest.raises(typer.BadParameter):
+        await _reset_admin("newpassword", "sso")  # an external account can't become the initial admin
+    assert await _reset_admin("newpassword", None) == "admin"
+    async with db.session_scope() as s:
+        user = await authenticate_local(s, "admin", "newpassword")
+        assert user is not None and user.is_initial_admin and user.role == UserRole.ADMIN
+
+    # An existing local account is promoted rather than duplicated.
+    async with db.session_scope() as s:
+        await s.execute(update(User).values(is_initial_admin=False))
+    viewer = await make_user("ops", UserRole.VIEWER, active=False)
+    assert await _reset_admin("otherpassword", "ops") == "ops"
+    async with db.session_scope() as s:
+        user = await s.get(User, viewer.id)
+        assert user.is_initial_admin and user.role == UserRole.ADMIN and user.active

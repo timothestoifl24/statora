@@ -10,6 +10,10 @@
 .brand-logo-dark { display: none; }
 [data-bs-theme="dark"] .brand-logo-light { display: none; }
 [data-bs-theme="dark"] .brand-logo-dark { display: inline-block; }
+/* Tabler centres with justify-content, which pushes content taller than the window above the top,
+   out of scroll reach (the logo on the setup and sign-in pages). Auto margins centre without that. */
+.page-center { justify-content: flex-start; }
+.page-center > [class*="container"] { margin-block: auto; }
 
 [data-bs-theme="dark"] .theme-icon-dark,
 [data-bs-theme="light"] .theme-icon-light { display: none; }

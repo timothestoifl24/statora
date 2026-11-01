@@ -22,11 +22,7 @@ Statora is one container image, `docker.io/timothestoifl24/statora`, plus a Post
 2. One replica becomes the scheduler leader and starts checking monitors.
 3. The web UI comes up on port `8000`.
 
-Then create the first admin:
-
-```bash
-statora create-admin          # inside the container, see your guide for the exact command
-```
+Then open the web UI: on the first visit it asks you to create the admin account, instead of showing the sign-in page. Do this before you expose Statora publicly, since whoever gets there first becomes the admin.
 
 ## After installing
 

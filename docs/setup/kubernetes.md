@@ -46,8 +46,9 @@ Then edit `ingress.yaml`: set your host, and uncomment `ingressClassName` and th
 ```bash
 kubectl apply -k .
 kubectl -n statora rollout status deployment/statora
-kubectl -n statora exec -it deploy/statora -- statora create-admin
 ```
+
+Open your host and create the admin account; the first visit to a fresh instance asks for it.
 
 ## Pinning a version
 

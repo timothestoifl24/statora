@@ -79,10 +79,9 @@ curl -fsSL https://raw.githubusercontent.com/timothestoifl24/statora/main/.env.e
 sed -i.bak "s/^STATORA_SECRET_KEY=.*/STATORA_SECRET_KEY=$(openssl rand -hex 32)/; s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(openssl rand -hex 16)/" .env
 
 docker compose up -d
-docker compose exec app statora create-admin
 ```
 
-Open <http://localhost:8000/admin>, sign in, and add your first monitor. Want something to look at straight away? `docker compose exec app statora seed` creates demo monitors, groups and a status page at `/s/demo`.
+Open <http://localhost:8000/admin>, create the admin account, and add your first monitor. Want something to look at straight away? `docker compose exec app statora seed` creates demo monitors, groups and a status page at `/s/demo`.
 
 The [setup guide](/setup/) covers TLS, reverse proxies, plain Docker and Kubernetes.
 

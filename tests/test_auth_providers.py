@@ -14,7 +14,7 @@ from statora.auth.providers.base import AuthError, ExternalIdentity, store_confi
 from statora.auth.service import authenticate_password, provision_user
 from statora.db.models import AuthProvider, AuthProviderType, User, UserRole
 
-from .conftest import needs_services
+from .conftest import make_user, needs_services
 
 pytestmark = needs_services
 
@@ -198,6 +198,7 @@ async def test_oidc_login_route_redirects_and_stores_flow(client, session):
     assert response.status_code == 303 and response.headers["location"].startswith(
         "https://gh.test/authorize?"
     )
+    await make_user("admin", UserRole.ADMIN)  # no user yet: /login would send us to /setup
     login_page = await client.get("/login")
     assert f"/auth/oidc/{provider.id}/login" in login_page.text
 

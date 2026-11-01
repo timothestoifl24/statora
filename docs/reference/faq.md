@@ -42,7 +42,7 @@ Yes. Each status page has a switch for it.
 
 ### How do I reset a lost admin password?
 
-Run `statora create-admin` inside the container with the same username. It sets a new password.
+For the initial admin (the account created on the first visit), run `statora reset-admin` inside the container. It asks for a new password and re-enables the account; `--username` also renames it. If the instance has no initial admin (upgraded from before 1.2.0 without a local admin), the command creates one named `admin`, or makes the local account given with `--username` the initial admin. Other users' passwords are reset by an admin under **Users**.
 
 ### Are ITSM ticket numbers visible to the public?
 

@@ -34,44 +34,66 @@ def migrate() -> None:
     typer.secho("Database is up to date.", fg="green")
 
 
-async def _create_admin(username: str, password: str, email: str | None) -> bool:
+async def _reset_admin(password: str, username: str | None) -> str | None:
+    """Reset the initial admin's password (and optionally its username).
+
+    An instance upgraded from before the first-run setup may have no initial admin, for example
+    when only identity-provider admins are left. Then the local account named `username` (default
+    "admin") becomes the initial admin, created if needed, so the operator can always get back in.
+    Returns None on a fresh instance, where the web UI's setup creates the account instead.
+    """
     from statora.auth.passwords import hash_password
+    from statora.auth.service import initial_admin, needs_setup
     from statora.db.models import User, UserRole
     from statora.db.session import dispose_engine, session_scope
 
     try:
         async with session_scope() as session:
-            existing = await session.scalar(
-                select(User).where(
-                    func.lower(User.username) == username.lower(), User.auth_provider_id.is_(None)
+            if await needs_setup(session):
+                return None
+            admin = await initial_admin(session)
+            if admin is None:
+                username = username or "admin"
+                admin = await session.scalar(
+                    select(User).where(func.lower(User.username) == username.lower())
                 )
-            )
-            if existing:
-                existing.password_hash = hash_password(password)
-                existing.role = UserRole.ADMIN
-                existing.active = True
-                return False
-            session.add(
-                User(
-                    username=username, email=email, password_hash=hash_password(password), role=UserRole.ADMIN
+                if admin is not None and not admin.is_local:
+                    raise typer.BadParameter(f"{username!r} signs in through an identity provider")
+                if admin is None:
+                    admin = User(username=username)
+                    session.add(admin)
+                admin.is_initial_admin = True
+            elif username and username.lower() != admin.username.lower():
+                taken = await session.scalar(
+                    select(User.id).where(func.lower(User.username) == username.lower())
                 )
-            )
-            return True
+                if taken:
+                    raise typer.BadParameter(f"Username {username!r} is taken")
+            if username:
+                admin.username = username
+            admin.password_hash = hash_password(password)
+            admin.role = UserRole.ADMIN
+            admin.active = True
+            return admin.username
     finally:
         await dispose_engine()
 
 
-@app.command("create-admin")
-def create_admin(
-    username: str = typer.Option("admin", prompt=True),
-    password: str = typer.Option(..., prompt=True, hide_input=True, confirmation_prompt=True),
-    email: str | None = typer.Option(None),
+@app.command("reset-admin")
+def reset_admin(
+    password: str = typer.Option(..., prompt="New password", hide_input=True, confirmation_prompt=True),
+    username: str | None = typer.Option(
+        None, help="Rename the initial admin; without one, the local account to make it (default: admin)"
+    ),
 ) -> None:
-    """Create a local admin account, or reset its password if it exists."""
+    """Reset the initial admin's password and re-enable it (the account from the first-run setup)."""
     if len(password) < 8:
         raise typer.BadParameter("Password must be at least 8 characters")
-    created = asyncio.run(_create_admin(username, password, email))
-    typer.secho(f"Admin {username!r} {'created' if created else 'updated'}.", fg="green")
+    name = asyncio.run(_reset_admin(password, username))
+    if name is None:
+        typer.secho("No users yet. Open the web UI to create the admin account.", fg="yellow", err=True)
+        raise typer.Exit(1)
+    typer.secho(f"Admin {name!r} reset.", fg="green")
 
 
 async def _seed() -> bool:
@@ -265,29 +287,17 @@ def seed() -> None:
 @app.command()
 def init(
     seed_data: bool = typer.Option(True, "--seed/--no-seed", help="Add demo monitors and a demo status page"),
-    admin_username: str = typer.Option("admin", "--admin-username"),
-    admin_password: str | None = typer.Option(None, "--admin-password", help="Prompted for when omitted"),
-    admin_email: str | None = typer.Option(None, "--admin-email"),
 ) -> None:
-    """Set up a fresh instance: migrate, create the admin user and (optionally) demo data."""
+    """Set up a fresh instance: migrate and (optionally) add demo data."""
     typer.echo(f"Database: {get_settings().database_url.rsplit('@', 1)[-1]}")
     run_migrations()
     typer.secho("✓ Migrations applied", fg="green")
-
-    if admin_password is None:
-        admin_password = typer.prompt(
-            f"Password for {admin_username!r}", hide_input=True, confirmation_prompt=True
-        )
-    if len(admin_password) < 8:
-        raise typer.BadParameter("Password must be at least 8 characters")
-    created = asyncio.run(_create_admin(admin_username, admin_password, admin_email))
-    typer.secho(f"✓ Admin {admin_username!r} {'created' if created else 'updated'}", fg="green")
 
     if seed_data:
         asyncio.run(_seed())
         asyncio.run(_notify_scheduler())
         typer.secho("✓ Demo data ready (status page at /s/demo)", fg="green")
-    typer.echo("\nNext: statora dev   →  http://localhost:8000/admin")
+    typer.echo("\nNext: statora dev   →  http://localhost:8000 (create the admin account on first visit)")
 
 
 def _uvicorn(reload: bool, host: str, port: int, workers: int = 1) -> None:

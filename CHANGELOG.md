@@ -8,6 +8,7 @@ Changes collect under the upcoming version while it's being developed, and you c
 
 ### Added
 
+- **First-run setup:** on a fresh instance the first visit asks you to create the admin account instead of showing the sign-in page. This initial admin can't be deleted, disabled or demoted, and `statora reset-admin` resets its password. On existing instances, the oldest local admin becomes the initial admin; without a local admin, `statora reset-admin` creates one. The API's user objects have a new `is_initial_admin` field.
 - **Monitor dashboard:** a summary bar shows how many monitors are up and how many need attention. Down and degraded monitors come first, tinted, with how long they've been failing. Search and filter chips (Problems, HTTP, TCP, Ping, DNS, SQL, Groups) survive the auto-refresh, groups expand inline to show their members, and `/` focuses the search, `n` opens a new monitor.
 - **Tile view and wallboard:** switch the monitor list to tiles, or open `/admin?kiosk=1` for a full-screen wallboard without the sidebar. Failing monitors get bigger tiles with the last error and buttons to report an incident or pause them.
 - **Open incidents badge** in the admin navigation.
@@ -19,6 +20,7 @@ Changes collect under the upcoming version while it's being developed, and you c
 
 ### Changed
 
+- **`statora create-admin` is removed**, and so are `statora init`'s `--admin-username`, `--admin-password` and `--admin-email` options. Create the first admin in the web UI, and use `statora reset-admin` to recover it.
 - **Container images move to Docker Hub:** images are now published as `docker.io/timothestoifl24/statora`, with the same tags as before. `ghcr.io/timothestoifl24/statora` gets no new images; update the image name in your `docker-compose.yml`, `docker run` command or Kubernetes manifests.
 - **Admin layout:** the navigation moved into a sidebar, with the user menu and theme toggle at its bottom.
 - **Status pages in the admin panel:** a new overview shows each page's status, favicon and size. Create a page and edit its settings in a dialog; creating a page takes you straight to its components, which have their own editor.

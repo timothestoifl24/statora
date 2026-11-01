@@ -51,11 +51,7 @@ curl -s http://localhost:8000/healthz
 
 ## 4. First admin
 
-```bash
-docker exec -it statora statora create-admin
-```
-
-Then open <http://localhost:8000/admin>.
+Open <http://localhost:8000/admin> and create the admin account. Do this right away: until then, whoever opens the page first creates it.
 
 ## Hardening
 

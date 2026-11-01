@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, ForeignKey, String, UniqueConstraint
+from sqlalchemy import JSON, ForeignKey, Index, String, UniqueConstraint, false, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,7 +32,17 @@ class AuthProvider(TimestampMixin, Base):
 
 class User(TimestampMixin, Base):
     __tablename__ = "users"
-    __table_args__ = (UniqueConstraint("auth_provider_id", "external_id"),)
+    __table_args__ = (
+        UniqueConstraint("auth_provider_id", "external_id"),
+        # At most one initial admin; also stops two concurrent first-run setups from both succeeding.
+        Index(
+            "uq_users_initial_admin",
+            "is_initial_admin",
+            unique=True,
+            postgresql_where=text("is_initial_admin"),
+            sqlite_where=text("is_initial_admin"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(150), unique=True)
@@ -44,6 +54,9 @@ class User(TimestampMixin, Base):
     external_id: Mapped[str | None] = mapped_column(String(255))
     active: Mapped[bool] = mapped_column(default=True)
     last_login_at: Mapped[datetime | None]
+    # The local admin created in the first-run setup: it can't be deleted, disabled or demoted,
+    # and `statora reset-admin` resets it.
+    is_initial_admin: Mapped[bool] = mapped_column(default=False, server_default=false())
 
     auth_provider: Mapped[AuthProvider | None] = relationship(back_populates="users")
     tokens: Mapped[list["ApiToken"]] = relationship(back_populates="user", cascade="all, delete-orphan")
