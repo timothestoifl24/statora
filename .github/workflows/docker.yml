@@ -3,9 +3,10 @@ name: Container image
 # main (production): merging a new version from pyproject.toml publishes X.Y.Z, X.Y, latest and
 #   creates the release vX.Y.Z, then opens a pull request moving develop on to X.Y.Z+1.
 # develop (pre-release): every push publishes X.Y.Z-beta.N and beta and creates a pre-release.
-# Pull requests into develop (from this repository): every push publishes develop-pr-N, deletes the
-#   image it replaces (also when the run is cancelled) and comments on the pull request how to pull it. pr-image-cleanup.yml deletes
-#   the image when the pull request is merged or closed.
+# Pull requests into develop (from this repository): every push removes the pull request comment of
+#   the previous image, publishes develop-pr-N, deletes the image it replaces (also when the run is
+#   cancelled) and posts a new comment on how to pull it. pr-image-cleanup.yml deletes the image
+#   when the pull request is merged or closed.
 # Other pull requests (forks, into main): build and smoke test only.
 # See .github/scripts/release_version.py for the rules.
 on:
@@ -60,6 +61,28 @@ jobs:
             echo
             for t in $IMAGE_TAGS; do echo "- \`$t\`"; done
           } >> "$GITHUB_STEP_SUMMARY"
+
+  pr-comment:
+    name: Remove the previous image's comment
+    # As soon as a rebuild starts, so the pull request never points at an image that is going away.
+    # The pr-image job posts a new comment once the new image is published.
+    needs: version
+    if: needs.version.outputs.channel == 'pr'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write # delete the comment
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Delete the comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 .github/scripts/pr_image.py uncomment
 
   smoke-test:
     name: Smoke test
@@ -279,7 +302,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      pull-requests: write # comment how to pull the image
+      pull-requests: write # post the comment on how to pull the image
     env:
       GH_TOKEN: ${{ github.token }}
       REPOSITORY: ${{ github.repository }}
