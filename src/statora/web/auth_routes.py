@@ -6,15 +6,25 @@ import secrets
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse, Response
+from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from statora import cache
-from statora.auth import ratelimit
+from statora.auth import passwords, ratelimit
 from statora.auth.providers import oidc, saml
 from statora.auth.providers.base import AuthError
-from statora.auth.service import authenticate_password, enabled_providers, local_form_hidden, provision_user
+from statora.auth.service import (
+    authenticate_password,
+    enabled_providers,
+    local_form_hidden,
+    needs_setup,
+    provision_user,
+)
 from statora.config import get_settings
-from statora.db.models import AuthProvider, AuthProviderType
+from statora.db.models import AuthProvider, AuthProviderType, User, UserRole
+from statora.schemas.users import UserCreate
+from statora.web.admin.common import error_messages
 from statora.web.deps import get_session, local_path, login_user, not_found, optional_user, verify_csrf
 from statora.web.templating import templates
 
@@ -56,6 +66,8 @@ async def login_page(
 ):
     if user is not None:
         return RedirectResponse(local_path(request.query_params.get("next")), status_code=303)
+    if await needs_setup(session):
+        return RedirectResponse("/setup", status_code=303)
     return await _render_login(request, session)
 
 
@@ -81,6 +93,56 @@ async def login_submit(
     await ratelimit.reset(keys[1])
     login_user(request, user)
     return RedirectResponse(local_path(next), status_code=303)
+
+
+# ---------------------------------------------------------------- first-run setup
+
+
+def _render_setup(request: Request, values: dict, errors: list[str] | None = None, status: int = 200):
+    return templates.TemplateResponse(
+        request, "auth/setup.html", {"values": values, "errors": errors or []}, status_code=status
+    )
+
+
+@router.get("/setup")
+async def setup_page(request: Request, session: AsyncSession = Depends(get_session)):
+    if not await needs_setup(session):
+        return RedirectResponse("/login", status_code=303)
+    return _render_setup(request, {"username": "admin"})
+
+
+@router.post("/setup", dependencies=[Depends(verify_csrf)])
+async def setup_submit(request: Request, session: AsyncSession = Depends(get_session)):
+    if not await needs_setup(session):
+        return RedirectResponse("/login", status_code=303)
+    form = await request.form()
+    values = {
+        "username": str(form.get("username", "")).strip(),
+        "email": str(form.get("email", "")).strip() or None,
+        "display_name": str(form.get("display_name", "")).strip() or None,
+        "password": str(form.get("password", "")),
+        "role": UserRole.ADMIN,
+    }
+    try:
+        data = UserCreate.model_validate(values)
+        if data.password != form.get("password_confirm"):
+            raise ValueError("The passwords don't match")
+    except (ValidationError, ValueError) as exc:
+        return _render_setup(request, values, error_messages(exc), 422)
+    user = User(
+        **data.model_dump(exclude={"password"}),
+        password_hash=passwords.hash_password(data.password),
+        is_initial_admin=True,
+    )
+    session.add(user)
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Someone else finished the setup a moment earlier.
+        await session.rollback()
+        return RedirectResponse("/login", status_code=303)
+    login_user(request, user)
+    return RedirectResponse("/admin", status_code=303)
 
 
 @router.post("/logout", dependencies=[Depends(verify_csrf)])

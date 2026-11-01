@@ -44,11 +44,11 @@ docker compose ps            # app, postgres and redis should be "healthy"
 
 ## 4. Create the first admin
 
-```bash
-docker compose exec app statora create-admin
-```
+Open `http://<host>:8000/admin`. On a fresh instance there is no sign-in yet: the page asks you to create the admin account, then signs you in.
 
-Open `http://<host>:8000/admin` and sign in.
+::: warning
+Whoever opens the page first creates the admin, so do this right after starting Statora, before you expose it to the internet.
+:::
 
 ::: tip Demo data
 `docker compose exec app statora seed` adds demo monitors, a stack and a redundancy group, and a status page at `/s/demo`. Delete them whenever you like.

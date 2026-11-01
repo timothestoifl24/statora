@@ -1,7 +1,7 @@
 # Production stack: one app container + PostgreSQL + Redis.
 #   cp .env.example .env   # then set STATORA_SECRET_KEY, POSTGRES_PASSWORD, STATORA_BASE_URL
 #   docker compose up -d
-#   docker compose exec app statora create-admin
+#   open http://localhost:8000 and create the admin account
 name: statora
 
 services:

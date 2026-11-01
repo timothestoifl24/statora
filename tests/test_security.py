@@ -6,13 +6,15 @@ from pathlib import Path
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
+from statora.db.models import UserRole
 from statora.schemas.common import IconRef, ImageRef, LinkUrl
 
-from .conftest import needs_services
+from .conftest import make_user, needs_services
 
 
 @needs_services
 async def test_security_headers(client):
+    await make_user("admin", UserRole.ADMIN)
     admin = await client.get("/login")
     csp = admin.headers["content-security-policy"]
     assert admin.headers["x-frame-options"] == "DENY" and "frame-ancestors 'none'" in csp

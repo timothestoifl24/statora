@@ -37,9 +37,9 @@ The `statora` command is available inside the container:
 |---|---|
 | `statora serve [--no-migrate]` | Start the server; this is the container's default command. |
 | `statora migrate` | Apply database migrations. |
-| `statora create-admin` | Create a local admin, or reset its password. |
+| `statora reset-admin [--username]` | Reset the initial admin's password and re-enable it. |
 | `statora seed` | Add demo monitors, groups and a status page at `/s/demo`. |
-| `statora init [--seed]` | Migrate, create an admin and optionally add demo data, in one step. |
+| `statora init [--seed]` | Migrate and optionally add demo data, in one step. |
 | `statora dev` | Development server with auto-reload. |
 
 ## Health endpoint

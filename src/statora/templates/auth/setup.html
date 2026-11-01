@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% include '_brand_head.html' %}
+  <title>Set up · Statora</title>
+  <link rel="stylesheet" href="{{ asset('vendor/tabler.min.css') }}">
+  <link rel="stylesheet" href="{{ asset('vendor/fontawesome/fontawesome.min.css') }}">
+  <link rel="stylesheet" href="{{ asset('css/fonts.css') }}">
+  <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
+  <script src="{{ asset('js/theme-init.js') }}"></script>
+</head>
+<body class="d-flex flex-column">
+<div class="page page-center">
+  <div class="container container-tight py-4">
+    <div class="text-center mb-4">
+      <img src="{{ asset('brand/logo.svg') }}" alt="Statora" height="44" class="brand-logo brand-logo-lg brand-logo-light">
+      <img src="{{ asset('brand/logo-dark.svg') }}" alt="Statora" height="44" class="brand-logo brand-logo-lg brand-logo-dark">
+    </div>
+    <div class="card card-md">
+      <div class="card-body">
+        <h2 class="h2 text-center mb-2">Welcome to Statora</h2>
+        <p class="text-secondary text-center mb-4">Create the administrator account to finish the setup.</p>
+        {% if errors %}
+        <div class="alert alert-danger" role="alert">
+          {% for e in errors %}<div>{{ e }}</div>{% endfor %}
+        </div>
+        {% endif %}
+        <form method="post" action="/setup" autocomplete="on">
+          {{ csrf_input(request) }}
+          <div class="mb-3">
+            <label class="form-label required" for="username">Username</label>
+            <input class="form-control" id="username" name="username" value="{{ values.username or '' }}" autocomplete="username" maxlength="150" required autofocus>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="display_name">Display name</label>
+            <input class="form-control" id="display_name" name="display_name" value="{{ values.display_name or '' }}" autocomplete="name">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="email">Email</label>
+            <input type="email" class="form-control" id="email" name="email" value="{{ values.email or '' }}" autocomplete="email">
+          </div>
+          <div class="mb-3">
+            <label class="form-label required" for="password">Password</label>
+            <input type="password" class="form-control" id="password" name="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required" for="password_confirm">Confirm password</label>
+            <input type="password" class="form-control" id="password_confirm" name="password_confirm" minlength="8" autocomplete="new-password" required>
+            <small class="form-hint">This account can't be deleted. If you lose its password, reset it with <code>statora reset-admin</code>.</small>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Create admin and sign in</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

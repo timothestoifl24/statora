@@ -123,3 +123,15 @@ async def _is_local_admin(session: AsyncSession, username: str) -> bool:
             )
         )
     )
+
+
+# ---------------------------------------------------------------- first-run setup
+
+
+async def needs_setup(session: AsyncSession) -> bool:
+    """A fresh instance without any user: the first visitor creates the initial admin."""
+    return await session.scalar(select(User.id).limit(1)) is None
+
+
+async def initial_admin(session: AsyncSession) -> User | None:
+    return await session.scalar(select(User).where(User.is_initial_admin))

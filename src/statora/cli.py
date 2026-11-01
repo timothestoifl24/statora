@@ -34,44 +34,47 @@ def migrate() -> None:
     typer.secho("Database is up to date.", fg="green")
 
 
-async def _create_admin(username: str, password: str, email: str | None) -> bool:
+async def _reset_admin(password: str, username: str | None) -> str | None:
+    """Reset the initial admin's password (and optionally its username); None if there is none yet."""
     from statora.auth.passwords import hash_password
+    from statora.auth.service import initial_admin
     from statora.db.models import User, UserRole
     from statora.db.session import dispose_engine, session_scope
 
     try:
         async with session_scope() as session:
-            existing = await session.scalar(
-                select(User).where(
-                    func.lower(User.username) == username.lower(), User.auth_provider_id.is_(None)
+            admin = await initial_admin(session)
+            if admin is None:
+                return None
+            if username and username.lower() != admin.username.lower():
+                taken = await session.scalar(
+                    select(User.id).where(func.lower(User.username) == username.lower())
                 )
-            )
-            if existing:
-                existing.password_hash = hash_password(password)
-                existing.role = UserRole.ADMIN
-                existing.active = True
-                return False
-            session.add(
-                User(
-                    username=username, email=email, password_hash=hash_password(password), role=UserRole.ADMIN
-                )
-            )
-            return True
+                if taken:
+                    raise typer.BadParameter(f"Username {username!r} is taken")
+            if username:
+                admin.username = username
+            admin.password_hash = hash_password(password)
+            admin.role = UserRole.ADMIN
+            admin.active = True
+            return admin.username
     finally:
         await dispose_engine()
 
 
-@app.command("create-admin")
-def create_admin(
-    username: str = typer.Option("admin", prompt=True),
-    password: str = typer.Option(..., prompt=True, hide_input=True, confirmation_prompt=True),
-    email: str | None = typer.Option(None),
+@app.command("reset-admin")
+def reset_admin(
+    password: str = typer.Option(..., prompt="New password", hide_input=True, confirmation_prompt=True),
+    username: str | None = typer.Option(None, help="Also rename the initial admin"),
 ) -> None:
-    """Create a local admin account, or reset its password if it exists."""
+    """Reset the initial admin's password and re-enable it (the account from the first-run setup)."""
     if len(password) < 8:
         raise typer.BadParameter("Password must be at least 8 characters")
-    created = asyncio.run(_create_admin(username, password, email))
-    typer.secho(f"Admin {username!r} {'created' if created else 'updated'}.", fg="green")
+    name = asyncio.run(_reset_admin(password, username))
+    if name is None:
+        typer.secho("No initial admin yet. Open the web UI to create it.", fg="yellow", err=True)
+        raise typer.Exit(1)
+    typer.secho(f"Admin {name!r} reset.", fg="green")
 
 
 async def _seed() -> bool:
@@ -265,29 +268,17 @@ def seed() -> None:
 @app.command()
 def init(
     seed_data: bool = typer.Option(True, "--seed/--no-seed", help="Add demo monitors and a demo status page"),
-    admin_username: str = typer.Option("admin", "--admin-username"),
-    admin_password: str | None = typer.Option(None, "--admin-password", help="Prompted for when omitted"),
-    admin_email: str | None = typer.Option(None, "--admin-email"),
 ) -> None:
-    """Set up a fresh instance: migrate, create the admin user and (optionally) demo data."""
+    """Set up a fresh instance: migrate and (optionally) add demo data."""
     typer.echo(f"Database: {get_settings().database_url.rsplit('@', 1)[-1]}")
     run_migrations()
     typer.secho("✓ Migrations applied", fg="green")
-
-    if admin_password is None:
-        admin_password = typer.prompt(
-            f"Password for {admin_username!r}", hide_input=True, confirmation_prompt=True
-        )
-    if len(admin_password) < 8:
-        raise typer.BadParameter("Password must be at least 8 characters")
-    created = asyncio.run(_create_admin(admin_username, admin_password, admin_email))
-    typer.secho(f"✓ Admin {admin_username!r} {'created' if created else 'updated'}", fg="green")
 
     if seed_data:
         asyncio.run(_seed())
         asyncio.run(_notify_scheduler())
         typer.secho("✓ Demo data ready (status page at /s/demo)", fg="green")
-    typer.echo("\nNext: statora dev   →  http://localhost:8000/admin")
+    typer.echo("\nNext: statora dev   →  http://localhost:8000 (create the admin account on first visit)")
 
 
 def _uvicorn(reload: bool, host: str, port: int, workers: int = 1) -> None:

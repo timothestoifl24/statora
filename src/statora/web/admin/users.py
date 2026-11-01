@@ -135,6 +135,8 @@ async def update_user(
         data = UserUpdate.model_validate(values)
         if target.id == user.id and (not data.active or data.role != UserRole.ADMIN):
             raise ValueError("You can't demote or disable your own account")
+        if target.is_initial_admin and (not data.active or data.role != UserRole.ADMIN):
+            raise ValueError("The initial admin can't be demoted or disabled")
         if data.password and not target.is_local:
             raise ValueError("Passwords of external users are managed by their identity provider")
     except (ValidationError, ValueError) as exc:
@@ -164,6 +166,9 @@ async def delete_user(
     target = await _get_user(session, user_id)
     if target.id == user.id:
         flash(request, "You can't delete your own account", "danger")
+        return redirect("/admin/users")
+    if target.is_initial_admin:
+        flash(request, "The initial admin can't be deleted", "danger")
         return redirect("/admin/users")
     await session.delete(target)
     await session.commit()

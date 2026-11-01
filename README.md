@@ -63,7 +63,7 @@ curl -fsSLO https://raw.githubusercontent.com/timothestoifl24/statora/main/docke
 curl -fsSL https://raw.githubusercontent.com/timothestoifl24/statora/main/.env.example -o .env
 # set STATORA_SECRET_KEY, POSTGRES_PASSWORD and STATORA_BASE_URL in .env
 docker compose up -d
-docker compose exec app statora create-admin
+# open http://localhost:8000 and create the admin account
 ```
 
 Step-by-step guides:
@@ -79,11 +79,11 @@ You need Python 3.13+, [uv](https://docs.astral.sh/uv/), and Docker or Podman fo
 ```bash
 docker compose -f docker-compose.dev.yml up -d      # PostgreSQL :5432, Redis :6379
 uv sync --all-extras
-uv run statora init --seed                       # migrate, create admin (prompts for a password), demo data
+uv run statora init --seed                       # migrate, demo data
 uv run statora dev                               # http://localhost:8000
 ```
 
-- Admin panel: <http://localhost:8000/admin>
+- Admin panel: <http://localhost:8000/admin> (the first visit asks you to create the admin account)
 - Demo status page: <http://localhost:8000/s/demo> (also served at `/`)
 - API docs: <http://localhost:8000/api/docs>
 
@@ -93,11 +93,11 @@ uv run statora dev                               # http://localhost:8000
 
 | Command | What it does |
 |---|---|
-| `statora init [--seed/--no-seed] [--admin-username] [--admin-password] [--admin-email]` | Migrate, create/reset the admin, optionally add demo data |
+| `statora init [--seed/--no-seed]` | Migrate, optionally add demo data |
 | `statora dev [--host] [--port]` | Web + checker with auto-reload |
 | `statora serve [--no-migrate]` | Production entrypoint (migrates first by default) |
 | `statora migrate` | Apply database migrations |
-| `statora create-admin` | Create a local admin or reset its password |
+| `statora reset-admin [--username]` | Reset the initial admin's password and re-enable it |
 | `statora seed` | Add the demo data |
 
 ## Production

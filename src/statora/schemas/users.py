@@ -34,6 +34,7 @@ class UserRead(BaseModel):
     role: UserRole
     active: bool
     auth_provider_id: int | None = Field(description="null for local accounts")
+    is_initial_admin: bool = Field(description="Created in the first-run setup; can't be deleted")
     last_login_at: datetime | None
     created_at: datetime
 

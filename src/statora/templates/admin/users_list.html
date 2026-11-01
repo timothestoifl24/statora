@@ -13,7 +13,7 @@
             <div class="d-flex align-items-center">
               <span class="avatar avatar-sm me-2">{{ (u.display_name or u.username)[:2]|upper }}</span>
               <div>
-                <div class="fw-medium">{{ u.display_name or u.username }} {% if not u.active %}<span class="badge bg-secondary-lt">disabled</span>{% endif %}</div>
+                <div class="fw-medium">{{ u.display_name or u.username }} {% if not u.active %}<span class="badge bg-secondary-lt">disabled</span>{% endif %}{% if u.is_initial_admin %}<span class="badge bg-red-lt" title="Created in the first-run setup; can't be deleted">initial admin</span>{% endif %}</div>
                 <div class="small text-secondary">{{ u.username }}{% if u.email %} · {{ u.email }}{% endif %}</div>
               </div>
             </div>

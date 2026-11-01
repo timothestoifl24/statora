@@ -3,7 +3,7 @@
 {% block form_action %}{{ '/admin/users/' ~ target.id ~ '/edit' if target else '/admin/users/new' }}{% endblock %}
 {% block cancel_url %}/admin/users{% endblock %}
 {% block form_actions %}
-  {% if target and target.id != user.id %}
+  {% if target and target.id != user.id and not target.is_initial_admin %}
   <form method="post" action="/admin/users/{{ target.id }}/delete" data-confirm="Delete user {{ target.username }}?">
     {{ csrf_input(request) }}
     <button class="btn btn-outline-danger" type="submit"><i class="fa-regular fa-trash-can me-1"></i>Delete</button>
@@ -11,10 +11,10 @@
   {% endif %}
 {% endblock %}
 {% block modal_actions %}
-  {% if target and target.id != user.id %}<button type="submit" form="modal-delete-form" class="btn btn-ghost-danger"><i class="fa-regular fa-trash-can me-1"></i>Delete</button>{% endif %}
+  {% if target and target.id != user.id and not target.is_initial_admin %}<button type="submit" form="modal-delete-form" class="btn btn-ghost-danger"><i class="fa-regular fa-trash-can me-1"></i>Delete</button>{% endif %}
 {% endblock %}
 {% block after_form %}
-  {% if modal and target and target.id != user.id %}
+  {% if modal and target and target.id != user.id and not target.is_initial_admin %}
   <form method="post" action="/admin/users/{{ target.id }}/delete" id="modal-delete-form" data-confirm="Delete user {{ target.username }}?" hidden>{{ csrf_input(request) }}</form>
   {% endif %}
 {% endblock %}
@@ -37,10 +37,11 @@
     </div>
     <div class="col-md-6">
       <label class="form-label" for="role">Role</label>
-      <select class="form-select" id="role" name="role">
+      {% if target and target.is_initial_admin %}<input type="hidden" name="role" value="admin">{% endif %}
+      <select class="form-select" id="role" name="role" {{ 'disabled' if target and target.is_initial_admin }}>
         {% for r in roles %}<option value="{{ r }}" {{ 'selected' if values.role == r }}>{{ r|capitalize }}</option>{% endfor %}
       </select>
-      <small class="form-hint">Viewer: read-only · Editor: monitors, pages, incidents · Admin: everything.</small>
+      <small class="form-hint">{% if target and target.is_initial_admin %}The initial admin always keeps the admin role.{% else %}Viewer: read-only · Editor: monitors, pages, incidents · Admin: everything.{% endif %}</small>
     </div>
     {% if not target or target.is_local %}
     <div class="col-md-6">
@@ -50,10 +51,15 @@
     </div>
     {% endif %}
     <div class="col-12">
+      {% if target and target.is_initial_admin %}
+      <input type="hidden" name="active" value="on">
+      <div class="form-hint">This is the initial admin: it can't be deleted or disabled. Reset it with <code>statora reset-admin</code>.</div>
+      {% else %}
       <label class="form-check form-switch">
         <input class="form-check-input" type="checkbox" name="active" {{ 'checked' if values.active }}>
         <span class="form-check-label">Active</span>
       </label>
+      {% endif %}
     </div>
   </div>
 {% endblock %}

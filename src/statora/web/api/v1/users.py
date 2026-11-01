@@ -146,6 +146,8 @@ async def update_user(
         changes.get("active") is False or changes.get("role", "admin") != "admin"
     ):
         raise ApiError(400, "self_lockout", "You can't demote or disable your own account")
+    if user.is_initial_admin and (changes.get("active") is False or changes.get("role", "admin") != "admin"):
+        raise ApiError(400, "initial_admin", "The initial admin can't be demoted or disabled")
     if "password" in changes:
         if not user.is_local:
             raise ApiError(400, "external_user", "Passwords of external users are managed by their provider")
@@ -163,6 +165,8 @@ async def delete_user(
     if user_id == principal.user.id:
         raise ApiError(400, "self_lockout", "You can't delete your own account")
     user = await session.get(User, user_id)
+    if user is not None and user.is_initial_admin:
+        raise ApiError(400, "initial_admin", "The initial admin can't be deleted")
     if user is not None:
         await session.delete(user)
         await session.commit()
