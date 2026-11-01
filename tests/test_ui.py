@@ -3,6 +3,10 @@ import json
 import re
 from datetime import timedelta
 
+import pytest
+import typer
+from sqlalchemy import update
+
 from statora.auth import crypto
 from statora.auth.service import authenticate_local
 from statora.db import session as db
@@ -1097,10 +1101,37 @@ async def test_initial_admin_cant_be_deleted_disabled_or_demoted(client, auth):
 async def test_reset_admin_command(services):
     from statora.cli import _reset_admin
 
-    assert await _reset_admin("newpassword", None) is None  # nothing to reset before the setup
+    assert await _reset_admin("newpassword", None) is None  # fresh instance: the web UI's setup does it
     root = await make_user("root", UserRole.VIEWER, is_initial_admin=True, active=False)
     assert await _reset_admin("newpassword", "boss") == "boss"
     async with db.session_scope() as s:
         user = await s.get(User, root.id)
         assert user.username == "boss" and user.role == UserRole.ADMIN and user.active
         assert await authenticate_local(s, "boss", "newpassword") is not None
+
+
+async def test_reset_admin_restores_a_missing_initial_admin(services):
+    # Upgraded instance whose only admin signs in through an identity provider: no initial admin.
+    from statora.cli import _reset_admin
+    from statora.db.models import AuthProvider, AuthProviderType
+
+    async with db.session_scope() as s:
+        provider = AuthProvider(name="SSO", type=AuthProviderType.OIDC)
+        s.add(provider)
+        await s.flush()
+        s.add(User(username="sso", role=UserRole.ADMIN, auth_provider_id=provider.id, external_id="1"))
+    with pytest.raises(typer.BadParameter):
+        await _reset_admin("newpassword", "sso")  # an external account can't become the initial admin
+    assert await _reset_admin("newpassword", None) == "admin"
+    async with db.session_scope() as s:
+        user = await authenticate_local(s, "admin", "newpassword")
+        assert user is not None and user.is_initial_admin and user.role == UserRole.ADMIN
+
+    # An existing local account is promoted rather than duplicated.
+    async with db.session_scope() as s:
+        await s.execute(update(User).values(is_initial_admin=False))
+    viewer = await make_user("ops", UserRole.VIEWER, active=False)
+    assert await _reset_admin("otherpassword", "ops") == "ops"
+    async with db.session_scope() as s:
+        user = await s.get(User, viewer.id)
+        assert user.is_initial_admin and user.role == UserRole.ADMIN and user.active

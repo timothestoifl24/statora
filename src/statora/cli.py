@@ -35,18 +35,35 @@ def migrate() -> None:
 
 
 async def _reset_admin(password: str, username: str | None) -> str | None:
-    """Reset the initial admin's password (and optionally its username); None if there is none yet."""
+    """Reset the initial admin's password (and optionally its username).
+
+    An instance upgraded from before the first-run setup may have no initial admin, for example
+    when only identity-provider admins are left. Then the local account named `username` (default
+    "admin") becomes the initial admin, created if needed, so the operator can always get back in.
+    Returns None on a fresh instance, where the web UI's setup creates the account instead.
+    """
     from statora.auth.passwords import hash_password
-    from statora.auth.service import initial_admin
+    from statora.auth.service import initial_admin, needs_setup
     from statora.db.models import User, UserRole
     from statora.db.session import dispose_engine, session_scope
 
     try:
         async with session_scope() as session:
+            if await needs_setup(session):
+                return None
             admin = await initial_admin(session)
             if admin is None:
-                return None
-            if username and username.lower() != admin.username.lower():
+                username = username or "admin"
+                admin = await session.scalar(
+                    select(User).where(func.lower(User.username) == username.lower())
+                )
+                if admin is not None and not admin.is_local:
+                    raise typer.BadParameter(f"{username!r} signs in through an identity provider")
+                if admin is None:
+                    admin = User(username=username)
+                    session.add(admin)
+                admin.is_initial_admin = True
+            elif username and username.lower() != admin.username.lower():
                 taken = await session.scalar(
                     select(User.id).where(func.lower(User.username) == username.lower())
                 )
@@ -65,14 +82,16 @@ async def _reset_admin(password: str, username: str | None) -> str | None:
 @app.command("reset-admin")
 def reset_admin(
     password: str = typer.Option(..., prompt="New password", hide_input=True, confirmation_prompt=True),
-    username: str | None = typer.Option(None, help="Also rename the initial admin"),
+    username: str | None = typer.Option(
+        None, help="Rename the initial admin; without one, the local account to make it (default: admin)"
+    ),
 ) -> None:
     """Reset the initial admin's password and re-enable it (the account from the first-run setup)."""
     if len(password) < 8:
         raise typer.BadParameter("Password must be at least 8 characters")
     name = asyncio.run(_reset_admin(password, username))
     if name is None:
-        typer.secho("No initial admin yet. Open the web UI to create it.", fg="yellow", err=True)
+        typer.secho("No users yet. Open the web UI to create the admin account.", fg="yellow", err=True)
         raise typer.Exit(1)
     typer.secho(f"Admin {name!r} reset.", fg="green")
 

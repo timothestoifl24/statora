@@ -15,7 +15,7 @@ statora reset-admin                    # prompts for the new password
 statora reset-admin --username root    # and renames the account
 ```
 
-Instances set up before 1.2.0 with `statora create-admin` treat their oldest local admin as the initial admin.
+Instances set up before 1.2.0 with `statora create-admin` treat their oldest local admin as the initial admin. If such an instance has no local admin left, for example because only identity-provider admins remain, `statora reset-admin` makes the local account `admin` the initial admin, creating it if needed; pass `--username` to pick another local account.
 
 ### Hiding the local sign-in form
 
