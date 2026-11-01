@@ -23,6 +23,8 @@ Report them privately through GitHub:
    - steps to reproduce, or a proof of concept;
    - what an attacker could achieve, and what access they need first.
 
+If you can't use GitHub, email [security@timothestoifl24.dev](mailto:security@timothestoifl24.dev) instead.
+
 The report is visible only to you and the maintainers. We can discuss it, work on a fix in a private fork, and publish an advisory, all in the same place.
 
 ## What happens next
@@ -64,6 +66,6 @@ We won't take legal action against good-faith research that:
 
 - Serve it over HTTPS and set `STATORA_SECURE_COOKIES=true`.
 - Use a long random `STATORA_SECRET_KEY` and keep it secret. It signs sessions and encrypts stored identity-provider secrets.
-- Run the container as shipped: non-root, and ideally with a read-only root filesystem and no capabilities. See [Docker hardening](https://statora.stoifl.app/setup/docker#hardening).
+- Run the container as shipped: non-root, and ideally with a read-only root filesystem and no capabilities. See [Docker hardening](https://statora.timothestoifl24.dev/setup/docker#hardening).
 - Give API tokens the smallest scope and role they need, and set an expiry.
 - Keep Statora, PostgreSQL and Redis up to date, and don't expose PostgreSQL or Redis to the internet.

@@ -2,7 +2,7 @@
 
 All notable changes to Statora are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Statora follows [Semantic Versioning](https://semver.org/).
 
-Changes collect under the upcoming version while it's being developed, and you can try them with the [`beta` image](https://statora.stoifl.app/reference/images#beta-preview-of-the-next-release). The date is set when the version is released. Each section also appears in the matching [GitHub release](https://github.com/timothestoifl24/statora/releases).
+Changes collect under the upcoming version while it's being developed, and you can try them with the [`beta` image](https://statora.timothestoifl24.dev/reference/images#beta-preview-of-the-next-release). The date is set when the version is released. Each section also appears in the matching [GitHub release](https://github.com/timothestoifl24/statora/releases).
 
 ## [1.2.0] - Unreleased
 
@@ -46,7 +46,7 @@ Changes collect under the upcoming version while it's being developed, and you c
 
 ### Added
 
-- **SQL monitors:** run a query against PostgreSQL, MySQL/MariaDB, Microsoft SQL Server or Oracle, and check the first value (equals or contains) or a minimum number of rows. Queries run read-only and are rolled back. The password is stored encrypted and never returned by the API. See [Monitors → SQL](https://statora.stoifl.app/guide/monitors#sql).
+- **SQL monitors:** run a query against PostgreSQL, MySQL/MariaDB, Microsoft SQL Server or Oracle, and check the first value (equals or contains) or a minimum number of rows. Queries run read-only and are rolled back. The password is stored encrypted and never returned by the API. See [Monitors → SQL](https://statora.timothestoifl24.dev/guide/monitors#sql).
 - **Status page editor:** reorder groups and monitors by dragging them by their grip handle, and drag a monitor into another group. The arrow buttons still work from the keyboard.
 - **Uptime bars per minute, hour or day:** a new "Uptime bars" setting per status page (`history_resolution` in the API) shows the last 2 hours per minute, the last 5 days per hour, or the last 120 days per day. Daily bars now cover 120 days instead of 90.
 - **Monitor list options:** each row has a menu to pause or resume the monitor without leaving the list, clone it into a prefilled new-monitor form, or edit it.

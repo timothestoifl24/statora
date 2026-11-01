@@ -36,7 +36,7 @@ uv run statora init --seed
 uv run statora dev                               # http://localhost:8000
 ```
 
-On Python 3.15, SAML's `xmlsec` is compiled from source and needs system libraries. The [development guide](https://statora.stoifl.app/reference/development) has the details, and also covers the docs site and the brand assets.
+On Python 3.15, SAML's `xmlsec` is compiled from source and needs system libraries. The [development guide](https://statora.timothestoifl24.dev/reference/development) has the details, and also covers the docs site and the brand assets.
 
 ## Making a change
 

@@ -1,7 +1,7 @@
 import { defineConfig, type HeadConfig } from 'vitepress'
 
 const repo = 'https://github.com/timothestoifl24/statora'
-const site = 'https://statora.stoifl.app'
+const site = 'https://statora.timothestoifl24.dev'
 // pages.yml builds main at / (production) and develop at /dev/ (development) into one site.
 const dev = process.env.DOCS_CHANNEL === 'development'
 const base = dev ? '/dev/' : '/'

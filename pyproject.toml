@@ -49,10 +49,10 @@ dependencies = [
 saml = ["python3-saml>=1.16"]
 
 [project.urls]
-Homepage = "https://statora.stoifl.app"
-Documentation = "https://statora.stoifl.app/guide/"
+Homepage = "https://statora.timothestoifl24.dev"
+Documentation = "https://statora.timothestoifl24.dev/guide/"
 Repository = "https://github.com/timothestoifl24/statora"
-Changelog = "https://statora.stoifl.app/reference/changelog"
+Changelog = "https://statora.timothestoifl24.dev/reference/changelog"
 
 [project.scripts]
 statora = "statora.cli:app"

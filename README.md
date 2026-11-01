@@ -10,19 +10,19 @@
 <p align="center">
   <a href="https://github.com/timothestoifl24/statora/actions/workflows/ci.yml"><img src="https://github.com/timothestoifl24/statora/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/timothestoifl24/statora/actions/workflows/docker.yml"><img src="https://github.com/timothestoifl24/statora/actions/workflows/docker.yml/badge.svg" alt="Container image"></a>
-  <a href="https://statora.stoifl.app"><img src="https://img.shields.io/badge/docs-statora.stoifl.app-1f6feb" alt="Documentation"></a>
+  <a href="https://statora.timothestoifl24.dev"><img src="https://img.shields.io/badge/docs-statora.timothestoifl24.dev-1f6feb" alt="Documentation"></a>
 </p>
 
 <p align="center">
-  <a href="https://statora.stoifl.app">Website</a> ·
-  <a href="https://statora.stoifl.app/setup/">Installation</a> ·
-  <a href="https://statora.stoifl.app/guide/">Guide</a> ·
-  <a href="https://statora.stoifl.app/screenshots">Screenshots</a> ·
+  <a href="https://statora.timothestoifl24.dev">Website</a> ·
+  <a href="https://statora.timothestoifl24.dev/setup/">Installation</a> ·
+  <a href="https://statora.timothestoifl24.dev/guide/">Guide</a> ·
+  <a href="https://statora.timothestoifl24.dev/screenshots">Screenshots</a> ·
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
 > [!NOTE]
-> The documentation at [statora.stoifl.app](https://statora.stoifl.app) describes the latest release. To see what's in development for the next one (the `develop` branch), visit [statora.stoifl.app/dev](https://statora.stoifl.app/dev/). The switch at the top of every page moves between the two.
+> The documentation at [statora.timothestoifl24.dev](https://statora.timothestoifl24.dev) describes the latest release. To see what's in development for the next one (the `develop` branch), visit [statora.timothestoifl24.dev/dev](https://statora.timothestoifl24.dev/dev/). The switch at the top of every page moves between the two.
 
 <p align="center"><img src="docs/public/screenshots/status-page-light.webp" alt="Statora status page" width="820"></p>
 
@@ -56,7 +56,7 @@ Statora is one container image, `docker.io/timothestoifl24/statora`, plus Postgr
 | `0.1.0`, `0.1`, `latest` | **Stable** releases from `main`, for production |
 | `0.2.0-beta.N`, `beta` | **Beta** builds from `develop`, previews of the next release |
 
-See [container images](https://statora.stoifl.app/reference/images) for details. The quickest start uses Docker Compose:
+See [container images](https://statora.timothestoifl24.dev/reference/images) for details. The quickest start uses Docker Compose:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/timothestoifl24/statora/main/docker-compose.yml
@@ -68,13 +68,13 @@ docker compose exec app statora create-admin
 
 Step-by-step guides:
 
-- [Docker Compose](https://statora.stoifl.app/setup/docker-compose): recommended for a single host, including HTTPS behind Caddy, nginx or Traefik, and backups.
-- [Docker](https://statora.stoifl.app/setup/docker): plain `docker run`, or an existing PostgreSQL.
-- [Kubernetes](https://statora.stoifl.app/setup/kubernetes): Kustomize manifests in [`deploy/kubernetes`](deploy/kubernetes).
+- [Docker Compose](https://statora.timothestoifl24.dev/setup/docker-compose): recommended for a single host, including HTTPS behind Caddy, nginx or Traefik, and backups.
+- [Docker](https://statora.timothestoifl24.dev/setup/docker): plain `docker run`, or an existing PostgreSQL.
+- [Kubernetes](https://statora.timothestoifl24.dev/setup/kubernetes): Kustomize manifests in [`deploy/kubernetes`](deploy/kubernetes).
 
 ## Quick start (development)
 
-You need Python 3.13+, [uv](https://docs.astral.sh/uv/), and Docker or Podman for PostgreSQL and Redis. On Python 3.15, SAML's `xmlsec` is compiled from source; see [development](https://statora.stoifl.app/reference/development).
+You need Python 3.13+, [uv](https://docs.astral.sh/uv/), and Docker or Podman for PostgreSQL and Redis. On Python 3.15, SAML's `xmlsec` is compiled from source; see [development](https://statora.timothestoifl24.dev/reference/development).
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d      # PostgreSQL :5432, Redis :6379
@@ -104,7 +104,7 @@ uv run statora dev                               # http://localhost:8000
 
 The app ships as **one container image**. PostgreSQL and Redis run as separate containers.
 
-See [Installation](#installation) above. The full configuration reference is at [statora.stoifl.app/reference/configuration](https://statora.stoifl.app/reference/configuration).
+See [Installation](#installation) above. The full configuration reference is at [statora.timothestoifl24.dev/reference/configuration](https://statora.timothestoifl24.dev/reference/configuration).
 
 Notes:
 - Put a TLS-terminating reverse proxy in front of the app and set `STATORA_SECURE_COOKIES=true`. The app trusts `X-Forwarded-*` headers.
@@ -218,7 +218,7 @@ src/statora/
   migrations/    Alembic
 branding/        brand kit: logo/icon SVG sources, PNG/ICO exports, generator script
 deploy/          Kubernetes (Kustomize) manifests
-docs/            website and documentation (VitePress): main at statora.stoifl.app, develop at /dev
+docs/            website and documentation (VitePress): main at statora.timothestoifl24.dev, develop at /dev
 .github/         CI, container image and GitHub Pages workflows
 ```
 
@@ -232,7 +232,7 @@ Contributions are welcome. Pull requests go to the `develop` branch; `main` is p
 
 ## Security
 
-Please report vulnerabilities privately through [GitHub's private vulnerability reporting](https://github.com/timothestoifl24/statora/security/advisories/new). See [SECURITY.md](SECURITY.md) for supported versions, response times and scope.
+Please report vulnerabilities privately through [GitHub's private vulnerability reporting](https://github.com/timothestoifl24/statora/security/advisories/new). You can also email [security@timothestoifl24.dev](mailto:security@timothestoifl24.dev). See [SECURITY.md](SECURITY.md) for supported versions, response times and scope.
 
 ## License
 

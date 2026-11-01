@@ -4,7 +4,7 @@ contact_links:
     url: https://github.com/timothestoifl24/statora/security/advisories/new
     about: Please report security problems privately, never in a public issue.
   - name: Documentation
-    url: https://statora.stoifl.app
+    url: https://statora.timothestoifl24.dev
     about: Setup guides, configuration reference and FAQ.
   - name: Questions and ideas
     url: https://github.com/timothestoifl24/statora/discussions

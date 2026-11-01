@@ -1,8 +1,8 @@
 name: Website & docs
 
 # GitHub Pages hosts one site per repository, so every deployment builds both branches:
-#   main    → statora.stoifl.app/      (production)
-#   develop → statora.stoifl.app/dev/  (development, see DOCS_CHANNEL in docs/.vitepress/config.mts)
+#   main    → statora.timothestoifl24.dev/      (production)
+#   develop → statora.timothestoifl24.dev/dev/  (development, see DOCS_CHANNEL in docs/.vitepress/config.mts)
 # A push to either branch deploys both. Pull requests only build their own docs.
 on:
   push:

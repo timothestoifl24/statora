@@ -4,7 +4,7 @@
 #   cp config.env.example config.env     # set STATORA_BASE_URL
 #   kubectl apply -k .
 #
-# Docs: https://statora.stoifl.app/setup/kubernetes
+# Docs: https://statora.timothestoifl24.dev/setup/kubernetes
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 

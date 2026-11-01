@@ -27,4 +27,4 @@ Deleting images (betas after a release, pull request images after merge or close
 [`CHANGELOG.md`](CHANGELOG.md) follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Entries for the upcoming version go under `## [X.Y.Z] - Unreleased`, grouped as **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed** and **Security**, and written for people who run Statora. Mark changes that need action when upgrading with **Breaking:**.
 
 - **Release notes:** the section for a version is copied into its GitHub release, and into every beta of it. GitHub's list of merged pull requests follows, grouped by their labels (see `.github/release.yml`), which helps when writing the entries.
-- **Where it's shown:** the website shows the same file at https://statora.stoifl.app/reference/changelog.
+- **Where it's shown:** the website shows the same file at https://statora.timothestoifl24.dev/reference/changelog.

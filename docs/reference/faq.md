@@ -6,7 +6,7 @@ Yes. Statora is released under the [MIT License](https://github.com/timothestoif
 
 ### How do I report a security problem?
 
-Privately, through [GitHub's private vulnerability reporting](https://github.com/timothestoifl24/statora/security/advisories/new), never in a public issue. The [security policy](https://github.com/timothestoifl24/statora/blob/main/SECURITY.md) has the details.
+Privately, through [GitHub's private vulnerability reporting](https://github.com/timothestoifl24/statora/security/advisories/new), never in a public issue. If you can't use GitHub, email security@timothestoifl24.dev. The [security policy](https://github.com/timothestoifl24/statora/blob/main/SECURITY.md) has the details.
 
 ### Where are checks run from?
 
