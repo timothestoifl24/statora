@@ -28,7 +28,7 @@ export default defineConfig({
   lang: 'en-US',
   base,
   title: 'Statora',
-  titleTemplate: ':title · Statora',
+  titleTemplate: ':title | Statora',
   description,
   cleanUrls: true,
   lastUpdated: true,
