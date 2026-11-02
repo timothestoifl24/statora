@@ -1,5 +1,8 @@
 name: CI
 
+# Documentation-only changes (see .github/scripts/changes.py) skip lint and tests; pages.yml still
+# builds the website when docs/ or CHANGELOG.md changed. The test matrix still starts and skips its steps (and its service containers),
+# so checks such as "Tests (Python 3.13)" report under their real names.
 on:
   # main only receives merges from develop, which must already pass CI.
   push:
@@ -16,8 +19,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.changes.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # compare the whole pull request or push
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Only documentation changed?
+        id: changes
+        env:
+          # What changed: the whole pull request, or everything this push brought.
+          CHANGES_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CHANGES_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 .github/scripts/changes.py
+
   lint:
     name: Lint
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -31,6 +55,7 @@ jobs:
 
   test:
     name: Tests (Python ${{ matrix.python }})
+    needs: changes
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -38,7 +63,7 @@ jobs:
         python: ["3.13", "3.14", "3.15"]
     services:
       postgres:
-        image: postgres:18-alpine
+        image: ${{ needs.changes.outputs.docs_only != 'true' && 'postgres:18-alpine' || '' }}
         env:
           POSTGRES_USER: statora
           POSTGRES_PASSWORD: statora
@@ -47,12 +72,12 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U statora" --health-interval 5s --health-timeout 3s --health-retries 20
       redis:
-        image: redis:8.8-alpine
+        image: ${{ needs.changes.outputs.docs_only != 'true' && 'redis:8.8-alpine' || '' }}
         ports: ["6379:6379"]
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
       openldap:
-        image: bitnamilegacy/openldap:2.6
+        image: ${{ needs.changes.outputs.docs_only != 'true' && 'bitnamilegacy/openldap:2.6' || '' }}
         env:
           LDAP_ROOT: dc=example,dc=org
           LDAP_ADMIN_USERNAME: admin
@@ -63,7 +88,7 @@ jobs:
         ports: ["1389:1389"]
       # Targets for SQL monitors (Oracle tests only run locally: its image is large and slow to start).
       mariadb:
-        image: mariadb:11
+        image: ${{ needs.changes.outputs.docs_only != 'true' && 'mariadb:11' || '' }}
         env:
           MARIADB_USER: statora
           MARIADB_PASSWORD: statora
@@ -73,12 +98,15 @@ jobs:
         options: >-
           --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-timeout 3s --health-retries 30
       mssql:
-        image: mcr.microsoft.com/mssql/server:2022-latest
+        image: ${{ needs.changes.outputs.docs_only != 'true' && 'mcr.microsoft.com/mssql/server:2022-latest' || '' }}
         env:
           ACCEPT_EULA: "Y"
           MSSQL_SA_PASSWORD: Statora-ci-1
         ports: ["1433:1433"]
     env:
+      # A skipped matrix job reports as "Tests (Python ${{ matrix.python }})"; skipping the steps
+      # keeps the real check names. An empty service image doesn't start the container.
+      SKIP: ${{ needs.changes.outputs.docs_only }}
       STATORA_TEST_DATABASE_URL: postgresql+asyncpg://statora:statora@localhost:5432/statora_test
       STATORA_TEST_REDIS_URL: redis://localhost:6379/15
       STATORA_TEST_LDAP_URL: ldap://localhost:1389
@@ -86,22 +114,28 @@ jobs:
       STATORA_TEST_MSSQL_URL: mssql://sa:Statora-ci-1@localhost:1433
     steps:
       - uses: actions/checkout@v7
+        if: env.SKIP != 'true'
       - uses: astral-sh/setup-uv@v10.3.3  # setup-uv publishes exact version tags only
+        if: env.SKIP != 'true'
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - name: Install libxmlsec1 (SAML)
+        if: env.SKIP != 'true'
         # xmlsec and lxml are built against the system libxml2, like in the container image.
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends pkg-config libxml2-dev libxslt1-dev zlib1g-dev libxmlsec1-dev libxmlsec1-openssl
-      - run: uv sync --frozen --all-extras --no-binary-package xmlsec --no-binary-package lxml
+      - if: env.SKIP != 'true'
+        run: uv sync --frozen --all-extras --no-binary-package xmlsec --no-binary-package lxml
       - name: Wait for OpenLDAP
+        if: env.SKIP != 'true'
         # LDAP tests skip themselves when the server isn't up yet, so make sure it is.
         run: |
           for _ in $(seq 1 60); do (echo > /dev/tcp/localhost/1389) 2>/dev/null && exit 0; sleep 1; done
           echo "OpenLDAP did not start" && exit 1
       - name: Wait for SQL Server
+        if: env.SKIP != 'true'
         # It accepts connections a while before logins work; SQL tests skip unreachable servers.
         run: |
           uv run python - <<'PY'
@@ -115,4 +149,5 @@ jobs:
           else:
               raise SystemExit("SQL Server did not start")
           PY
-      - run: uv run pytest -q -rs
+      - if: env.SKIP != 'true'
+        run: uv run pytest -q -rs
