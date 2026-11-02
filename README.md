@@ -10,7 +10,7 @@ Statora is self-hosted uptime monitoring with public status pages. It comes as o
 plus PostgreSQL and Redis: watch your services, group them the way they really depend on each other,
 and tell your users what's going on.
 
-- [Quick Setup](#quick-setup)
+- [Quick Setup](#-quick-setup)
 - [Full Setup](https://statora.timothestoifl24.dev/setup/)
 - [Guide](https://statora.timothestoifl24.dev/guide/)
 - [Screenshots](https://statora.timothestoifl24.dev/screenshots)
@@ -24,7 +24,7 @@ and tell your users what's going on.
 
 <a href="https://ko-fi.com/Z4F028KJ68"><img src="https://img.shields.io/badge/Buy_me_a_coffee-1f6feb?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Buy me a coffee on Ko-fi"></a>
 
-## Features
+## ✨ Features
 
 - HTTP(S), TCP, ping, DNS and SQL monitors, with retries and a latency threshold for *degraded*
 - Stack and redundancy groups that model how your services depend on each other
@@ -34,7 +34,7 @@ and tell your users what's going on.
 - Single sign-on with LDAP / Active Directory, OAuth2 / OpenID Connect and SAML 2.0
 - REST API (OpenAPI 3.1) with API tokens, ready for Terraform
 
-## Quick Setup
+## 🚀 Quick Setup
 
 1. [Install Docker](https://docs.docker.com/get-docker/)
 2. Download the Compose file and the example settings:
@@ -56,7 +56,7 @@ docker compose up -d
 This is the bare minimum. See the [documentation](https://statora.timothestoifl24.dev/setup/) for HTTPS,
 Kubernetes, backups and the [configuration reference](https://statora.timothestoifl24.dev/reference/configuration).
 
-## Contributing
+## 🤝 Contributing
 
 Pull requests are welcome against the `develop` branch; official releases are made from `main`.
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) first.
@@ -65,11 +65,11 @@ How to run Statora locally is described under [development](https://statora.timo
 Documentation for `develop` is available for preview at
 [statora.timothestoifl24.dev/dev](https://statora.timothestoifl24.dev/dev/).
 
-## Getting Support
+## 💬 Getting Support
 
 1. [Found a bug?](https://github.com/timothestoifl24/statora/issues)
 2. [Found a vulnerability?](https://github.com/timothestoifl24/statora/security/advisories/new) See [SECURITY.md](SECURITY.md).
 
-## License
+## 📄 License
 
 Statora is released under the [MIT License](LICENSE). Third-party components are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
