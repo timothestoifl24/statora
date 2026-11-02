@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="branding/statora-logo-gradient.svg" alt="Statora" height="72">
+  <img src="assets/statora-logo-gradient.svg" alt="Statora" height="72">
   <br><br>
   <a href="https://github.com/timothestoifl24/statora/releases/latest"><img src="https://img.shields.io/github/v/release/timothestoifl24/statora?style=for-the-badge&label=version&color=1f6feb&logo=github&logoColor=white" alt="Latest release"></a>
   <a href="https://hub.docker.com/r/timothestoifl24/statora"><img src="https://img.shields.io/docker/pulls/timothestoifl24/statora?style=for-the-badge&color=12b5a0&logo=docker&logoColor=white" alt="Docker pulls"></a>
