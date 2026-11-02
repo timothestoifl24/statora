@@ -1,6 +1,7 @@
 ---
 layout: home
-title: Self-hosted uptime monitoring and status pages
+title: Statora | Self-hosted uptime monitoring with public status pages for your users
+titleTemplate: false
 
 hero:
   name: Statora
