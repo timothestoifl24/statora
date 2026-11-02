@@ -77,7 +77,7 @@ Other labels are added for you, so you don't need to set any: `area: …` and `c
 
 Every pull request into `develop` from a branch of this repository gets its own container image, `docker.io/timothestoifl24/statora:develop-pr-N` (N is the pull request number). A comment on the pull request shows how to pull it. Each push rebuilds the image and replaces the previous one: the comment is removed when the rebuild starts and posted again once the new image is ready, and the image is deleted when the pull request is merged or closed. Pull requests from forks are built and tested, but don't get a published image.
 
-A pull request that only changes documentation (files under `docs/` and Markdown files at the top level, such as this one) skips lint, the tests and the image build, and gets no image; the docs check builds the website instead. The same goes for a push to `develop` that only changes documentation: it publishes no beta. Pull requests into `main` and pushes to `main` always run everything.
+A pull request that only changes documentation (files under `docs/` and Markdown files at the top level, such as this one) skips lint, the tests and the image build, and gets no image. If it changes `docs/` or `CHANGELOG.md`, the docs check still builds the website. Deleting or moving a top-level file always runs everything. The same goes for a push to `develop` that only changes documentation: it publishes no beta. Pull requests into `main` and pushes to `main` always run everything.
 
 ## Accepting these guidelines
 

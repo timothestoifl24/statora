@@ -8,7 +8,7 @@ Releases are automated; the version in `pyproject.toml` decides everything. On `
 |---|---|
 | Push to a pull request into `develop` | Image `develop-pr-N`, replacing the previous one, and a comment on the pull request how to pull it (not for pull requests from forks or Dependabot) |
 | Pull request into `develop` merged or closed | Image `develop-pr-N` is deleted |
-| Push to `develop` or pull request that only changes documentation | No tests, image or beta; only the docs are built |
+| Push to `develop` or pull request that only changes documentation | No tests, image or beta; the website is built if `docs/` or `CHANGELOG.md` changed |
 | Merge into `develop` | Beta images `X.Y.Z-beta.N` and `beta`, and a GitHub pre-release `vX.Y.Z-beta.N` |
 | Merge into `main` with a new version | Images `X.Y.Z`, `X.Y` and `latest`, and the GitHub release `vX.Y.Z` |
 | Merge into `main` with an already released version | Nothing is published |

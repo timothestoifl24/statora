@@ -9,8 +9,9 @@ name: Container image
 #   when the pull request is merged or closed.
 # Other pull requests (forks, into main): build and smoke test only.
 # Documentation-only changes on develop and in pull requests (not into main) skip the smoke test,
-#   the build and any image or beta; pages.yml covers them. The build matrix still starts and skips
-#   its steps, so checks such as "Build linux/amd64" report under their real names.
+#   the build and any image or beta (pages.yml still builds the website when docs/ changed). The
+#   build matrix still starts and skips its steps, so checks such as "Build linux/amd64" report
+#   under their real names.
 # See .github/scripts/release_version.py for the rules.
 on:
   push:

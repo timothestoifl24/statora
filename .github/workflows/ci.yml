@@ -1,7 +1,7 @@
 name: CI
 
-# Documentation-only changes (see .github/scripts/changes.py) skip lint and tests; pages.yml builds
-# the docs for them. The test matrix still starts and skips its steps (and its service containers),
+# Documentation-only changes (see .github/scripts/changes.py) skip lint and tests; pages.yml still
+# builds the website when docs/ or CHANGELOG.md changed. The test matrix still starts and skips its steps (and its service containers),
 # so checks such as "Tests (Python 3.13)" report under their real names.
 on:
   # main only receives merges from develop, which must already pass CI.

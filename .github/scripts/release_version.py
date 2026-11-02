@@ -65,7 +65,7 @@ def main() -> None:
     }
 
     if changes.docs_only():
-        print("::notice::Only documentation changed: no tests, image or beta. pages.yml builds the docs.")
+        print("::notice::Only documentation changed: no tests, image or beta.")
         result["docs_only"] = "true"
 
     elif event in ("push", "workflow_dispatch") and ref == "refs/heads/main":
