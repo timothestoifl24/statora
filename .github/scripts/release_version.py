@@ -11,9 +11,13 @@
 - anything else (pull requests from forks, by Dependabot or into main, other branches): build and
   test only.
 
-Reads GITHUB_EVENT_NAME, GITHUB_REF, GITHUB_SHA, IMAGE, and for pull requests GITHUB_BASE_REF,
-GITHUB_REPOSITORY, GITHUB_ACTOR, PR_NUMBER and HEAD_REPO; writes key=value pairs to
-GITHUB_OUTPUT (or stdout). Run from the repository root with tags fetched.
+Documentation-only changes (see changes.py) skip all of that on develop and in pull requests other
+than into main: no tests, no image, no beta. docs_only=true tells the workflow.
+
+Reads GITHUB_EVENT_NAME, GITHUB_REF, GITHUB_SHA, IMAGE, CHANGES_BASE and CHANGES_HEAD (the commits
+to compare for docs_only), and for pull requests GITHUB_BASE_REF, GITHUB_REPOSITORY,
+GITHUB_ACTOR, PR_NUMBER and HEAD_REPO; writes key=value pairs to GITHUB_OUTPUT (or stdout). Run
+from the repository root with the full history and tags fetched.
 """
 
 import os
@@ -23,6 +27,7 @@ import sys
 import tomllib
 
 import changelog  # same directory, which Python puts on sys.path for scripts
+import changes
 
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 
@@ -50,9 +55,20 @@ def main() -> None:
     image = os.environ.get("IMAGE", "docker.io/example/statora")
     existing = tags()
 
-    result = {"channel": "none", "publish": "false", "version": f"{version}-dev", "tag": "", "image_tags": ""}
+    result = {
+        "channel": "none",
+        "publish": "false",
+        "version": f"{version}-dev",
+        "tag": "",
+        "image_tags": "",
+        "docs_only": "false",
+    }
 
-    if event in ("push", "workflow_dispatch") and ref == "refs/heads/main":
+    if changes.docs_only():
+        print("::notice::Only documentation changed: no tests, image or beta. pages.yml builds the docs.")
+        result["docs_only"] = "true"
+
+    elif event in ("push", "workflow_dispatch") and ref == "refs/heads/main":
         tag = f"v{version}"
         if tag in existing:
             print(f"::notice::{tag} is already released; nothing to publish. Bump the version to release.")

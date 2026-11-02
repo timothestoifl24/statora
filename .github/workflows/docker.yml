@@ -8,6 +8,9 @@ name: Container image
 #   cancelled) and posts a new comment on how to pull it. pr-image-cleanup.yml deletes the image
 #   when the pull request is merged or closed.
 # Other pull requests (forks, into main): build and smoke test only.
+# Documentation-only changes on develop and in pull requests (not into main) skip the smoke test,
+#   the build and any image or beta; pages.yml covers them. The build matrix still starts and skips
+#   its steps, so checks such as "Build linux/amd64" report under their real names.
 # See .github/scripts/release_version.py for the rules.
 on:
   push:
@@ -38,6 +41,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       image_tags: ${{ steps.version.outputs.image_tags }}
+      docs_only: ${{ steps.version.outputs.docs_only }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -47,6 +51,9 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          # What changed: the whole pull request, or everything this push brought.
+          CHANGES_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CHANGES_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: python3 .github/scripts/release_version.py
       - name: Summary
         env:
@@ -54,10 +61,12 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           PUBLISH: ${{ steps.version.outputs.publish }}
           IMAGE_TAGS: ${{ steps.version.outputs.image_tags }}
+          DOCS_ONLY: ${{ steps.version.outputs.docs_only }}
         run: |
           {
             echo "### ${CHANNEL}: ${VERSION}"
             echo "Publish: ${PUBLISH}"
+            if [ "$DOCS_ONLY" = "true" ]; then echo; echo "Only documentation changed: smoke test and build are skipped."; fi
             echo
             for t in $IMAGE_TAGS; do echo "- \`$t\`"; done
           } >> "$GITHUB_STEP_SUMMARY"
@@ -87,6 +96,7 @@ jobs:
   smoke-test:
     name: Smoke test
     needs: version
+    if: needs.version.outputs.docs_only != 'true'
     runs-on: ubuntu-24.04
     services:
       postgres:
@@ -135,8 +145,12 @@ jobs:
 
   build:
     name: Build ${{ matrix.platform }}
-    # Only images that passed the smoke test are published.
+    # Only images that passed the smoke test are published. Runs (and skips its steps) when only
+    # documentation changed and the smoke test was skipped.
     needs: [version, smoke-test]
+    if: >-
+      !cancelled() && needs.version.result == 'success'
+      && (needs.smoke-test.result == 'success' || needs.version.outputs.docs_only == 'true')
     strategy:
       fail-fast: true
       matrix:
@@ -151,15 +165,21 @@ jobs:
       contents: read
     env:
       PUBLISH: ${{ needs.version.outputs.publish }}
+      # A skipped matrix job reports as "Build ${{ matrix.platform }}"; skipping the steps keeps
+      # the real check names.
+      SKIP: ${{ needs.version.outputs.docs_only }}
     steps:
       - name: Platform slug
+        if: env.SKIP != 'true'
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v7
+        if: env.SKIP != 'true'
 
       - name: Image labels
+        if: env.SKIP != 'true'
         id: meta
         uses: docker/metadata-action@v6
         with:
@@ -171,6 +191,7 @@ jobs:
             org.opencontainers.image.version=${{ needs.version.outputs.version }}
 
       - uses: docker/setup-buildx-action@v4
+        if: env.SKIP != 'true'
 
       - name: Log in to Docker Hub
         if: env.PUBLISH == 'true'
@@ -180,6 +201,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build (and push by digest)
+        if: env.SKIP != 'true'
         id: build
         uses: docker/build-push-action@v7
         with:
