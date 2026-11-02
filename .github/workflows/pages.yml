@@ -10,11 +10,21 @@ on:
     paths:
       - "docs/**"
       - CHANGELOG.md # included in the website
+      - SECURITY.md # included in the website
+      - "src/**" # the OpenAPI spec published with the docs
+      - scripts/export_openapi.py
+      - pyproject.toml
+      - uv.lock
       - .github/workflows/pages.yml
   pull_request:
     paths:
       - "docs/**"
       - CHANGELOG.md # included in the website
+      - SECURITY.md # included in the website
+      - "src/**" # the OpenAPI spec published with the docs
+      - scripts/export_openapi.py
+      - pyproject.toml
+      - uv.lock
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -40,6 +50,14 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: docs/package-lock.json
+      - uses: astral-sh/setup-uv@v10.3.3  # setup-uv publishes exact version tags only
+        with:
+          python-version: "3.15"
+          enable-cache: true
+      - name: Export the OpenAPI spec
+        run: |
+          uv sync --frozen --no-dev
+          uv run --no-sync python scripts/export_openapi.py docs/public/openapi.json
       - run: npm ci
         working-directory: docs
       - run: npm run docs:build
@@ -69,6 +87,21 @@ jobs:
           cache-dependency-path: |
             production/docs/package-lock.json
             development/docs/package-lock.json
+      - uses: astral-sh/setup-uv@v10.3.3  # setup-uv publishes exact version tags only
+        with:
+          python-version: "3.15"
+          enable-cache: true
+          cache-dependency-glob: "*/uv.lock"
+
+      # Each channel publishes the REST API spec of its own branch. A branch from before the
+      # export script existed has no spec, and its docs don't link to one.
+      - name: Export the OpenAPI spec (main)
+        working-directory: production
+        run: |
+          if [ -f scripts/export_openapi.py ]; then
+            uv sync --frozen --no-dev
+            uv run --no-sync python scripts/export_openapi.py docs/public/openapi.json
+          fi
 
       - name: Build production (main)
         working-directory: production/docs
@@ -77,6 +110,14 @@ jobs:
         run: |
           npm ci
           npm run docs:build
+
+      - name: Export the OpenAPI spec (develop)
+        working-directory: development
+        run: |
+          if [ -f scripts/export_openapi.py ]; then
+            uv sync --frozen --no-dev
+            uv run --no-sync python scripts/export_openapi.py docs/public/openapi.json
+          fi
 
       - name: Build development (develop)
         working-directory: development/docs

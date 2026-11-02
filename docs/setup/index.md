@@ -1,31 +1,24 @@
-# Choose a setup method
+# Setup
 
 Statora is one container image, `docker.io/timothestoifl24/statora`, plus a PostgreSQL database and a Redis instance. How you run those three is up to you:
 
 | Method | Good for | Guide |
 |---|---|---|
-| **Docker Compose** | Most installations: one host, everything in one file | [Docker Compose](./docker-compose) |
-| **Docker** | Hosts where you manage containers by hand, or already have PostgreSQL | [Docker](./docker) |
+| **Docker / Podman** | Most installations: one host, with Compose or plain `docker run` | [Docker / Podman](./docker) |
 | **Kubernetes** | Clusters; several replicas behind an Ingress | [Kubernetes](./kubernetes) |
+
+<span id="what-happens-on-first-start"></span>Once it runs, the [initial setup](./initial-setup) walks you through the admin account, HTTPS, the first monitors and a status page.
 
 ## Requirements
 
-- **Container runtime:** Docker 24+ or Podman 4+ (with the Compose plugin for the Compose setup), or Kubernetes 1.27+.
+- **Container runtime:** Docker 24+ or Podman 4+ (with Compose for the Compose setup), or Kubernetes 1.27+.
 - **PostgreSQL 14 or newer.** The examples and CI use PostgreSQL 18.
 - **Redis 6 or newer.** The examples and CI use Redis 8.8. Redis only holds caches, locks and short-lived state, so it doesn't need persistence or backups.
 - **Resources:** about 200 MB of RAM for the app. A few hundred monitors fit comfortably on one small VM.
 - **Network:** outbound access to whatever you monitor. Ping checks need unprivileged ICMP; each guide shows how to allow it.
 
-## What happens on first start
+## Afterwards <span id="after-installing"></span>
 
-1. The app applies its database migrations. They are serialized, so several replicas can start at once.
-2. One replica becomes the scheduler leader and starts checking monitors.
-3. The web UI comes up on port `8000`.
-
-Then open the web UI: on the first visit it asks you to create the admin account, instead of showing the sign-in page. Do this before you expose Statora publicly, since whoever gets there first becomes the admin.
-
-## After installing
-
-- Put Statora behind HTTPS and set `STATORA_SECURE_COOKIES=true` and `STATORA_BASE_URL`; see [configuration](/reference/configuration).
-- Add [monitors](/guide/monitors), build a [status page](/guide/status-pages), and invite your team or connect [LDAP, OIDC or SAML](/guide/authentication).
-- Create an [API token](/guide/api) if you want to manage Statora from scripts or Terraform.
+- [Advanced config](./advanced-config): every environment variable, the command line and the health endpoint.
+- [Upgrading](./upgrading): image tags, release channels, version pinning and rollbacks.
+- [REST API](./api): manage Statora from scripts, with the OpenAPI spec to import into your API client.
