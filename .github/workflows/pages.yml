@@ -10,6 +10,7 @@ on:
     paths:
       - "docs/**"
       - CHANGELOG.md # included in the website
+      - SECURITY.md # included in the website
       - "src/**" # the OpenAPI spec published with the docs
       - scripts/export_openapi.py
       - pyproject.toml
@@ -19,6 +20,7 @@ on:
     paths:
       - "docs/**"
       - CHANGELOG.md # included in the website
+      - SECURITY.md # included in the website
       - "src/**" # the OpenAPI spec published with the docs
       - scripts/export_openapi.py
       - pyproject.toml
