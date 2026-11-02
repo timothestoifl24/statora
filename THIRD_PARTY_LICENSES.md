@@ -4,7 +4,7 @@ Statora is released under the [MIT License](LICENSE). It includes or depends on 
 
 ## Bundled with Statora
 
-These files are shipped inside the repository, the Python package and the container image (`src/statora/static/vendor/`, `branding/fonts/`). Their full license texts are in [`src/statora/static/vendor/licenses/`](src/statora/static/vendor/licenses/).
+These files are shipped inside the repository, the Python package and the container image (`src/statora/static/vendor/`, `assets/fonts/`). Their full license texts are in [`src/statora/static/vendor/licenses/`](src/statora/static/vendor/licenses/).
 
 | Component | Version | License | Files | Upstream |
 |---|---|---|---|---|
@@ -16,7 +16,7 @@ These files are shipped inside the repository, the Python package and the contai
 | ApexCharts | 3.54.1 | MIT | `apexcharts.min.js` | https://github.com/apexcharts/apexcharts.js |
 | Swagger UI | 5.17.14 | Apache-2.0 (with NOTICE) | `swagger-ui-bundle.js`, `swagger-ui.css` | https://github.com/swagger-api/swagger-ui |
 | ReDoc | 2.1.5 | MIT | `redoc.standalone.js` | https://github.com/Redocly/redoc |
-| Manrope (logo wordmark source) | variable | OFL-1.1 | `branding/fonts/Manrope-Variable.ttf` ([license](branding/fonts/OFL.txt)) | https://github.com/sharanda/manrope |
+| Manrope (logo wordmark source) | variable | OFL-1.1 | `assets/fonts/Manrope-Variable.ttf` ([license](assets/fonts/OFL.txt)) | https://github.com/sharanda/manrope |
 
 The Statora logo is converted to outlines, so no font file is needed to display it.
 

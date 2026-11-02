@@ -1,8 +1,8 @@
 """Generate the Statora brand assets: SVG sources, PNG/ICO exports and the web icon set.
 
-    uv run --no-project --with resvg-py --with pillow --with fonttools --with uharfbuzz python branding/make_brand.py
+    uv run --no-project --with resvg-py --with pillow --with fonttools --with uharfbuzz python assets/make_brand.py
 
-Writes everything to branding/ and copies the files the app serves to src/statora/static/brand/.
+Writes everything to assets/ and copies the files the app serves to src/statora/static/brand/.
 """
 
 import io
@@ -145,6 +145,58 @@ def og_image(logo_svg_inner: str) -> str:
 """
 
 
+def social_preview() -> str:
+    """GitHub social preview (1280x640): light card, centred, everything inside a 40 px margin."""
+    title, _ = wordmark_path("Statora", 84)
+    _, title_w = wordmark_path("Statora", 84)
+    lines = [
+        ("Self-hosted uptime monitoring", 394),
+        ("with public status pages for your users.", 438),
+    ]
+    body = ""
+    for text, y in lines:
+        path, w = wordmark_path(text, 31, weight=500, tracking=0)
+        body += f'  <path transform="translate({(1280 - w) / 2:.1f} {y})" fill="#475569" d="{path}"/>\n'
+
+    chip, chip_w = wordmark_path("All systems operational", 24, weight=700, tracking=0)
+    dot_r, pad, gap = 8, 26, 14
+    pill_w = pad + dot_r * 2 + gap + chip_w + pad
+    pill_x = (1280 - pill_w) / 2
+    feat, feat_w = wordmark_path("Docker · PostgreSQL · Redis", 24, weight=600, tracking=0)
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="Statora: self-hosted uptime monitoring with public status pages">
+  <!-- GitHub social preview. 1280x640 is what GitHub renders best; the card gets cropped to other
+       aspect ratios when unfurled, so everything meaningful stays inside a 40 px margin. -->
+  <defs>{GRADIENT}
+    <linearGradient id="bar" x1="0" y1="0" x2="1280" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="{TEAL}"/><stop offset="1" stop-color="{BLUE}"/>
+    </linearGradient>
+    <linearGradient id="t" x1="0" y1="0" x2="{title_w:.1f}" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="{TEAL}"/><stop offset="1" stop-color="{BLUE}"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="#ffffff"/>
+  <!-- Brand bar along the bottom survives cropping better than a full-bleed background. -->
+  <rect y="624" width="1280" height="16" fill="url(#bar)"/>
+  <rect y="624" width="160" height="16" fill="{LIVE}"/>
+
+  <g transform="translate(576 76) scale(2)">
+    <rect width="64" height="64" rx="15" fill="url(#g)"/>
+    {mark_group("#fff", "#fff", "url(#g)")}
+  </g>
+
+  <path transform="translate({(1280 - title_w) / 2:.1f} 332)" fill="url(#t)" d="{title}"/>
+{body}
+  <!-- A status chip: the one thing a status page says, and a nod to the live dot in the mark. -->
+  <rect x="{pill_x:.1f}" y="476" width="{pill_w:.1f}" height="52" rx="26" fill="#ECFDF5" stroke="#BBF0D6" stroke-width="2"/>
+  <circle cx="{pill_x + pad + dot_r:.1f}" cy="502" r="{dot_r + 5}" fill="{LIVE}" opacity=".25"/>
+  <circle cx="{pill_x + pad + dot_r:.1f}" cy="502" r="{dot_r}" fill="{LIVE}"/>
+  <path transform="translate({pill_x + pad + dot_r * 2 + gap:.1f} 510)" fill="{NAVY}" d="{chip}"/>
+
+  <path transform="translate({(1280 - feat_w) / 2:.1f} 580)" fill="{BLUE}" d="{feat}"/>
+</svg>
+"""
+
+
 def render(svg: str, width: int, height: int | None = None) -> Image.Image:
     png = resvg_py.svg_to_bytes(svg_string=svg, width=width, height=height or width)
     return Image.open(io.BytesIO(bytes(png))).convert("RGBA")
@@ -165,6 +217,7 @@ def main() -> None:
         "statora-logo-auto.svg": adaptive_logo(),
         "statora-logo-gradient.svg": gradient_logo(),
         "statora-og.svg": og_image(""),
+        "social-preview.svg": social_preview(),
     }
     for name, svg in files.items():
         (OUT / name).write_text(svg)
@@ -187,6 +240,7 @@ def main() -> None:
         h = 128
         render(svg, round(vb_w * h / 64), h).save(OUT / "png" / f"{name}@2x.png")
     render(files["statora-og.svg"], 1200, 630).convert("RGB").save(OUT / "png" / "og-image.png")
+    render(files["social-preview.svg"], 1280, 640).convert("RGB").save(OUT / "png" / "social-preview.png")
     write_web_assets(files)
     print("written to", OUT, "and", WEB)
 
