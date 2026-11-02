@@ -108,6 +108,19 @@ def adaptive_logo() -> str:
     return horizontal_logo(NAVY, style=style)
 
 
+def gradient_logo() -> str:
+    # Teal-to-blue wordmark, like the docs hero, legible on light and dark backgrounds alike. For
+    # places that ignore the viewer's theme, e.g. GitHub, whose own theme switch doesn't reach
+    # the README's <picture> or an SVG's prefers-color-scheme. The gradient's coordinates are in
+    # the wordmark's own (translated) space, so it spans exactly the text.
+    _, width = wordmark_path("Statora", 46)
+    style = f"""
+  <linearGradient id="w" x1="0" y1="0" x2="{width:.1f}" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="{TEAL}"/><stop offset="1" stop-color="{BLUE}"/>
+    </linearGradient>"""
+    return horizontal_logo("url(#w)", style=style)
+
+
 def og_image(logo_svg_inner: str) -> str:
     path, width = wordmark_path("Statora", 120)
     tag, tag_w = wordmark_path("Uptime monitoring & status pages", 40, weight=600, tracking=0)
@@ -150,6 +163,7 @@ def main() -> None:
         "statora-logo.svg": horizontal_logo(NAVY),
         "statora-logo-dark.svg": horizontal_logo("#ffffff"),
         "statora-logo-auto.svg": adaptive_logo(),
+        "statora-logo-gradient.svg": gradient_logo(),
         "statora-og.svg": og_image(""),
     }
     for name, svg in files.items():

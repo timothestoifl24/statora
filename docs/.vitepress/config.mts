@@ -36,6 +36,18 @@ export default defineConfig({
     ['meta', { property: 'og:site_name', content: 'Statora' }],
     ['meta', { property: 'og:image', content: `${site}/brand/og-image.png` }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    // Ko-fi "Support me" button, in the brand blue. It draws into <body>, so wait for the page to load.
+    ['script', { src: 'https://storage.ko-fi.com/cdn/scripts/overlay-widget.js', defer: '' }],
+    [
+      'script',
+      {},
+      `window.addEventListener('load', () => kofiWidgetOverlay.draw('timothestoifl24', {
+        'type': 'floating-chat',
+        'floating-chat.donateButton.text': 'Support me',
+        'floating-chat.donateButton.background-color': '#1f6feb',
+        'floating-chat.donateButton.text-color': '#fff'
+      }))`,
+    ],
     ...devHead,
   ],
 
@@ -49,17 +61,25 @@ export default defineConfig({
       { text: 'Screenshots', link: '/screenshots' },
       {
         text: 'Reference',
-        activeMatch: '/reference/',
+        activeMatch: '/reference/(?!changelog|images)',
         items: [
           { text: 'Configuration', link: '/reference/configuration' },
           { text: 'REST API', link: '/reference/api' },
           { text: 'Upgrading', link: '/reference/upgrading' },
           { text: 'FAQ', link: '/reference/faq' },
           { text: 'Development', link: '/reference/development' },
-          { text: 'Changelog', link: '/reference/changelog' },
-          { text: 'Container images', link: '/reference/images' },
           { text: 'Contributing', link: 'https://github.com/timothestoifl24/statora/blob/main/CONTRIBUTING.md' },
           { text: 'Security policy', link: 'https://github.com/timothestoifl24/statora/blob/main/SECURITY.md' },
+        ],
+      },
+      {
+        text: 'Releases',
+        activeMatch: '/reference/(changelog|images)',
+        items: [
+          { text: 'Changelog', link: '/reference/changelog' },
+          { text: 'All releases', link: `${repo}/releases` },
+          { text: 'Container images', link: '/reference/images' },
+          { text: 'Docker Hub', link: 'https://hub.docker.com/r/timothestoifl24/statora' },
         ],
       },
     ],
