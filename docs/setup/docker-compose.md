@@ -133,6 +133,8 @@ services:
 
 When a proxy is in front, you can stop publishing the port to all interfaces. Set `STATORA_HTTP_PORT=127.0.0.1:8000`, or remove `ports:` and put the proxy on the same Docker network.
 
+Statora only trusts `X-Forwarded-*` headers from loopback and private addresses, which covers a proxy on the same host or Docker network. A proxy or load balancer that connects from a public address must be added to `FORWARDED_ALLOW_IPS`, or every request will appear to come from it and share one login rate limit. Never set it to `*`: anyone could then choose the address the login rate limit counts against.
+
 ## Backups
 
 Everything worth keeping is in PostgreSQL:

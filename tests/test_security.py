@@ -3,6 +3,7 @@
 from html.parser import HTMLParser
 from pathlib import Path
 
+import httpx
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
@@ -274,3 +275,45 @@ def test_inline_code_finder_allows_external_scripts_only():
     assert not finder.problems
     finder.feed('<script type="application/json" id="d">{"a": 1}</script>')
     assert finder.problems  # data blocks would vanish on htmx swaps
+
+
+async def _proxied_logins(app, peer: str, forwarded_for: list[str]) -> list[int]:
+    """Failed logins through uvicorn's proxy-header handling as `statora serve` configures it."""
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    from statora.cli import TRUSTED_PROXIES
+
+    from .test_ui import csrf_from
+
+    proxied = ProxyHeadersMiddleware(app, trusted_hosts=TRUSTED_PROXIES)
+    transport = httpx.ASGITransport(app=proxied, client=(peer, 40000))
+    statuses = []
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        for n, header in enumerate(forwarded_for):
+            page = await client.get("/login")
+            response = await client.post(
+                "/login",
+                data={"username": f"nobody{n}", "password": "wrong", "csrf_token": csrf_from(page.text)},
+                headers={"X-Forwarded-For": header},
+            )
+            statuses.append(response.status_code)
+    return statuses
+
+
+@needs_services
+async def test_login_rate_limit_ignores_forwarded_for_from_public_peers(app):
+    await make_user("admin", UserRole.ADMIN)
+    spoofed = [f"198.51.100.{n}" for n in range(12)]
+    statuses = await _proxied_logins(app, "203.0.113.5", spoofed)
+    assert statuses[:10] == [401] * 10 and statuses[10:] == [429, 429]
+
+
+@needs_services
+async def test_login_rate_limit_uses_client_address_from_trusted_proxy(app):
+    await make_user("admin", UserRole.ADMIN)
+    # A proxy appends the real address; whatever the client put in front of it is ignored.
+    spoofed = [f"198.51.100.{n}, 203.0.113.5" for n in range(12)]
+    statuses = await _proxied_logins(app, "172.18.0.2", spoofed)
+    assert statuses[:10] == [401] * 10 and statuses[10:] == [429, 429]
+    # Other clients behind the same proxy keep their own budget.
+    assert await _proxied_logins(app, "172.18.0.2", ["203.0.113.6"]) == [401]

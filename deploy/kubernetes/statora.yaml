@@ -52,9 +52,6 @@ spec:
                 name: statora-config
             - secretRef:
                 name: statora-secrets
-          env:
-            - name: FORWARDED_ALLOW_IPS
-              value: "*"
           readinessProbe:
             httpGet:
               path: /healthz

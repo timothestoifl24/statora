@@ -19,7 +19,7 @@ Statora is configured with environment variables, all prefixed with `STATORA_`. 
 | `STATORA_DISABLE_LOCAL_LOGIN` | `false` | Hide password login for everyone except local admins, for SSO-only setups. |
 | `STATORA_LOGIN_RATE_LIMIT` | `10` | Login attempts allowed per IP address and per username… |
 | `STATORA_LOGIN_RATE_WINDOW` | `300` | …within this many seconds. |
-| `FORWARDED_ALLOW_IPS` | `*` in the image | Proxies whose `X-Forwarded-*` headers are trusted. |
+| `FORWARDED_ALLOW_IPS` | loopback and private networks | Comma-separated addresses or CIDR ranges of reverse proxies whose `X-Forwarded-*` headers are trusted. Add your proxy or load balancer if it connects from a public address. Never set it to `*`: anyone could then pick the address the login rate limit counts against. |
 
 Compose-only variables, read by `docker-compose.yml` and not by the app:
 
