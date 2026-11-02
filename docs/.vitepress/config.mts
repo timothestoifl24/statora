@@ -12,6 +12,15 @@ const devHead: HeadConfig[] = dev
       ['style', {}, ':root { --vp-layout-top-height: 40px; }'],
     ]
   : []
+const movedPages = [
+  'setup/docker-compose',
+  'reference/configuration',
+  'reference/upgrading',
+  'reference/api',
+  'reference/images',
+  'reference/faq',
+  'reference/development',
+]
 const description =
   'Self-hosted uptime monitoring and status pages: HTTP, TCP, ping, DNS and SQL checks, service groups, incidents, maintenance and SSO in one container.'
 
@@ -23,7 +32,11 @@ export default defineConfig({
   description,
   cleanUrls: true,
   lastUpdated: true,
-  sitemap: { hostname: `${site}${base}` },
+  sitemap: {
+    hostname: `${site}${base}`,
+    // These pages only forward their old URLs to where the content moved.
+    transformItems: (items) => items.filter((item) => !movedPages.includes(item.url)),
+  },
   // Setup guides point readers at their own http://localhost:8000; every other link is checked.
   ignoreDeadLinks: 'localhostLinks',
 
@@ -57,91 +70,104 @@ export default defineConfig({
 
     nav: [
       { text: 'Guide', link: '/guide/', activeMatch: '/guide/' },
-      { text: 'Setup', link: '/setup/', activeMatch: '/setup/' },
       { text: 'Screenshots', link: '/screenshots' },
       {
-        text: 'Reference',
-        activeMatch: '/reference/(?!changelog|images)',
+        text: 'Setup',
+        activeMatch: '/setup/',
         items: [
-          { text: 'Configuration', link: '/reference/configuration' },
-          { text: 'REST API', link: '/reference/api' },
-          { text: 'Upgrading', link: '/reference/upgrading' },
-          { text: 'FAQ', link: '/reference/faq' },
-          { text: 'Development', link: '/reference/development' },
-          { text: 'Contributing', link: 'https://github.com/timothestoifl24/statora/blob/main/CONTRIBUTING.md' },
-          { text: 'Security policy', link: 'https://github.com/timothestoifl24/statora/blob/main/SECURITY.md' },
+          {
+            text: 'Deploy',
+            items: [
+              { text: 'Docker / Podman', link: '/setup/docker' },
+              { text: 'Kubernetes', link: '/setup/kubernetes' },
+              { text: 'Initial setup', link: '/setup/initial-setup' },
+            ],
+          },
+          {
+            items: [
+              { text: 'Advanced config', link: '/setup/advanced-config' },
+              { text: 'Upgrading', link: '/setup/upgrading' },
+              { text: 'REST API', link: '/setup/api' },
+            ],
+          },
         ],
       },
       {
-        text: 'Releases',
-        activeMatch: '/reference/(changelog|images)',
+        text: 'Reference',
+        activeMatch: '/reference/',
         items: [
+          { text: 'Contributing', link: '/reference/contributing' },
+          { text: 'Security policy', link: '/reference/security' },
           { text: 'Changelog', link: '/reference/changelog' },
-          { text: 'All releases', link: `${repo}/releases` },
-          { text: 'Container images', link: '/reference/images' },
-          { text: 'Docker Hub', link: 'https://hub.docker.com/r/timothestoifl24/statora' },
+          { text: 'Releases', link: '/reference/releases' },
         ],
       },
+      { text: 'FAQ', link: '/faq' },
     ],
 
-    sidebar: {
-      '/guide/': [
-        {
-          text: 'Guide',
-          items: [
-            { text: 'Overview', link: '/guide/' },
-            { text: 'Monitors', link: '/guide/monitors' },
-            { text: 'Groups', link: '/guide/groups' },
-            { text: 'Status pages', link: '/guide/status-pages' },
-            { text: 'Incidents & maintenance', link: '/guide/incidents' },
-            { text: 'Users & sign-in', link: '/guide/authentication' },
-            { text: 'API & automation', link: '/guide/api' },
-          ],
-        },
-      ],
-      '/setup/': [
-        {
-          text: 'Setup',
-          items: [
-            { text: 'Choose a method', link: '/setup/' },
-            { text: 'Docker', link: '/setup/docker' },
-            { text: 'Docker Compose', link: '/setup/docker-compose' },
-            { text: 'Kubernetes', link: '/setup/kubernetes' },
-          ],
-        },
-        {
-          text: 'Next steps',
-          items: [
-            { text: 'Configuration', link: '/reference/configuration' },
-            { text: 'Upgrading', link: '/reference/upgrading' },
-          ],
-        },
-      ],
-      '/reference/': [
-        {
-          text: 'Reference',
-          items: [
-            { text: 'Configuration', link: '/reference/configuration' },
-            { text: 'REST API', link: '/reference/api' },
-            { text: 'Upgrading', link: '/reference/upgrading' },
-            { text: 'FAQ', link: '/reference/faq' },
-            { text: 'Development', link: '/reference/development' },
-            { text: 'Changelog', link: '/reference/changelog' },
-            { text: 'Container images', link: '/reference/images' },
-          ],
-        },
-        {
-          text: 'Project',
-          items: [
-            { text: 'Contributing', link: 'https://github.com/timothestoifl24/statora/blob/main/CONTRIBUTING.md' },
-            { text: 'Security policy', link: 'https://github.com/timothestoifl24/statora/blob/main/SECURITY.md' },
-            { text: 'License (MIT)', link: 'https://github.com/timothestoifl24/statora/blob/main/LICENSE' },
-          ],
-        },
-      ],
-    },
+    // One sidebar for the whole site, in the same order as the top navigation.
+    sidebar: [
+      {
+        text: 'Getting started',
+        items: [
+          { text: 'Overview', link: '/' },
+          {
+            text: 'Guide',
+            link: '/guide/',
+            collapsed: true,
+            items: [
+              { text: 'Monitors', link: '/guide/monitors' },
+              { text: 'Groups', link: '/guide/groups' },
+              { text: 'Status pages', link: '/guide/status-pages' },
+              { text: 'Incidents & maintenance', link: '/guide/incidents' },
+              { text: 'Users & sign-in', link: '/guide/authentication' },
+              { text: 'API & automation', link: '/guide/api' },
+            ],
+          },
+          { text: 'Screenshots', link: '/screenshots' },
+        ],
+      },
+      {
+        text: 'Setup',
+        link: '/setup/',
+        items: [
+          {
+            text: 'Deploy',
+            collapsed: false,
+            items: [
+              { text: 'Docker / Podman', link: '/setup/docker' },
+              { text: 'Kubernetes', link: '/setup/kubernetes' },
+              { text: 'Initial setup', link: '/setup/initial-setup' },
+            ],
+          },
+          { text: 'Advanced config', link: '/setup/advanced-config' },
+          { text: 'Upgrading', link: '/setup/upgrading' },
+          { text: 'REST API', link: '/setup/api' },
+        ],
+      },
+      {
+        text: 'Reference',
+        items: [
+          { text: 'Contributing', link: '/reference/contributing' },
+          { text: 'Security policy', link: '/reference/security' },
+          { text: 'Changelog', link: '/reference/changelog' },
+          { text: 'Releases', link: '/reference/releases' },
+        ],
+      },
+      { text: 'FAQ', link: '/faq' },
+    ],
 
-    socialLinks: [{ icon: 'github', link: repo }],
+    // Between the appearance switch and GitHub. Font Awesome's "docker" brand icon (CC BY 4.0).
+    socialLinks: [
+      {
+        icon: {
+          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path fill="currentColor" d="M349.9 236.3h-66.1v-59.4h66.1v59.4zm0-204.3h-66.1v60.7h66.1V32zm78.2 144.8H362v59.4h66.1v-59.4zm-156.3-72.1h-66.1v60.1h66.1v-60.1zm78.1 0h-66.1v60.1h66.1v-60.1zm276.8 100c-14.4-9.7-47.6-13.2-73.1-8.4-3.3-24-16.7-44.9-41.1-63.7l-14-9.3-9.3 14c-18.4 27.8-23.4 73.6-3.7 103.8-8.7 4.7-25.8 11.1-48.4 10.7H2.4c-8.7 50.8 5.8 116.8 44 162.1 37.1 43.9 92.7 66.2 165.4 66.2 157.4 0 273.9-72.5 328.4-204.2 21.4.4 67.6.1 91.3-45.2 1.5-2.5 6.6-13.2 8.5-17.1l-13.3-8.9zm-511.1-27.9h-66v59.4h66.1v-59.4zm78.1 0h-66.1v59.4h66.1v-59.4zm78.1 0h-66.1v59.4h66.1v-59.4zm-78.1-72.1h-66.1v60.1h66.1v-60.1z"/></svg>',
+        },
+        link: 'https://hub.docker.com/r/timothestoifl24/statora',
+        ariaLabel: 'Docker Hub',
+      },
+      { icon: 'github', link: repo },
+    ],
     search: { provider: 'local' },
     editLink: { pattern: `${repo}/edit/develop/docs/:path`, text: 'Edit this page on GitHub' },
     outline: { level: [2, 3] },

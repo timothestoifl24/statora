@@ -241,7 +241,7 @@ async def test_auth_provider_api_hides_secrets(client, auth):
 
 
 @pytest.mark.usefixtures("services")
-async def test_openapi_is_valid_and_terraform_friendly(app):
+async def test_openapi_is_valid_and_client_friendly(app):
     spec = app.openapi()
     validate(spec)
     operation_ids = []

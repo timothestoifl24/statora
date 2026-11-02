@@ -58,7 +58,7 @@ On Python 3.15, SAML's `xmlsec` is compiled from source and needs system librari
 
 - **Code:** match the style of the surrounding code; Ruff enforces formatting and lint rules. Prefer clear names over comments, and comment the *why*, not the *what*.
 - **Database changes:** create a migration with `uv run alembic revision --autogenerate -m "describe the change"` and check what it generated. Never edit a migration that has been released.
-- **REST API:** keep existing paths, fields and operation IDs stable; automation and the Terraform workflow depend on them. Additive changes are fine; breaking ones need discussion first.
+- **REST API:** keep existing paths, fields and operation IDs stable; scripts and API clients depend on them. Additive changes are fine; breaking ones need discussion first.
 - **Templates and front end:** no build step; plain Jinja2, HTMX and small vanilla JavaScript. New static assets go through `asset()` so browsers pick up changes.
 - **Commit messages:** a short summary in the imperative mood ("Add DNS-over-HTTPS monitor"), with a body explaining *why* when it isn't obvious.
 
