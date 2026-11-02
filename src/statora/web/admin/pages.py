@@ -46,6 +46,7 @@ SETTINGS_DEFAULTS = {
     "published": True,
     "is_default": False,
     "show_powered_by": True,
+    "show_title": True,
     "history_resolution": HistoryResolution.DAY,
 }
 
@@ -68,6 +69,7 @@ def _settings_from_form(form) -> dict:
         "published": checkbox(form, "published"),
         "is_default": checkbox(form, "is_default"),
         "show_powered_by": checkbox(form, "show_powered_by"),
+        "show_title": checkbox(form, "show_title"),
         "history_resolution": form.get("history_resolution") or HistoryResolution.DAY,
     }
 

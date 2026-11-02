@@ -59,6 +59,10 @@ class StatusPageBase(BaseModel):
     published: bool = True
     is_default: bool = False
     show_powered_by: bool = Field(default=True, description='Show "Powered by Statora" in the page footer')
+    show_title: bool = Field(
+        default=True,
+        description="Show the page title under the logo. Without a logo the title is always shown",
+    )
     history_resolution: HistoryResolution = Field(
         default=HistoryResolution.DAY,
         description="Uptime bars per minute (last 2 hours), per hour (last 5 days) or per day (last 120 days)",
@@ -82,6 +86,8 @@ class StatusPageUpdate(BaseModel):
     published: bool | None = None
     is_default: bool | None = None
     show_powered_by: bool | None = None
+    # Omit to leave unchanged; null is refused (the column can't be empty).
+    show_title: bool = Field(default=None, description="Show the page title under the logo")
     history_resolution: HistoryResolution | None = None
     groups: list[StatusPageGroupIn] | None = Field(
         default=None, description="When given, replaces all groups and their items"

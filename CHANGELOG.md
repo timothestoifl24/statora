@@ -17,6 +17,7 @@ Changes collect under the upcoming version while it's being developed, and you c
 - **Monitor icons and links:** give a monitor an icon (pick one of the bundled Font Awesome icons, including brand logos, or upload or link your own image) and a link to the app behind it. Status pages show the icon and link the component name to the app; the monitor list and tiles show them too. New `icon` and `link_url` fields in the monitor API.
 - **Status page favicon:** each status page can have its own browser-tab icon, uploaded or as a URL (`favicon` in the API).
 - **Image uploads:** `POST /api/v1/media` stores a PNG, JPEG, WebP, GIF, ICO or SVG image (up to 256 KB) in the database and returns a `media:` reference for `favicon` and `icon`. Uploaded SVGs must not contain scripts and are served sandboxed.
+- **Page name under the logo:** on a status page with a logo, the page name now sits under the logo. A new setting (`show_title` in the API) hides it when the logo already names the page.
 
 ### Changed
 

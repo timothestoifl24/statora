@@ -22,6 +22,7 @@ Status pages are public, need no login, and are built under **Status pages** in 
 - **Favicon**: the browser-tab icon of this page. Upload a PNG, SVG, ICO, WebP, GIF or JPEG (up to 256 KB) or paste an https URL. Uploads are cleaned the same way as monitor icons. Without one, the page uses the Statora icon.
 - **Published**: unpublished pages return 404.
 - **Default page**: served at `/` as well.
+- **Page name under the logo**: with a logo, the page name sits under it. Switch this off when the logo already names the page; the name then stays in the browser tab and for screen readers. Without a logo the name is always shown. In the API this is `show_title`.
 - **Show "Powered by Statora"**: on by default; switch it off for a fully white-label page.
 
 The **View status page** button at the top of the editor opens the live page.

@@ -196,6 +196,33 @@ async def test_powered_by_toggle_and_theme_switch(client, auth):
     assert "Powered by Statora" not in hidden.text
 
 
+async def test_logo_puts_the_page_name_under_it(client, auth):
+    page = (
+        await client.post("/api/v1/status-pages", json={"slug": "logo", "title": "Acme Status"}, headers=auth)
+    ).json()
+    plain = (await client.get("/s/logo")).text
+    assert '<div class="brand"><h1>Acme Status</h1></div>' in plain
+
+    logo = "https://cdn.example/logo.svg"
+    await client.patch(f"/api/v1/status-pages/{page['id']}", json={"logo_url": logo}, headers=auth)
+    both = (await client.get("/s/logo")).text
+    assert 'class="brand brand-logo"' in both and '<h1 class="page-title">Acme Status</h1>' in both
+
+    await client.patch(f"/api/v1/status-pages/{page['id']}", json={"show_title": False}, headers=auth)
+    logo_only = (await client.get("/s/logo")).text
+    # The name stays for screen readers and becomes the logo's alt text.
+    assert '<h1 class="visually-hidden">Acme Status</h1>' in logo_only and 'alt="Acme Status"' in logo_only
+
+    refused = await client.patch(
+        f"/api/v1/status-pages/{page['id']}", json={"show_title": None}, headers=auth
+    )
+    assert refused.status_code == 422
+
+    # Without a logo the name is always shown, whatever the setting says.
+    await client.patch(f"/api/v1/status-pages/{page['id']}", json={"logo_url": None}, headers=auth)
+    assert '<div class="brand"><h1>Acme Status</h1></div>' in (await client.get("/s/logo")).text
+
+
 async def test_page_editor_links_to_public_page_and_incident_details_edit(client, auth):
     await make_user("editor", UserRole.EDITOR)
     page = (
@@ -1135,3 +1162,19 @@ async def test_reset_admin_restores_a_missing_initial_admin(services):
     async with db.session_scope() as s:
         user = await s.get(User, viewer.id)
         assert user.is_initial_admin and user.role == UserRole.ADMIN and user.active
+
+
+async def test_summary_cached_before_show_title_keeps_the_name(client, auth):
+    from statora import cache
+
+    await client.post(
+        "/api/v1/status-pages",
+        json={"slug": "old-cache", "title": "Acme Status", "logo_url": "https://cdn.example/logo.svg"},
+        headers=auth,
+    )
+    await client.get("/s/old-cache")  # fills the cache
+    key = cache.page_key("old-cache")
+    summary = await cache.get_json(key)
+    del summary["page"]["show_title"]  # as written by the previous version
+    await cache.set_json(key, summary, 60)
+    assert '<h1 class="page-title">Acme Status</h1>' in (await client.get("/s/old-cache")).text
