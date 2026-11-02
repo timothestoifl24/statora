@@ -1,8 +1,10 @@
 """Security hardening: response headers, NUL bytes, URL validation, secret key, upload limits."""
 
+import re
 from html.parser import HTMLParser
 from pathlib import Path
 
+import httpx
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
@@ -274,3 +276,70 @@ def test_inline_code_finder_allows_external_scripts_only():
     assert not finder.problems
     finder.feed('<script type="application/json" id="d">{"a": 1}</script>')
     assert finder.problems  # data blocks would vanish on htmx swaps
+
+
+def _image_trusted_proxies() -> str:
+    dockerfile = (Path(__file__).resolve().parents[1] / "Dockerfile").read_text()
+    match = re.search(r'FORWARDED_ALLOW_IPS="([^"]*)"', dockerfile)
+    assert match, "Dockerfile doesn't set FORWARDED_ALLOW_IPS"
+    return match.group(1)
+
+
+@pytest.mark.parametrize(("env", "expected"), [(None, "127.0.0.1"), ("10.1.2.3", "10.1.2.3")])
+def test_server_trusts_forwarded_headers_from_configured_proxies_only(monkeypatch, env, expected):
+    import uvicorn
+
+    from statora.cli import _uvicorn
+
+    calls = []
+    monkeypatch.setattr(uvicorn, "run", lambda *args, **kw: calls.append(kw))
+    if env is None:
+        monkeypatch.delenv("FORWARDED_ALLOW_IPS", raising=False)
+    else:
+        monkeypatch.setenv("FORWARDED_ALLOW_IPS", env)
+    _uvicorn(reload=False, host="0.0.0.0", port=8000)
+    assert calls[0]["proxy_headers"] is True and calls[0]["forwarded_allow_ips"] == expected
+
+
+def test_image_never_trusts_every_proxy():
+    assert "*" not in _image_trusted_proxies()
+
+
+async def _proxied_logins(app, peer: str, forwarded_for: list[str]) -> list[int]:
+    """Failed logins through uvicorn's proxy-header handling as the image configures it."""
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    from .test_ui import csrf_from
+
+    proxied = ProxyHeadersMiddleware(app, trusted_hosts=_image_trusted_proxies())
+    transport = httpx.ASGITransport(app=proxied, client=(peer, 40000))
+    statuses = []
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        for n, header in enumerate(forwarded_for):
+            page = await client.get("/login")
+            response = await client.post(
+                "/login",
+                data={"username": f"nobody{n}", "password": "wrong", "csrf_token": csrf_from(page.text)},
+                headers={"X-Forwarded-For": header},
+            )
+            statuses.append(response.status_code)
+    return statuses
+
+
+@needs_services
+async def test_login_rate_limit_ignores_forwarded_for_from_public_peers(app):
+    await make_user("admin", UserRole.ADMIN)
+    spoofed = [f"198.51.100.{n}" for n in range(12)]
+    statuses = await _proxied_logins(app, "203.0.113.5", spoofed)
+    assert statuses[:10] == [401] * 10 and statuses[10:] == [429, 429]
+
+
+@needs_services
+async def test_login_rate_limit_uses_client_address_from_trusted_proxy(app):
+    await make_user("admin", UserRole.ADMIN)
+    # A proxy appends the real address; whatever the client put in front of it is ignored.
+    spoofed = [f"198.51.100.{n}, 203.0.113.5" for n in range(12)]
+    statuses = await _proxied_logins(app, "172.18.0.2", spoofed)
+    assert statuses[:10] == [401] * 10 and statuses[10:] == [429, 429]
+    # Other clients behind the same proxy keep their own budget.
+    assert await _proxied_logins(app, "172.18.0.2", ["203.0.113.6"]) == [401]

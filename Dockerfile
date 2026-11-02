@@ -57,12 +57,14 @@ COPY --from=build /app/.venv /app/.venv
 ARG STATORA_BUILD_VERSION=""
 LABEL org.opencontainers.image.version="${STATORA_BUILD_VERSION}"
 
+# FORWARDED_ALLOW_IPS: a reverse proxy reaches the container over a private network. Never use
+# "*": the login rate limit keys on the client address, which any peer could then choose.
 ENV PATH="/app/.venv/bin:$PATH" \
     STATORA_BUILD_VERSION="${STATORA_BUILD_VERSION}" \
     PYTHONUNBUFFERED=1 \
     STATORA_HOST=0.0.0.0 \
     STATORA_PORT=8000 \
-    FORWARDED_ALLOW_IPS="*"
+    FORWARDED_ALLOW_IPS="127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7"
 
 USER statora
 EXPOSE 8000
