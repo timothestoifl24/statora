@@ -240,7 +240,7 @@ def main() -> None:
         h = 128
         render(svg, round(vb_w * h / 64), h).save(OUT / "png" / f"{name}@2x.png")
     render(files["statora-og.svg"], 1200, 630).convert("RGB").save(OUT / "png" / "og-image.png")
-    render(files["social-preview.svg"], 1280, 640).convert("RGB").save(OUT / "png" / "social-preview.png")
+    render(files["social-preview.svg"], 1280, 640).convert("RGB").save(OUT / "social-preview.png")
     write_web_assets(files)
     print("written to", OUT, "and", WEB)
 
