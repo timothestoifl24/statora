@@ -22,6 +22,7 @@ The tile uses a teal-to-blue gradient.
 | `statora-logo.svg` | Primary horizontal logo, for light backgrounds |
 | `statora-logo-dark.svg` | Horizontal logo for dark backgrounds |
 | `statora-logo-auto.svg` | Horizontal logo that follows the viewer's light or dark colour scheme |
+| `statora-logo-gradient.svg` | Horizontal logo with a teal-to-blue wordmark that reads on light and dark backgrounds, for places that don't follow the viewer's theme (the GitHub README) |
 | `statora-icon.svg` | App icon (rounded tile), avatars, social profiles |
 | `statora-mark.svg` | Mark without the tile, for transparent or light surfaces |
 | `statora-favicon.svg` | Favicon variant with heavier strokes for 16–32 px |
