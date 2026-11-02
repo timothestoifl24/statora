@@ -22,7 +22,7 @@ STATORA_VERSION=1.1.1
 docker compose pull && docker compose up -d
 ```
 
-## Docker / Podman without Compose
+## Docker / Podman without Compose <span id="docker"></span>
 
 ```bash
 docker pull docker.io/timothestoifl24/statora:1.1.1

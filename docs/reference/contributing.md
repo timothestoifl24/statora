@@ -85,7 +85,7 @@ uv run statora dev           # http://localhost:8000, auto-reload
 
 `init --seed` creates six demo monitors, including one that is broken on purpose and goes down after its retries, and a demo page with a resolved incident and an upcoming maintenance window.
 
-## Running the tests
+## Running the tests <span id="tests-and-linting"></span>
 
 ```bash
 uv run pytest
@@ -162,7 +162,7 @@ Don't edit `CHANGELOG.md`: the maintainer writes it when releasing, from the pul
 - [ ] These docs are updated if you changed a setting, an endpoint or anything users see.
 - [ ] No secrets, `.env` or local database files are staged.
 
-## Describing your pull request
+## Describing your pull request <span id="branches"></span>
 
 Pull requests go to `develop`. The **title** says what changed, written for someone running Statora (`Fix ping monitors timing out on IPv6`, not `Update ping.py`). The **description** says what users will notice and why the change is needed.
 
@@ -195,7 +195,7 @@ By ticking it, you confirm that:
 2. your contribution is your own work, or you have the right to submit it, and any third-party code in it is identified together with its license;
 3. your contribution is licensed under the project's [MIT License](https://github.com/timothestoifl24/statora/blob/develop/LICENSE), the same license everyone else receives Statora under. You keep the copyright in your work.
 
-## Working on the documentation site
+## Working on the documentation site <span id="documentation-site"></span>
 
 This site is built with [VitePress](https://vitepress.dev/) from `docs/`. It's the only part of the repository that needs Node.
 

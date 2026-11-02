@@ -7,7 +7,7 @@ Statora is one container image, `docker.io/timothestoifl24/statora`, plus a Post
 | **Docker / Podman** | Most installations: one host, with Compose or plain `docker run` | [Docker / Podman](./docker) |
 | **Kubernetes** | Clusters; several replicas behind an Ingress | [Kubernetes](./kubernetes) |
 
-Once it runs, the [initial setup](./initial-setup) walks you through the admin account, HTTPS, the first monitors and a status page.
+<span id="what-happens-on-first-start"></span>Once it runs, the [initial setup](./initial-setup) walks you through the admin account, HTTPS, the first monitors and a status page.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ Once it runs, the [initial setup](./initial-setup) walks you through the admin a
 - **Resources:** about 200 MB of RAM for the app. A few hundred monitors fit comfortably on one small VM.
 - **Network:** outbound access to whatever you monitor. Ping checks need unprivileged ICMP; each guide shows how to allow it.
 
-## Afterwards
+## Afterwards <span id="after-installing"></span>
 
 - [Advanced config](./advanced-config): every environment variable, the command line and the health endpoint.
 - [Upgrading](./upgrading): image tags, release channels, version pinning and rollbacks.

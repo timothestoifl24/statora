@@ -56,7 +56,7 @@ podman compose ps
 
 :::
 
-Then continue with the [initial setup](./initial-setup): the first visit creates the admin account.
+<span id="_4-create-the-first-admin"></span>Then continue with the [initial setup](./initial-setup): the first visit creates the admin account.
 
 ### The compose file
 
@@ -145,7 +145,7 @@ curl -s http://localhost:8000/healthz
 # {"status":"ok","database":"ok","redis":"ok","scheduler":"leader"}
 ```
 
-Then continue with the [initial setup](./initial-setup).
+<span id="_4-first-admin"></span>Then continue with the [initial setup](./initial-setup).
 
 ## HTTPS with a reverse proxy
 
@@ -188,7 +188,7 @@ services:
 
 When a proxy is in front, you can stop publishing the port to all interfaces. Set `STATORA_HTTP_PORT=127.0.0.1:8000`, or remove `ports:` and put the proxy on the same network.
 
-## Podman notes
+## Podman notes <span id="podman"></span>
 
 - **Compose:** `podman compose` uses `podman-compose` or the Docker Compose plugin, whichever is installed. Both read the same file.
 - **Rootless ports:** rootless Podman can't publish ports below 1024, so keep 8000 and put a proxy in front.
