@@ -349,6 +349,8 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
             "accent_color": page.accent_color,
             "footer_html": render_markdown(page.footer_text or ""),
             "show_powered_by": page.show_powered_by,
+            # Without a logo that can be shown, the title is the only name on the page.
+            "show_title": page.show_title or not media.url(page.logo_url),
         },
         "overall": {"status": overall, "label": OVERALL_LABELS[overall]},
         "history": {"resolution": resolution, "span_label": window.span_label, "end_label": window.end_label},

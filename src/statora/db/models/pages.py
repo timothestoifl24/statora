@@ -25,6 +25,8 @@ class StatusPage(TimestampMixin, Base):
     # The page served at "/" when no slug is given.
     is_default: Mapped[bool] = mapped_column(default=False)
     show_powered_by: Mapped[bool] = mapped_column(default=True, server_default=true())
+    # With a logo, the page name can be left out of the header (the logo then names the page).
+    show_title: Mapped[bool] = mapped_column(default=True, server_default=true())
     # One uptime bar per minute (last 2 hours), hour (last 5 days) or day (last 120 days).
     history_resolution: Mapped[HistoryResolution] = mapped_column(
         String(8), default=HistoryResolution.DAY, server_default=HistoryResolution.DAY.value

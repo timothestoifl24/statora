@@ -196,6 +196,28 @@ async def test_powered_by_toggle_and_theme_switch(client, auth):
     assert "Powered by Statora" not in hidden.text
 
 
+async def test_logo_puts_the_page_name_under_it(client, auth):
+    page = (
+        await client.post("/api/v1/status-pages", json={"slug": "logo", "title": "Acme Status"}, headers=auth)
+    ).json()
+    plain = (await client.get("/s/logo")).text
+    assert '<div class="brand"><h1>Acme Status</h1></div>' in plain
+
+    logo = "https://cdn.example/logo.svg"
+    await client.patch(f"/api/v1/status-pages/{page['id']}", json={"logo_url": logo}, headers=auth)
+    both = (await client.get("/s/logo")).text
+    assert 'class="brand brand-logo"' in both and '<h1 class="page-title">Acme Status</h1>' in both
+
+    await client.patch(f"/api/v1/status-pages/{page['id']}", json={"show_title": False}, headers=auth)
+    logo_only = (await client.get("/s/logo")).text
+    # The name stays for screen readers and becomes the logo's alt text.
+    assert '<h1 class="visually-hidden">Acme Status</h1>' in logo_only and 'alt="Acme Status"' in logo_only
+
+    # Without a logo the name is always shown, whatever the setting says.
+    await client.patch(f"/api/v1/status-pages/{page['id']}", json={"logo_url": None}, headers=auth)
+    assert '<div class="brand"><h1>Acme Status</h1></div>' in (await client.get("/s/logo")).text
+
+
 async def test_page_editor_links_to_public_page_and_incident_details_edit(client, auth):
     await make_user("editor", UserRole.EDITOR)
     page = (

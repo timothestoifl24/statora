@@ -54,9 +54,13 @@ code, pre { font-family: var(--font-mono); font-size: .88em; }
 
 /* Header: logo and title on the left, theme toggle on the right. */
 .masthead { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 6px; }
-.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 auto; }
+/* With a logo, the page name sits under it. */
+.brand-logo { flex-direction: column; align-items: flex-start; gap: 8px; }
+.brand-logo .page-title { font-size: 1.25rem; }
 .masthead h1 { font-size: 1.5rem; font-weight: 650; margin: 0; letter-spacing: -0.02em; overflow-wrap: anywhere; }
-.logo { max-height: 40px; max-width: 160px; display: block; }
+.logo { height: 40px; width: auto; max-width: min(240px, 100%); object-fit: contain; object-position: left center; display: block; flex: none; }
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .intro { color: var(--muted); margin: 0 0 24px; }
 .intro p { margin: 0; }
 .masthead + #content { margin-top: 24px; }

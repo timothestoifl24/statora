@@ -59,6 +59,10 @@
       <input class="form-check-input" type="checkbox" name="show_powered_by" {{ 'checked' if values.show_powered_by }}>
       <span class="form-check-label">“Powered by Statora” footer</span>
     </label>
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" name="show_title" {{ 'checked' if values.show_title }}>
+      <span class="form-check-label">Page name under the logo</span>
+    </label>
   </div>
 </div>
 {% endblock %}

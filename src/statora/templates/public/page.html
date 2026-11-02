@@ -26,10 +26,14 @@
 <body>
   <main class="wrap">
     <header class="masthead">
-      <div class="brand">
-        {% if s.page.logo_url %}<img src="{{ s.page.logo_url }}" alt="" class="logo">{% endif %}
-        <h1>{{ s.page.title }}</h1>
+      {% if s.page.logo_url %}
+      <div class="brand brand-logo">
+        <img src="{{ s.page.logo_url }}" alt="{{ '' if s.page.show_title else s.page.title }}" class="logo">
+        <h1 class="{{ 'page-title' if s.page.show_title else 'visually-hidden' }}">{{ s.page.title }}</h1>
       </div>
+      {% else %}
+      <div class="brand"><h1>{{ s.page.title }}</h1></div>
+      {% endif %}
       <button type="button" class="theme-toggle" id="theme-toggle" hidden aria-label="Switch between light and dark mode" title="Switch light / dark mode">
         {{ svg('moon', 'icon-moon') }}{{ svg('sun', 'icon-sun') }}
       </button>
