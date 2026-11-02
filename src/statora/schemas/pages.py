@@ -86,7 +86,8 @@ class StatusPageUpdate(BaseModel):
     published: bool | None = None
     is_default: bool | None = None
     show_powered_by: bool | None = None
-    show_title: bool | None = None
+    # Omit to leave unchanged; null is refused (the column can't be empty).
+    show_title: bool = Field(default=None, description="Show the page title under the logo")
     history_resolution: HistoryResolution | None = None
     groups: list[StatusPageGroupIn] | None = Field(
         default=None, description="When given, replaces all groups and their items"
