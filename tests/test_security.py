@@ -1,5 +1,6 @@
 """Security hardening: response headers, NUL bytes, URL validation, secret key, upload limits."""
 
+import re
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -277,15 +278,40 @@ def test_inline_code_finder_allows_external_scripts_only():
     assert finder.problems  # data blocks would vanish on htmx swaps
 
 
-async def _proxied_logins(app, peer: str, forwarded_for: list[str]) -> list[int]:
-    """Failed logins through uvicorn's proxy-header handling as `statora serve` configures it."""
-    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+def _image_trusted_proxies() -> str:
+    dockerfile = (Path(__file__).resolve().parents[1] / "Dockerfile").read_text()
+    match = re.search(r'FORWARDED_ALLOW_IPS="([^"]*)"', dockerfile)
+    assert match, "Dockerfile doesn't set FORWARDED_ALLOW_IPS"
+    return match.group(1)
 
-    from statora.cli import TRUSTED_PROXIES
+
+@pytest.mark.parametrize(("env", "expected"), [(None, "127.0.0.1"), ("10.1.2.3", "10.1.2.3")])
+def test_server_trusts_forwarded_headers_from_configured_proxies_only(monkeypatch, env, expected):
+    import uvicorn
+
+    from statora.cli import _uvicorn
+
+    calls = []
+    monkeypatch.setattr(uvicorn, "run", lambda *args, **kw: calls.append(kw))
+    if env is None:
+        monkeypatch.delenv("FORWARDED_ALLOW_IPS", raising=False)
+    else:
+        monkeypatch.setenv("FORWARDED_ALLOW_IPS", env)
+    _uvicorn(reload=False, host="0.0.0.0", port=8000)
+    assert calls[0]["proxy_headers"] is True and calls[0]["forwarded_allow_ips"] == expected
+
+
+def test_image_never_trusts_every_proxy():
+    assert "*" not in _image_trusted_proxies()
+
+
+async def _proxied_logins(app, peer: str, forwarded_for: list[str]) -> list[int]:
+    """Failed logins through uvicorn's proxy-header handling as the image configures it."""
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
     from .test_ui import csrf_from
 
-    proxied = ProxyHeadersMiddleware(app, trusted_hosts=TRUSTED_PROXIES)
+    proxied = ProxyHeadersMiddleware(app, trusted_hosts=_image_trusted_proxies())
     transport = httpx.ASGITransport(app=proxied, client=(peer, 40000))
     statuses = []
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:

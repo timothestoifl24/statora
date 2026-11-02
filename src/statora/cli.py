@@ -16,11 +16,6 @@ app = typer.Typer(help="Self-hosted monitoring and status pages.", no_args_is_he
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
-# Peers whose X-Forwarded-* headers are trusted unless FORWARDED_ALLOW_IPS says otherwise:
-# loopback and private networks, where a reverse proxy normally sits. A client connecting
-# from anywhere else can't choose its own address, which the login rate limit depends on.
-TRUSTED_PROXIES = "127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7"
-
 
 def _alembic_config() -> Config:
     cfg = Config()
@@ -317,7 +312,7 @@ def _uvicorn(reload: bool, host: str, port: int, workers: int = 1) -> None:
         reload_dirs=[str(Path(__file__).resolve().parent)] if reload else None,
         workers=None if reload else workers,
         proxy_headers=True,
-        forwarded_allow_ips=os.environ.get("FORWARDED_ALLOW_IPS", TRUSTED_PROXIES),
+        forwarded_allow_ips=os.environ.get("FORWARDED_ALLOW_IPS", "127.0.0.1"),
     )
 
 
