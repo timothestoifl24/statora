@@ -15,3 +15,4 @@ build/
 node_modules/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+docs/public/openapi.json
