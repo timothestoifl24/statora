@@ -39,7 +39,7 @@ Create one in the web UI (*Profile → API tokens*) or with `POST /api/v1/auth/t
 Tokens with only the `read` scope can call `GET` endpoints.
 
 Every resource supports list/get/create/update/delete with stable `operationId`s,
-which makes the API straightforward to wrap in a Terraform provider.
+so scripts and generated clients keep working from release to release.
 """
 
 _ERROR_CODES = {

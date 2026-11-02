@@ -38,7 +38,7 @@ features:
     details: Local accounts, LDAP / Active Directory, OpenID Connect (Keycloak, Entra ID, Google, Authentik…) and SAML 2.0, with users created on first login and groups mapped to roles.
   - icon: 🤖
     title: An API made for automation
-    details: OpenAPI 3.1 with Swagger UI, stable operation IDs and scoped API tokens. Every resource can be listed, created, updated and deleted, which is what a Terraform provider needs.
+    details: OpenAPI 3.1 with Swagger UI, stable operation IDs and scoped API tokens. Every resource can be listed, created, updated and deleted, from scripts, CI or any API client.
   - icon: 📦
     title: One container, your database
     details: The app ships as a single image; PostgreSQL and Redis run beside it. Runs as non-root on a read-only filesystem, with migrations that apply themselves on start-up.

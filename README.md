@@ -32,7 +32,7 @@ and tell your users what's going on.
 - Incidents with Markdown timelines, and maintenance windows that don't count as downtime
 - Admin panel based on [Tabler](https://tabler.io), with a dashboard, wallboard and page builder
 - Single sign-on with LDAP / Active Directory, OAuth2 / OpenID Connect and SAML 2.0
-- REST API (OpenAPI 3.1) with API tokens, ready for Terraform
+- REST API (OpenAPI 3.1) with API tokens, ready to import into Bruno
 
 ## <img src=".github/readme/rocket.svg" height="22"> Quick Setup
 

@@ -18,7 +18,7 @@ There are two ways to get a token:
 ```bash
 curl -X POST https://status.example.com/api/v1/auth/token \
   -H "Content-Type: application/json" \
-  -d '{"username": "ci", "password": "…", "name": "terraform", "scopes": ["read", "write"]}'
+  -d '{"username": "ci", "password": "…", "name": "ci", "scopes": ["read", "write"]}'
 ```
 
 A `read` token can only call `GET` endpoints. A token can never do more than its user's role allows. Only a hash of each token is stored.
@@ -26,30 +26,8 @@ A `read` token can only call `GET` endpoints. A token can never do more than its
 ## Conventions
 
 - Every resource has list, get, create, `PATCH` and `DELETE`, plus `PUT` where a full replacement makes sense. `DELETE` is idempotent.
-- List endpoints are paginated (`limit`, `offset`) and filterable, for example `?name=` or `?slug=`, which is what Terraform data sources need.
+- List endpoints are paginated (`limit`, `offset`) and filterable, for example `?name=` or `?slug=`, so scripts can look records up by name.
 - Errors always look like `{"detail": …, "code": "not_found"}`.
 - Operation IDs are stable (`create_monitor`, `get_status_page`, …), so generated clients don't change from release to release.
 
-See the [REST API reference](/reference/api) for the endpoint list.
-
-## Terraform
-
-The API is designed to be wrapped by a Terraform provider: server-assigned IDs, full CRUD, write-only secrets and filterable lists. Until a dedicated provider exists, the generic [`restapi`](https://registry.terraform.io/providers/Mastercard/restapi/latest) provider works:
-
-```hcl
-provider "restapi" {
-  uri                  = "https://status.example.com/api/v1"
-  write_returns_object = true
-  headers = { Authorization = "Bearer ${var.statora_token}" }
-}
-
-resource "restapi_object" "website" {
-  path = "/monitors"
-  data = jsonencode({
-    name       = "Website"
-    type       = "http"
-    target     = "https://example.com"
-    interval_s = 60
-  })
-}
-```
+See the [REST API reference](/setup/api) for the endpoint list, and to import the OpenAPI spec into Bruno.
