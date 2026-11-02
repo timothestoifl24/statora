@@ -27,7 +27,7 @@ The tile uses a teal-to-blue gradient.
 | `statora-mark.svg` | Mark without the tile, for transparent or light surfaces |
 | `statora-favicon.svg` | Favicon variant with heavier strokes for 16–32 px |
 | `statora-og.svg` / `png/og-image.png` | Social preview image (1200×630) |
-| `social-preview.svg` / `png/social-preview.png` | GitHub social preview (1280×640), uploaded under Settings → Social preview |
+| `social-preview.svg` / `social-preview.png` | GitHub social preview (1280×640), uploaded under Settings → Social preview |
 | `favicon.ico` | 16/32/48 px favicon |
 | `png/icon-*.png` | 180/192/512/1024 px raster icons |
 | `png/apple-touch-icon.png` | iOS home-screen icon (full-bleed square; iOS rounds it) |
