@@ -38,6 +38,12 @@ The report is visible only to you and the maintainers. We can discuss it, work o
 
 We'll keep you informed along the way. Once a fix is released, we publish a GitHub Security Advisory, request a CVE where appropriate, and credit you, unless you'd rather stay anonymous. If no fix is possible within 90 days, we agree on a disclosure date with you.
 
+## Rewards and recognition
+
+Statora is an open-source project and has **no bug bounty or reward program**. Confirmed reports are not paid, so there is no payout timeline or payment method.
+
+Accepted reports are recognized instead: you are credited in the pull request that fixes the issue, in the GitHub Security Advisory and in the release notes. If you'd rather not be named, say so in your report.
+
 ## Scope
 
 **In scope:**

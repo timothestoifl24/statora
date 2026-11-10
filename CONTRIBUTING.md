@@ -24,6 +24,12 @@ Maintainers put the Jira issue key after the prefix, such as `feature/APP-42-smt
 - **Anything bigger**, such as a new feature, a new monitor type or a change to the API or database schema: please open an issue or a discussion first, so we can agree on the approach before you spend time on it.
 - Search the existing [issues](https://github.com/timothestoifl24/statora/issues) first; someone may already be on it.
 
+## Rewards and recognition
+
+Statora is an open-source project and has **no bug bounty or reward program**. Confirmed reports, security reports included, are not paid, so there is no payout timeline or payment method.
+
+Accepted reports are recognized instead: you are credited in the pull request that fixes the issue, in the GitHub Security Advisory when there is one, and in the release notes. If you'd rather not be named, say so in your report.
+
 ## Development setup
 
 You need Python 3.13 or newer, [uv](https://docs.astral.sh/uv/), and Docker or Podman.
