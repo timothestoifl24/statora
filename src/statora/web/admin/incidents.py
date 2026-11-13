@@ -315,7 +315,7 @@ async def create_maintenance(
             **await _choices(session),
         )
     await session.commit()
-    await crud.notify_monitors_changed(affected)
+    await crud.notify_monitors_changed(session, affected)
     flash(request, "Maintenance scheduled")
     return done(request, "/admin/maintenance")
 
@@ -367,7 +367,7 @@ async def update_maintenance(
             **await _choices(session),
         )
     await session.commit()
-    await crud.notify_monitors_changed(affected)
+    await crud.notify_monitors_changed(session, affected)
     flash(request, "Maintenance saved")
     return done(request, "/admin/maintenance")
 
@@ -380,6 +380,6 @@ async def delete_maintenance(
     affected = item.monitor_ids
     await session.delete(item)
     await session.commit()
-    await crud.notify_monitors_changed(affected)
+    await crud.notify_monitors_changed(session, affected)
     flash(request, "Maintenance deleted")
     return redirect("/admin/maintenance")

@@ -120,7 +120,7 @@ async def create_maintenance(data: MaintenanceCreate, session: AsyncSession = De
     maintenance = await crud.create_maintenance(session, data)
     affected = maintenance.monitor_ids
     await session.commit()
-    await crud.notify_monitors_changed(affected)
+    await crud.notify_monitors_changed(session, affected)
     session.expunge_all()
     return await _get_maintenance(session, maintenance.id)
 
@@ -139,7 +139,7 @@ async def update_maintenance(
     await crud.patch_maintenance(session, maintenance, data)
     affected |= set(maintenance.monitor_ids)
     await session.commit()
-    await crud.notify_monitors_changed(affected)
+    await crud.notify_monitors_changed(session, affected)
     session.expunge_all()
     return await _get_maintenance(session, maintenance_id)
 
@@ -153,7 +153,7 @@ async def replace_maintenance(
     await crud.patch_maintenance(session, maintenance, MaintenancePatch(**data.model_dump()))
     affected |= set(maintenance.monitor_ids)
     await session.commit()
-    await crud.notify_monitors_changed(affected)
+    await crud.notify_monitors_changed(session, affected)
     session.expunge_all()
     return await _get_maintenance(session, maintenance_id)
 
@@ -165,5 +165,5 @@ async def delete_maintenance(maintenance_id: int, session: AsyncSession = Depend
         affected = maintenance.monitor_ids
         await session.delete(maintenance)
         await session.commit()
-        await crud.notify_monitors_changed(affected)
+        await crud.notify_monitors_changed(session, affected)
     return Response(status_code=204)
