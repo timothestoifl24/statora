@@ -104,6 +104,23 @@ async def notify_monitor_changed(monitor_id: int | None = None) -> None:
     await cache.invalidate_pages()
 
 
+async def notify_monitors_changed(session: AsyncSession, monitor_ids) -> None:
+    """Have the scheduler re-check these monitors now, e.g. after a maintenance window changed.
+
+    The groups containing them are re-checked too: a group's status can depend on a member's
+    maintenance window even when the member's own saved status doesn't change.
+    """
+    pending, affected = set(monitor_ids), set()
+    while pending:
+        monitor_id = pending.pop()
+        if monitor_id not in affected:
+            affected.add(monitor_id)
+            pending.update(await groups.parent_group_ids(session, monitor_id))
+    for monitor_id in sorted(affected):
+        await cache.publish_monitors_changed(monitor_id)
+    await cache.invalidate_pages()
+
+
 async def load_monitors(session: AsyncSession, ids: list[int]) -> list[Monitor]:
     if not ids:
         return []

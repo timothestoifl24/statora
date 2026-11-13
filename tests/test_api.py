@@ -203,6 +203,16 @@ async def test_status_page_incident_and_maintenance_flow(client, auth):
     )
     assert backwards.status_code == 422
 
+    # Deleting the window asks the scheduler to re-check its monitors straight away.
+    pubsub = cache.get_redis().pubsub()
+    await pubsub.subscribe(cache.MONITORS_CHANGED_CHANNEL)
+    await pubsub.get_message(timeout=1)  # subscribe confirmation
+    deleted = await client.delete(f"/api/v1/maintenances/{maintenance.json()['id']}", headers=auth)
+    assert deleted.status_code == 204
+    message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1)
+    await pubsub.aclose()
+    assert message and int(message["data"]) == monitor["id"]
+
 
 async def test_unpublished_page_is_hidden(client, auth):
     await client.post(

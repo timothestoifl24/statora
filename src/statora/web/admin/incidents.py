@@ -300,7 +300,8 @@ async def create_maintenance(
 ):
     values = _maintenance_from_form(await request.form())
     try:
-        await crud.create_maintenance(session, MaintenanceCreate.model_validate(values))
+        item = await crud.create_maintenance(session, MaintenanceCreate.model_validate(values))
+        affected = item.monitor_ids
     except (ValidationError, ValueError) as exc:
         await rollback(session, user)
         return render_form(
@@ -314,6 +315,7 @@ async def create_maintenance(
             **await _choices(session),
         )
     await session.commit()
+    await crud.notify_monitors_changed(session, affected)
     flash(request, "Maintenance scheduled")
     return done(request, "/admin/maintenance")
 
@@ -346,9 +348,11 @@ async def update_maintenance(
     item_id: int, request: Request, user: User = Depends(editor), session: AsyncSession = Depends(get_session)
 ):
     item = await _get_maintenance(session, item_id)
+    affected = set(item.monitor_ids)
     values = _maintenance_from_form(await request.form())
     try:
         await crud.patch_maintenance(session, item, MaintenancePatch.model_validate(values))
+        affected |= set(item.monitor_ids)
     except (ValidationError, ValueError) as exc:
         await rollback(session, user)
         item = await _get_maintenance(session, item_id)
@@ -363,6 +367,7 @@ async def update_maintenance(
             **await _choices(session),
         )
     await session.commit()
+    await crud.notify_monitors_changed(session, affected)
     flash(request, "Maintenance saved")
     return done(request, "/admin/maintenance")
 
@@ -372,8 +377,9 @@ async def delete_maintenance(
     item_id: int, request: Request, user: User = Depends(editor), session: AsyncSession = Depends(get_session)
 ):
     item = await _get_maintenance(session, item_id)
+    affected = item.monitor_ids
     await session.delete(item)
     await session.commit()
-    await cache.invalidate_pages()
+    await crud.notify_monitors_changed(session, affected)
     flash(request, "Maintenance deleted")
     return redirect("/admin/maintenance")

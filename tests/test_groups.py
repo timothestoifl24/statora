@@ -1,7 +1,10 @@
+from datetime import timedelta
 from types import SimpleNamespace
 
 from sqlalchemy import select
 
+from statora import cache
+from statora.db.base import utcnow
 from statora.db.models import Monitor, MonitorStatus, MonitorType
 from statora.scheduler import check_monitor_once
 from statora.services.groups import evaluate_group
@@ -159,6 +162,36 @@ async def test_group_status_follows_members(client, auth, session):
 
     groups = (await session.scalars(select(Monitor).where(Monitor.type == MonitorType.GROUP))).all()
     assert all(g.last_latency_ms is None for g in groups)
+
+
+@needs_services
+async def test_deleting_maintenance_rechecks_parent_groups(client, auth):
+    member = await _create(client, auth, _monitor_json("member"))
+    group = await _create(client, auth, {"name": "g", "type": "group", "member_ids": [member["id"]]})
+    outer = await _create(client, auth, {"name": "outer", "type": "group", "member_ids": [group["id"]]})
+    now = utcnow()
+    maintenance = await client.post(
+        "/api/v1/maintenances",
+        json={
+            "title": "Upgrade",
+            "starts_at": (now - timedelta(minutes=5)).isoformat(),
+            "ends_at": (now + timedelta(hours=1)).isoformat(),
+            "monitor_ids": [member["id"]],
+        },
+        headers=auth,
+    )
+    assert maintenance.status_code == 201, maintenance.text
+
+    pubsub = cache.get_redis().pubsub()
+    await pubsub.subscribe(cache.MONITORS_CHANGED_CHANNEL)
+    await pubsub.get_message(timeout=1)  # subscribe confirmation
+    deleted = await client.delete(f"/api/v1/maintenances/{maintenance.json()['id']}", headers=auth)
+    assert deleted.status_code == 204
+    published = set()
+    while message := await pubsub.get_message(ignore_subscribe_messages=True, timeout=1):
+        published.add(int(message["data"]))
+    await pubsub.aclose()
+    assert published == {member["id"], group["id"], outer["id"]}
 
 
 @needs_services

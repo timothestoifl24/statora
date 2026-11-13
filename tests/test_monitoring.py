@@ -77,6 +77,16 @@ async def test_maintenance_window(session):
     assert await monitors_in_maintenance(session, now + timedelta(hours=1)) == set()
 
 
+async def test_leaving_maintenance_is_a_change_even_when_pending(session):
+    monitor = await _monitor(session, status=MonitorStatus.UP)
+    await record_result(session, monitor, CheckResult.down("refused"), in_maintenance=True)
+    assert monitor.status == MonitorStatus.MAINTENANCE
+    monitor.consecutive_failures = 0  # within the retry budget once the window is over
+    beat = await record_result(session, monitor, CheckResult.down("refused"))
+    assert beat.status == MonitorStatus.PENDING and beat.important
+    assert monitor.status == MonitorStatus.PENDING
+
+
 async def test_check_monitor_once_end_to_end(session):
     monitor = await _monitor(session)
     monitor_id = monitor.id

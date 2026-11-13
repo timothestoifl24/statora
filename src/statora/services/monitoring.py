@@ -61,8 +61,11 @@ async def record_result(
     now = now or utcnow()
     status = resolve_status(monitor, result, in_maintenance)
     previous = MonitorStatus(monitor.status)
-    # "pending" never counts as a change: it is the absence of a verdict.
-    changed = status != previous and status != MonitorStatus.PENDING
+    # "pending" never counts as a change: it is the absence of a verdict. Leaving maintenance
+    # does, though, or a monitor failing within its retry budget would keep showing maintenance.
+    changed = status != previous and (
+        status != MonitorStatus.PENDING or previous == MonitorStatus.MAINTENANCE
+    )
 
     monitor.consecutive_failures = monitor.consecutive_failures + 1 if result.status == "down" else 0
     if changed:
