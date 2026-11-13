@@ -104,6 +104,13 @@ async def notify_monitor_changed(monitor_id: int | None = None) -> None:
     await cache.invalidate_pages()
 
 
+async def notify_monitors_changed(monitor_ids) -> None:
+    """Have the scheduler re-check these monitors now, e.g. after a maintenance window changed."""
+    for monitor_id in sorted(set(monitor_ids)):
+        await cache.publish_monitors_changed(monitor_id)
+    await cache.invalidate_pages()
+
+
 async def load_monitors(session: AsyncSession, ids: list[int]) -> list[Monitor]:
     if not ids:
         return []

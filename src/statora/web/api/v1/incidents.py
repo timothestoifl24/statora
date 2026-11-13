@@ -118,7 +118,9 @@ async def list_maintenances(
 @maintenances.post("", response_model=MaintenanceRead, status_code=201)
 async def create_maintenance(data: MaintenanceCreate, session: AsyncSession = Depends(get_session)):
     maintenance = await crud.create_maintenance(session, data)
+    affected = maintenance.monitor_ids
     await session.commit()
+    await crud.notify_monitors_changed(affected)
     session.expunge_all()
     return await _get_maintenance(session, maintenance.id)
 
@@ -132,8 +134,12 @@ async def get_maintenance(maintenance_id: int, session: AsyncSession = Depends(g
 async def update_maintenance(
     maintenance_id: int, data: MaintenancePatch, session: AsyncSession = Depends(get_session)
 ):
-    await crud.patch_maintenance(session, await _get_maintenance(session, maintenance_id), data)
+    maintenance = await _get_maintenance(session, maintenance_id)
+    affected = set(maintenance.monitor_ids)
+    await crud.patch_maintenance(session, maintenance, data)
+    affected |= set(maintenance.monitor_ids)
     await session.commit()
+    await crud.notify_monitors_changed(affected)
     session.expunge_all()
     return await _get_maintenance(session, maintenance_id)
 
@@ -142,19 +148,22 @@ async def update_maintenance(
 async def replace_maintenance(
     maintenance_id: int, data: MaintenanceCreate, session: AsyncSession = Depends(get_session)
 ):
-    await crud.patch_maintenance(
-        session, await _get_maintenance(session, maintenance_id), MaintenancePatch(**data.model_dump())
-    )
+    maintenance = await _get_maintenance(session, maintenance_id)
+    affected = set(maintenance.monitor_ids)
+    await crud.patch_maintenance(session, maintenance, MaintenancePatch(**data.model_dump()))
+    affected |= set(maintenance.monitor_ids)
     await session.commit()
+    await crud.notify_monitors_changed(affected)
     session.expunge_all()
     return await _get_maintenance(session, maintenance_id)
 
 
 @maintenances.delete("/{maintenance_id}", status_code=204)
 async def delete_maintenance(maintenance_id: int, session: AsyncSession = Depends(get_session)):
-    maintenance = await session.get(Maintenance, maintenance_id)
+    maintenance = await session.scalar(crud.maintenance_query().where(Maintenance.id == maintenance_id))
     if maintenance is not None:
+        affected = maintenance.monitor_ids
         await session.delete(maintenance)
         await session.commit()
-        await cache.invalidate_pages()
+        await crud.notify_monitors_changed(affected)
     return Response(status_code=204)
