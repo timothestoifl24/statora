@@ -161,11 +161,34 @@ def _map_sensitive(
     return data
 
 
-def encrypt_sensitive(monitor_type: MonitorType | str, config: dict[str, Any] | None) -> dict[str, Any]:
-    """A copy of the config with sensitive values encrypted (already encrypted ones are kept)."""
-    return _map_sensitive(
-        monitor_type, config, lambda value: value if crypto.is_encrypted(value) else crypto.encrypt(value)
-    )
+def encrypt_sensitive(
+    monitor_type: MonitorType | str, config: dict[str, Any] | None, previous: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """A copy of the config with sensitive values encrypted.
+
+    Only a value identical to the one `previous` (the stored config) holds in the same place is
+    kept as it is: that is this monitor's own ciphertext. Anything else is user input and is
+    encrypted, even when it happens to start with "enc:" like a ciphertext.
+    """
+    data = dict(config or {})
+    previous = previous or {}
+    for name in SENSITIVE_FIELDS.get(MonitorType(monitor_type), ()):
+        value, stored = data.get(name), previous.get(name)
+        if isinstance(value, dict):
+            stored = stored if isinstance(stored, dict) else {}
+            data[name] = {
+                key: item
+                if not isinstance(item, str) or _is_stored(item, stored.get(key))
+                else crypto.encrypt(item)
+                for key, item in value.items()
+            }
+        elif isinstance(value, str) and value and not _is_stored(value, stored):
+            data[name] = crypto.encrypt(value)
+    return data
+
+
+def _is_stored(value: str, stored: Any) -> bool:
+    return value == stored and crypto.is_encrypted(value)
 
 
 def decrypt_sensitive(monitor_type: MonitorType | str, config: dict[str, Any] | None) -> dict[str, Any]:

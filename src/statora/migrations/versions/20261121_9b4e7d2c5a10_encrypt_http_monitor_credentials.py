@@ -46,7 +46,8 @@ def _convert(fn: Callable[[str], str]) -> None:
 
 
 def upgrade() -> None:
-    _convert(lambda value: value if crypto.is_encrypted(value) else crypto.encrypt(value))
+    # Nothing was encrypted before this revision: a value starting with "enc:" is plain text too.
+    _convert(crypto.encrypt)
 
 
 def downgrade() -> None:

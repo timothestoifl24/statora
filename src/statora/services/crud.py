@@ -50,7 +50,7 @@ class ValidationProblem(ValueError):
 
 def _store_secrets(monitor_type: str, config: dict, previous: dict | None = None) -> dict:
     """Encrypt secret and sensitive config fields. An empty secret keeps the previously stored one."""
-    config = encrypt_sensitive(monitor_type, config)
+    config = encrypt_sensitive(monitor_type, config, previous)
     for name in SECRET_FIELDS.get(MonitorType(monitor_type), ()):
         value = config.get(name)
         if value and not crypto.is_encrypted(value):

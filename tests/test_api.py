@@ -447,3 +447,29 @@ async def test_http_monitor_credentials_are_encrypted_and_hidden_from_viewers(cl
     await session.refresh(stored)
     assert crypto.is_encrypted(stored.config["headers"]["Authorization"])
     assert crypto.decrypt(stored.config["headers"]["Authorization"]) == "Bearer s3cret"
+
+
+async def test_http_values_that_look_encrypted_are_still_encrypted(client, auth, session):
+    from statora.checks import CheckTarget, run_check
+
+    payload = {**HTTP_MONITOR, "config": {"headers": {"X-Tag": "enc:example"}, "body": "enc:body"}}
+    created = await client.post("/api/v1/monitors", json=payload, headers=auth)
+    assert created.status_code == 201, created.text
+    assert created.json()["config"]["headers"] == {"X-Tag": "enc:example"}
+    stored = await session.get(Monitor, created.json()["id"])
+    assert crypto.decrypt(stored.config["headers"]["X-Tag"]) == "enc:example"
+    assert crypto.decrypt(stored.config["body"]) == "enc:body"
+
+    # Listing (which decrypts every monitor for editors) and the check keep working.
+    assert (await client.get("/api/v1/monitors", headers=auth)).status_code == 200
+    target = CheckTarget(
+        id=stored.id, type=stored.type, target="https://203.0.113.9", timeout_s=1, config=stored.config
+    )
+    assert "Cannot decrypt" not in ((await run_check(target)).message or "")
+
+    # Saving unchanged keeps the stored ciphertext; a pasted ciphertext from elsewhere is encrypted again.
+    other = crypto.encrypt("someone else's secret")
+    config = {**created.json()["config"], "headers": {"X-Tag": "enc:example", "X-Other": other}}
+    await client.patch(f"/api/v1/monitors/{stored.id}", json={"config": config}, headers=auth)
+    await session.refresh(stored)
+    assert crypto.decrypt(stored.config["headers"]["X-Other"]) == other

@@ -30,7 +30,11 @@ def test_http_monitor_credentials_are_encrypted_on_upgrade(migrated_db):
     command.downgrade(cfg, "6a1f3c8e2b47")
     try:
         _query("TRUNCATE monitors RESTART IDENTITY CASCADE")
-        config = {"headers": {"Authorization": "Bearer s3cret"}, "body": "a=1", "method": "POST"}
+        config = {
+            "headers": {"Authorization": "Bearer s3cret", "X-Tag": "enc:example"},
+            "body": "a=1",
+            "method": "POST",
+        }
         _query(
             "INSERT INTO monitors (name, type, target, interval_s, timeout_s, retries, config, active, status,"
             " consecutive_failures) VALUES ('API', 'http', 'https://api.example.org', 60, 10, 0, $1::jsonb,"
@@ -41,6 +45,8 @@ def test_http_monitor_credentials_are_encrypted_on_upgrade(migrated_db):
         stored = json.loads(_query("SELECT config FROM monitors")[0]["config"])
         assert crypto.is_encrypted(stored["headers"]["Authorization"]) and crypto.is_encrypted(stored["body"])
         assert crypto.decrypt(stored["headers"]["Authorization"]) == "Bearer s3cret"
+        # Plain text, though it looks encrypted.
+        assert crypto.decrypt(stored["headers"]["X-Tag"]) == "enc:example"
         assert stored["method"] == "POST"
 
         command.downgrade(cfg, "6a1f3c8e2b47")
