@@ -40,10 +40,6 @@ def monitor_state_key(monitor_id: int) -> str:
     return f"statora:monitor:{monitor_id}:state"
 
 
-def token_key(token_hash: str) -> str:
-    return f"statora:token:{token_hash}"
-
-
 async def get_json(key: str) -> Any | None:
     raw = await get_redis().get(key)
     return json.loads(raw) if raw is not None else None
