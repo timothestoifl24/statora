@@ -162,7 +162,7 @@ def build_bars(
     window = HISTORY_WINDOWS[resolution]
     earlier = [start for start in buckets if start < starts[0]]
     last = buckets[max(earlier)] if earlier else None
-    bars, ok, total = [], 0, 0
+    bars = []
     for start in starts:
         counts = buckets.get(start)
         bar = {
@@ -175,8 +175,6 @@ def build_bars(
         }
         if counts and (counts.total or counts.maintenance_count):
             last = counts
-            ok += counts.up_count + counts.degraded_count
-            total += counts.total
         elif (
             resolution != HistoryResolution.DAY
             and last is not None
@@ -187,7 +185,19 @@ def build_bars(
             bar["level"] = "up" if last.last_status == MonitorStatus.PENDING else last.last_status
             bar["note"] = f"no check · last result {last.last_status} at {last.last_ts:%H:%M} UTC"
         bars.append(bar)
-    return bars, round(ok / total * 100, 3) if total else None
+    return bars, window_uptime(starts, buckets)
+
+
+def window_uptime(starts: list[datetime], buckets: dict[datetime, Counts]) -> float | None:
+    """The uptime percentage over the window. Only real checks count; bars that continue an
+    earlier result (see build_bars) don't, so this needs no bars."""
+    ok = total = 0
+    for start in starts:
+        counts = buckets.get(start)
+        if counts:
+            ok += counts.up_count + counts.degraded_count
+            total += counts.total
+    return round(ok / total * 100, 3) if total else None
 
 
 async def _history(
@@ -270,6 +280,14 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
     def bars_and_uptime(monitor) -> tuple[list[dict[str, Any]], float | None]:
         return build_bars(resolution, starts, history[monitor.id], monitor.interval_s)
 
+    # Group members only show their uptime; a member of several groups is computed once.
+    member_uptimes: dict[int, float | None] = {}
+
+    def member_uptime(member) -> float | None:
+        if member.id not in member_uptimes:
+            member_uptimes[member.id] = window_uptime(starts, history[member.id])
+        return member_uptimes[member.id]
+
     groups, statuses = [], []
     for group in page.groups:
         components = []
@@ -296,7 +314,7 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
                             "link_url": member.link_url,
                             "status": (member_status := effective_status(member)),
                             "status_label": COMPONENT_LABELS.get(member_status, "Unknown"),
-                            "uptime": bars_and_uptime(member)[1],
+                            "uptime": member_uptime(member),
                         }
                         for member in monitor.members
                         if member.active
