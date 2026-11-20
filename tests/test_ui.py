@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 import re
@@ -7,6 +8,7 @@ import pytest
 import typer
 from sqlalchemy import update
 
+from statora import cache
 from statora.auth import crypto
 from statora.auth.service import authenticate_local
 from statora.db import session as db
@@ -163,13 +165,19 @@ async def test_token_ui_shows_token_once(client):
     await make_user("admin", UserRole.ADMIN)
     await login(client)
     page = await client.get("/admin/profile/tokens")
-    await client.post(
+    created = await client.post(
         "/admin/profile/tokens", data={"csrf_token": csrf_from(page.text), "name": "tf", "write": "on"}
     )
+    # The session cookie is signed, not encrypted: the token must not travel in it.
+    cookie = created.cookies["statora_session"]
+    payload = base64.b64decode(cookie.split(".")[0] + "==").decode()
+    assert "st_" not in payload and "st_" not in cookie
+
     first = await client.get("/admin/profile/tokens")
     token = re.search(r'value="(st_[^"]+)"', first.text).group(1)
     second = await client.get("/admin/profile/tokens")
     assert token not in second.text
+    assert not [key async for key in cache.get_redis().scan_iter(match="statora:new-token:*")]
     assert (await client.get("/api/v1/me", headers={"Authorization": f"Bearer {token}"})).status_code == 200
 
 

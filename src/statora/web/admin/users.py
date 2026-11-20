@@ -1,5 +1,6 @@
 """User management, authentication providers and personal API tokens."""
 
+import secrets
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Request
@@ -8,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from statora import cache
 from statora.auth import passwords, tokens
 from statora.auth.providers import base as provider_base
 from statora.auth.providers.base import AuthError
@@ -25,6 +27,14 @@ from statora.web.deps import current_user, get_session, not_found, ui_role
 from .common import checkbox, done, error_messages, flash, opt, redirect, render, render_form, rollback
 
 router = APIRouter()
+
+NEW_TOKEN_TTL = 300
+
+
+def _new_token_key(user: User, handle: str) -> str:
+    return f"statora:new-token:{user.id}:{handle}"
+
+
 admin = ui_role(UserRole.ADMIN)
 _MULTILINE_FIELDS = {"idp_metadata_xml", "idp_x509_cert", "sp_x509_cert", "sp_private_key"}
 
@@ -457,7 +467,10 @@ async def list_tokens(
             select(ApiToken).where(ApiToken.user_id == user.id).order_by(ApiToken.id.desc())
         )
     ).all()
-    new_token = request.session.pop("new_token", None)
+    handle = request.session.pop("new_token", None)
+    new_token = (
+        await cache.get_redis().getdel(_new_token_key(user, handle)) if isinstance(handle, str) else None
+    )
     return render(
         request,
         "admin/tokens.html",
@@ -480,8 +493,11 @@ async def create_token(
     expires_at = utcnow() + timedelta(days=int(days)) if days.isdigit() and int(days) > 0 else None
     issued = await tokens.issue_token(session, user, name, scopes, expires_at)
     await session.commit()
-    # Shown exactly once on the next page load.
-    request.session["new_token"] = issued.plaintext
+    # Shown exactly once on the next page load. The session cookie is signed but readable, so it only
+    # carries a random handle; the token itself waits in Redis, for this user and a few minutes only.
+    handle = secrets.token_urlsafe(16)
+    await cache.get_redis().set(_new_token_key(user, handle), issued.plaintext, ex=NEW_TOKEN_TTL)
+    request.session["new_token"] = handle
     return redirect("/admin/profile/tokens")
 
 
