@@ -57,7 +57,7 @@ Connects to a database, runs a query and optionally checks the result. The targe
 | Microsoft SQL Server | 1433 | Also Azure SQL. |
 | Oracle | 1521 | **Database** is the service name, for example `FREEPDB1`. No Oracle Client needed. |
 
-- **Database, user name, password**: the password is stored encrypted. After saving it is never shown again or returned by the API; leave the field empty when editing to keep it.
+- **Database, user name, password**: the password is stored encrypted. After saving it is never shown again or returned by the API; leave the field empty when editing to keep it. The stored password only stays with the server it was entered for: when you change the host, engine, port or TLS settings, or clone the monitor to another server, enter it again.
 - **Query**: `SELECT 1` by default (`SELECT 1 FROM DUAL` on Oracle). At most 1,000 rows are read.
 - **Expected value**: compared with the first column of the first row as text, either *equals* or *contains*. Booleans read as `true` and `false`; enter `NULL` to expect a NULL value.
 - **Minimum rows**: down when the query returns fewer rows, for example to alert when a queue table is empty.

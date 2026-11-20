@@ -407,3 +407,51 @@ async def test_sql_monitor_password_is_write_only(client, auth, session):
 
     oracle = {**payload, "config": {"engine": "oracle", "query": "DELETE FROM orders"}}
     assert (await client.post("/api/v1/monitors", json=oracle, headers=auth)).status_code == 422
+
+
+async def test_stored_sql_password_does_not_follow_a_new_target(client, auth, session):
+    payload = {
+        "name": "Orders DB",
+        "type": "sql",
+        "target": "db.internal",
+        "config": {"engine": "postgresql", "database": "orders", "username": "probe", "password": "hunter22"},
+    }
+    monitor = (await client.post("/api/v1/monitors", json=payload, headers=auth)).json()
+    stored = await session.get(Monitor, monitor["id"])
+    encrypted = stored.config["password"]
+    editor = {"Authorization": f"Bearer {await make_token(await make_user('editor', UserRole.EDITOR))}"}
+    url = f"/api/v1/monitors/{monitor['id']}"
+    keep = {**payload["config"], "password": None}
+
+    for change in (
+        {"target": "db.attacker.example"},  # target only: the stored config would come along
+        {"config": {**keep, "port": 15432}},
+        {"config": {**keep, "engine": "mysql"}},
+        {"config": {**keep, "tls": True, "verify_tls": False}},
+    ):
+        refused = await client.patch(url, json=change, headers=editor)
+        assert refused.status_code == 422, (change, refused.text)
+        assert "Enter the password again" in refused.text
+    put = await client.put(
+        url, json={**payload, "target": "db.attacker.example", "config": keep}, headers=editor
+    )
+    assert put.status_code == 422
+
+    await session.refresh(stored)
+    assert stored.target == "db.internal" and stored.config["password"] == encrypted
+
+    # Same server, other database or user: the password is kept. A new server with a new password works.
+    same = await client.patch(
+        url, json={"config": {**keep, "database": "orders2", "port": 5432}}, headers=editor
+    )
+    assert same.status_code == 200, same.text
+    moved = await client.patch(
+        url, json={"target": "db2.internal", "config": {**keep, "password": "n3w"}}, headers=editor
+    )
+    assert moved.status_code == 200, moved.text
+    await session.refresh(stored)
+    assert stored.target == "db2.internal" and crypto.decrypt(stored.config["password"]) == "n3w"
+
+    # A ciphertext pasted in from elsewhere is refused rather than stored.
+    pasted = await client.patch(url, json={"config": {**keep, "password": encrypted}}, headers=editor)
+    assert pasted.status_code == 422
