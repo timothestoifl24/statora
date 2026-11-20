@@ -103,12 +103,20 @@ class Scheduler:
 
     async def _lead(self) -> None:
         await self.sync()
-        listener = asyncio.create_task(self._listen())
-        housekeeping = asyncio.create_task(self._housekeeping())
+        helpers = [
+            asyncio.create_task(self._listen(), name="scheduler-listener"),
+            asyncio.create_task(self._housekeeping(), name="scheduler-housekeeping"),
+        ]
         last_sync = time.monotonic()
         try:
             while True:
                 await asyncio.sleep(LOCK_RENEW_INTERVAL)
+                for task in helpers:
+                    if task.done():
+                        # Both retry their own errors, so this is a bug: surface it, and let _run
+                        # log it and start over instead of leading without live reloads.
+                        task.result()
+                        raise RuntimeError(f"{task.get_name()} stopped")
                 if not await self._lock.renew():
                     log.warning("Scheduler lost leadership")
                     break
@@ -116,23 +124,42 @@ class Scheduler:
                     await self.sync()
                     last_sync = time.monotonic()
         finally:
-            listener.cancel()
-            housekeeping.cancel()
+            for task in helpers:
+                task.cancel()
+            await asyncio.gather(*helpers, return_exceptions=True)
             await self._stop_monitors()
             self.is_leader = False
 
     async def _listen(self) -> None:
+        """Apply monitor changes as they are published; reconnects after Redis errors."""
+        while True:
+            try:
+                await self._listen_once()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("Monitor change listener failed; reconnecting")
+            await asyncio.sleep(LOCK_RENEW_INTERVAL)
+            # Changes published while disconnected were missed.
+            with contextlib.suppress(Exception):
+                await self.sync()
+
+    async def _listen_once(self) -> None:
         pubsub = cache.get_redis().pubsub()
-        await pubsub.subscribe(cache.MONITORS_CHANGED_CHANNEL)
         try:
+            await pubsub.subscribe(cache.MONITORS_CHANGED_CHANNEL)
             async for message in pubsub.listen():
                 if message["type"] != "message":
                     continue
                 data = message["data"]
-                if data:
-                    await self.reload_one(int(data))
-                else:
-                    await self.sync()
+                try:
+                    if data:
+                        await self.reload_one(int(data))
+                    else:
+                        await self.sync()
+                except Exception:
+                    # One bad message or failed reload must not end live reloads.
+                    log.exception("Could not apply monitor change %r", data)
         finally:
             await pubsub.aclose()
 
