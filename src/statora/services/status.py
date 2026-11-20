@@ -427,5 +427,5 @@ async def get_page_summary(session: AsyncSession, slug: str | None) -> dict[str,
     if page is None:
         return None
     summary = await build_page_summary(session, page)
-    await cache.set_json(key, summary, get_settings().page_cache_ttl)
+    await cache.set_page(key, summary, get_settings().page_cache_ttl)
     return summary
