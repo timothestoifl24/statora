@@ -53,6 +53,12 @@ async def set_json(key: str, value: Any, ttl: int | None = None) -> None:
     await get_redis().set(key, json.dumps(value, default=str), ex=ttl)
 
 
+async def pop_json(key: str) -> Any | None:
+    """Read a value stored with set_json() and delete it, in one step (for one-time state)."""
+    raw = await get_redis().getdel(key)
+    return json.loads(raw) if raw is not None else None
+
+
 async def invalidate_pages() -> None:
     """Drop every cached status page; cheap because there are only a handful of pages."""
     redis = get_redis()
