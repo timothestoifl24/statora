@@ -3,6 +3,7 @@ import json
 import re
 from datetime import timedelta
 
+import httpx
 import pytest
 import typer
 from sqlalchemy import update
@@ -1178,3 +1179,60 @@ async def test_summary_cached_before_show_title_keeps_the_name(client, auth):
     del summary["page"]["show_title"]  # as written by the previous version
     await cache.set_json(key, summary, 60)
     assert '<h1 class="page-title">Acme Status</h1>' in (await client.get("/s/old-cache")).text
+
+
+def _browser(app, cookie: str | None = None) -> httpx.AsyncClient:
+    browser = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver")
+    if cookie:
+        browser.cookies.set("statora_session", cookie)
+    return browser
+
+
+async def test_logout_ends_the_session_on_the_server(app, client):
+    await make_user("admin", UserRole.ADMIN)
+    await login(client)
+    stolen = client.cookies["statora_session"]
+    async with _browser(app, stolen) as copy:
+        assert (await copy.get("/admin")).status_code == 200  # a copied cookie works while signed in
+
+    await client.post("/logout", headers={"X-CSRF-Token": csrf_from((await client.get("/admin")).text)})
+    async with _browser(app, stolen) as copy:
+        response = await copy.get("/admin")
+    assert response.status_code == 303 and response.headers["location"].startswith("/login")
+
+
+async def test_password_change_ends_the_users_other_sessions(app, client, auth):
+    dana = await make_user("dana", UserRole.EDITOR)
+    admin2 = await make_user("admin2", UserRole.ADMIN)
+    async with _browser(app) as dana_browser, _browser(app) as admin_browser:
+        await login(dana_browser, "dana")
+        await login(admin_browser, "admin2")
+        form = (await admin_browser.get(f"/admin/users/{dana.id}/edit")).text
+        saved = await admin_browser.post(
+            f"/admin/users/{dana.id}/edit",
+            data={
+                "csrf_token": csrf_from(form),
+                "role": "editor",
+                "active": "on",
+                "password": "brand-new-pass",
+            },
+        )
+        assert saved.status_code in (200, 303), saved.text
+        assert (await dana_browser.get("/admin")).status_code == 303  # signed out
+
+        # Changing your own password keeps you signed in here.
+        form = (await admin_browser.get(f"/admin/users/{admin2.id}/edit")).text
+        await admin_browser.post(
+            f"/admin/users/{admin2.id}/edit",
+            data={"csrf_token": csrf_from(form), "role": "admin", "active": "on", "password": "another-pass"},
+        )
+        assert (await admin_browser.get("/admin")).status_code == 200
+
+        # A password set through the API ends the web sessions too.
+        await login(dana_browser, "dana", "brand-new-pass")
+        assert (await dana_browser.get("/admin")).status_code == 200
+        changed = await client.patch(
+            f"/api/v1/users/{dana.id}", json={"password": "third-password"}, headers=auth
+        )
+        assert changed.status_code == 200, changed.text
+        assert (await dana_browser.get("/admin")).status_code == 303

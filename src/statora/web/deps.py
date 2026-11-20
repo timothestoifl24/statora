@@ -7,7 +7,9 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from statora import cache
 from statora.auth import tokens
+from statora.config import get_settings
 from statora.db.models import ApiToken, TokenScope, User, UserRole
 from statora.db.session import sessionmaker
 
@@ -59,10 +61,51 @@ class LoginRequired(Exception):
     """Raised for anonymous UI requests; handled by redirecting to /login."""
 
 
-def login_user(request: Request, user: User) -> None:
+# The session cookie is signed, not stored on the server; each login also gets a record in Redis so
+# that logging out, or a password change, can end a session before the cookie expires.
+
+
+def _session_key(sid: str) -> str:
+    return f"statora:session:{sid}"
+
+
+def _user_sessions_key(user_id: int) -> str:
+    return f"statora:user-sessions:{user_id}"
+
+
+async def login_user(request: Request, user: User) -> None:
     request.session.clear()
+    sid = secrets.token_urlsafe(32)
+    ttl = get_settings().session_max_age
+    async with cache.get_redis().pipeline(transaction=True) as pipe:
+        pipe.set(_session_key(sid), user.id, ex=ttl)
+        pipe.sadd(_user_sessions_key(user.id), sid)
+        pipe.expire(_user_sessions_key(user.id), ttl)
+        await pipe.execute()
+    request.session["sid"] = sid
     request.session["uid"] = user.id
     request.session["csrf"] = secrets.token_urlsafe(32)
+
+
+async def logout_user(request: Request) -> None:
+    sid, uid = request.session.get("sid"), request.session.get("uid")
+    if isinstance(sid, str):
+        redis = cache.get_redis()
+        await redis.delete(_session_key(sid))
+        if isinstance(uid, int):
+            await redis.srem(_user_sessions_key(uid), sid)
+    request.session.clear()
+
+
+async def end_user_sessions(user_id: int, keep: Request | None = None) -> None:
+    """End every session of a user, e.g. after a password change; `keep`: the request whose
+    session stays (someone changing their own password)."""
+    redis = cache.get_redis()
+    kept = keep.session.get("sid") if keep is not None else None
+    sids = [sid for sid in await redis.smembers(_user_sessions_key(user_id)) if sid != kept]
+    if sids:
+        await redis.delete(*(_session_key(sid) for sid in sids))
+        await redis.srem(_user_sessions_key(user_id), *sids)
 
 
 def csrf_token(request: Request) -> str:
@@ -75,6 +118,11 @@ def csrf_token(request: Request) -> str:
 async def optional_user(request: Request, session: AsyncSession = Depends(get_session)) -> User | None:
     uid = request.session.get("uid")
     if uid is None:
+        return None
+    sid = request.session.get("sid")
+    if not isinstance(sid, str) or await cache.get_redis().get(_session_key(sid)) != str(uid):
+        # Logged out, revoked, expired, or a cookie from before sessions were recorded.
+        request.session.clear()
         return None
     user = await session.get(User, uid)
     if user is None or not user.active:

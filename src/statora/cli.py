@@ -74,9 +74,27 @@ async def _reset_admin(password: str, username: str | None) -> str | None:
             admin.password_hash = hash_password(password)
             admin.role = UserRole.ADMIN
             admin.active = True
-            return admin.username
+            await session.flush()
+            name, admin_id = admin.username, admin.id
+        await _end_sessions(admin_id)
+        return name
     finally:
         await dispose_engine()
+
+
+async def _end_sessions(user_id: int) -> None:
+    """Sign a user out of the web UI everywhere (best effort: Redis may be unreachable from here)."""
+    from statora import cache
+    from statora.web.deps import end_user_sessions
+
+    try:
+        await end_user_sessions(user_id)
+    except Exception as exc:  # the password is reset either way
+        typer.secho(
+            f"Could not end existing sessions ({exc}); they expire on their own.", fg="yellow", err=True
+        )
+    finally:
+        await cache.close_redis()
 
 
 @app.command("reset-admin")
