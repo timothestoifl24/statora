@@ -120,7 +120,8 @@ async def test_one_client_cannot_lock_someone_else_out(app):
 
     await make_user("dave", UserRole.VIEWER, password="davepassword")
     async with _client_at(app, "203.0.113.7") as attacker, _client_at(app, "198.51.100.2") as dave:
-        for _ in range(12):
+        # Well past the account-wide ceiling: attempts after the client is blocked don't count.
+        for _ in range(10 * ratelimit.ACCOUNT_LIMIT_FACTOR + 20):
             await attacker.post("/api/v1/auth/token", json={"username": "dave", "password": "wrong"})
         blocked = await attacker.post(
             "/api/v1/auth/token", json={"username": "dave", "password": "davepassword"}
@@ -141,12 +142,22 @@ async def test_one_client_cannot_lock_someone_else_out(app):
         assert await ratelimit.hit(ratelimit.login_keys(f"10.0.{i // 250}.{i % 250}", "erin"))
     assert not await ratelimit.hit(ratelimit.login_keys("10.9.9.9", "erin"))
 
+    # A counter left without a TTL by an older version gets one on the next attempt.
+    stale = ratelimit.login_keys("192.0.2.50", "frank")
+    await redis.set(f"statora:ratelimit:login:{stale.client}", 3)
+    await ratelimit.hit(stale)
+    assert 0 < await redis.ttl(f"statora:ratelimit:login:{stale.client}") <= 300
 
-def test_login_keys_cap_the_username():
+
+def test_login_keys_are_short_and_distinct_per_account():
     from statora.auth import ratelimit
 
-    keys = ratelimit.login_keys("192.0.2.1", "  " + "A" * 10_000)
-    assert keys.account == "user:" + "a" * 128 and keys.client_account.endswith(keys.account)
+    long_name = "a" * 140
+    first = ratelimit.login_keys("192.0.2.1", "  " + long_name.upper() + "X")
+    second = ratelimit.login_keys("192.0.2.1", long_name + "y")
+    assert first.account != second.account  # names that differ late don't share a counter
+    assert len(first.account) < 80 and first.client_account.endswith(first.account)
+    assert ratelimit.login_keys("192.0.2.9", " Dave ").account == ratelimit.login_keys("x", "dave").account
 
 
 async def test_user_management(client, auth):
