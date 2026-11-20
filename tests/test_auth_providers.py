@@ -314,6 +314,48 @@ async def test_ldap_direct_bind_and_password_login(session):
     )
 
 
+class _FakeLdapConnection:
+    """Stands in for ldap3.Connection: binds succeed, the chosen search raises."""
+
+    opened: list["_FakeLdapConnection"] = []
+
+    def __init__(self, server, user=None, password=None, **kw):
+        self.user, self.unbound, self.entries = user, False, []
+        _FakeLdapConnection.opened.append(self)
+
+    def open(self):
+        pass
+
+    def start_tls(self):
+        if self.fail_on == "start_tls":
+            raise ldap.LDAPException("StartTLS refused")
+
+    def bind(self):
+        return True
+
+    def search(self, base, *args, **kw):
+        if self.fail_on == ("service" if self.user == "cn=svc" else "user"):
+            raise ldap.LDAPException("server went away")
+
+    def unbind(self):
+        self.unbound = True
+
+
+@pytest.mark.parametrize("fail_on", ["service", "user", "start_tls"])
+def test_ldap_connections_are_closed_when_a_request_fails(monkeypatch, fail_on):
+    from statora.schemas.auth_provider import LdapConfig
+
+    _FakeLdapConnection.opened = []
+    monkeypatch.setattr(_FakeLdapConnection, "fail_on", fail_on, raising=False)
+    monkeypatch.setattr(ldap, "Connection", _FakeLdapConnection)
+    cfg = LdapConfig.model_validate(
+        {**LDAP_SEARCH, "bind_dn": "cn=svc", "start_tls": fail_on == "start_tls", "group_search_base": None}
+    )
+    with pytest.raises((ldap.LDAPException, AuthError)):
+        ldap._authenticate_sync(cfg, "alice", "alicepassword")
+    assert _FakeLdapConnection.opened and all(c.unbound for c in _FakeLdapConnection.opened)
+
+
 @ldap_only
 async def test_api_token_with_ldap_credentials(client, session):
     await _provider(
