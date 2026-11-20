@@ -110,3 +110,52 @@ async def test_broken_check_never_raises(monkeypatch):
     monkeypatch.setitem(__import__("statora.checks", fromlist=["CHECKS"]).CHECKS, MonitorType.PING, boom)
     result = await run_check(target(MonitorType.PING, "127.0.0.1"))
     assert result.status == MonitorStatus.DOWN and "bug" in result.message
+
+
+@pytest.mark.parametrize(
+    ("type_", "host", "config"),
+    [
+        (MonitorType.HTTP, "http://169.254.169.254/latest/meta-data/", {}),
+        (MonitorType.HTTP, "http://[fd00:ec2::254]/latest/", {}),
+        (MonitorType.TCP, "169.254.169.254", {"port": 80}),
+        (MonitorType.PING, "fe80::1", {}),
+        (MonitorType.SQL, "169.254.10.10", {"engine": "postgresql"}),
+        (MonitorType.DNS, "example.org", {"resolver": "169.254.169.253"}),
+        (MonitorType.TCP, "::ffff:169.254.169.254", {"port": 80}),
+    ],
+)
+async def test_metadata_and_link_local_targets_are_refused(monkeypatch, type_, host, config):
+    async def never(_):
+        raise AssertionError("the check must not run")
+
+    monkeypatch.setitem(__import__("statora.checks", fromlist=["CHECKS"]).CHECKS, type_, never)
+    result = await run_check(target(type_, host, **config))
+    assert result.status == MonitorStatus.DOWN and "blocked network" in result.message
+
+
+@respx.mock
+async def test_blocked_networks_follow_redirects_and_names(monkeypatch):
+    from statora.config import get_settings
+
+    respx.get("https://svc.test/").respond(302, headers={"Location": "http://169.254.169.254/creds"})
+    metadata = respx.get("http://169.254.169.254/creds").respond(200, text="secret")
+    result = await run_check(target(MonitorType.HTTP, "https://svc.test/"))
+    assert result.status == MonitorStatus.DOWN and "169.254.169.254" in result.message
+    assert not metadata.called
+
+    # Names are resolved: an operator can block loopback too, and "localhost" is caught.
+    monkeypatch.setattr(get_settings(), "monitor_blocked_networks", "127.0.0.0/8,::1/128")
+    blocked = await run_check(target(MonitorType.TCP, "localhost", port=9))
+    assert "localhost (" in blocked.message and "blocked network" in blocked.message
+
+    # An empty setting allows every address.
+    monkeypatch.setattr(get_settings(), "monitor_blocked_networks", "")
+    assert (await run_check(target(MonitorType.HTTP, "https://svc.test/"))).status == MonitorStatus.UP
+
+
+def test_blocked_networks_setting_is_validated():
+    from statora.config import Settings
+
+    assert Settings(monitor_blocked_networks="10.0.0.0/8, fd00::/8").blocked_networks[1].version == 6
+    with pytest.raises(ValueError):
+        Settings(monitor_blocked_networks="169.254.0.0/16,not-a-network")
