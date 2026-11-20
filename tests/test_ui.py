@@ -1178,3 +1178,27 @@ async def test_summary_cached_before_show_title_keeps_the_name(client, auth):
     del summary["page"]["show_title"]  # as written by the previous version
     await cache.set_json(key, summary, 60)
     assert '<h1 class="page-title">Acme Status</h1>' in (await client.get("/s/old-cache")).text
+
+
+async def test_viewer_sees_http_header_names_but_not_values(client, auth):
+    payload = {
+        "name": "Private API",
+        "type": "http",
+        "target": "https://api.example.org",
+        "config": {"headers": {"Authorization": "Bearer s3cret", "Accept": "text/plain"}, "body": "x=1"},
+    }
+    monitor = (await client.post("/api/v1/monitors", json=payload, headers=auth)).json()
+
+    await make_user("viewer", UserRole.VIEWER)
+    await login(client, "viewer")
+    detail = (await client.get(f"/admin/monitors/{monitor['id']}")).text
+    assert "Authorization: (hidden)" in detail and "Accept: (hidden)" in detail
+    assert "s3cret" not in detail and "x=1" not in detail and "enc:" not in detail
+
+    client.cookies.clear()
+    await make_user("editor", UserRole.EDITOR)
+    await login(client, "editor")
+    detail = (await client.get(f"/admin/monitors/{monitor['id']}")).text
+    assert "Authorization: Bearer s3cret" in detail and "enc:" not in detail
+    edit = (await client.get(f"/admin/monitors/{monitor['id']}/edit")).text
+    assert "Bearer s3cret" in edit and "enc:" not in edit

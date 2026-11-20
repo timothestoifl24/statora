@@ -35,6 +35,24 @@ async def test_http_up():
 
 
 @respx.mock
+async def test_http_sends_decrypted_headers_and_body():
+    from statora.schemas.monitor import encrypt_sensitive
+
+    route = respx.post("https://svc.test/").respond(200)
+    stored = encrypt_sensitive(
+        MonitorType.HTTP,
+        parse_config(
+            MonitorType.HTTP, {"method": "POST", "headers": {"Authorization": "Bearer s3cret"}, "body": "a=1"}
+        ).model_dump(),
+    )
+    assert stored["headers"]["Authorization"].startswith("enc:")
+    check = CheckTarget(id=1, type=MonitorType.HTTP, target="https://svc.test/", timeout_s=2, config=stored)
+    assert (await run_check(check)).status == MonitorStatus.UP
+    request = route.calls.last.request
+    assert request.headers["Authorization"] == "Bearer s3cret" and request.content == b"a=1"
+
+
+@respx.mock
 async def test_http_unexpected_status():
     respx.get("https://svc.test/").respond(503)
     result = await run_check(target(MonitorType.HTTP, "https://svc.test/"))

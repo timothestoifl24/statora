@@ -1,9 +1,11 @@
 import re
+from collections.abc import Callable
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from statora.auth import crypto
 from statora.db.models import MonitorStatus, MonitorType
 from statora.schemas.common import IconRef, LinkUrl
 
@@ -140,6 +142,50 @@ def redact_config(monitor_type: MonitorType | str, config: dict[str, Any] | None
     return data
 
 
+# Config fields that often carry credentials (bearer tokens, API keys, basic auth). Unlike
+# SECRET_FIELDS they stay readable for editors, who need them to edit the monitor, but they are
+# stored encrypted and viewers only see the header names. Header values are encrypted one by one.
+SENSITIVE_FIELDS: dict[MonitorType, tuple[str, ...]] = {MonitorType.HTTP: ("headers", "body")}
+
+
+def _map_sensitive(
+    monitor_type: MonitorType | str, config: dict[str, Any] | None, fn: Callable[[str], str | None]
+) -> dict[str, Any]:
+    data = dict(config or {})
+    for name in SENSITIVE_FIELDS.get(MonitorType(monitor_type), ()):
+        value = data.get(name)
+        if isinstance(value, dict):
+            data[name] = {key: fn(item) if isinstance(item, str) else item for key, item in value.items()}
+        elif isinstance(value, str) and value:
+            data[name] = fn(value)
+    return data
+
+
+def encrypt_sensitive(monitor_type: MonitorType | str, config: dict[str, Any] | None) -> dict[str, Any]:
+    """A copy of the config with sensitive values encrypted (already encrypted ones are kept)."""
+    return _map_sensitive(
+        monitor_type, config, lambda value: value if crypto.is_encrypted(value) else crypto.encrypt(value)
+    )
+
+
+def decrypt_sensitive(monitor_type: MonitorType | str, config: dict[str, Any] | None) -> dict[str, Any]:
+    """A copy of the config with sensitive values in clear text, for checks and editors."""
+    return _map_sensitive(monitor_type, config, crypto.decrypt)
+
+
+def redact_sensitive(monitor_type: MonitorType | str, config: dict[str, Any] | None) -> dict[str, Any]:
+    """A copy of the config for viewers: header names without values, no request body."""
+    return _map_sensitive(monitor_type, config, lambda value: None)
+
+
+def config_for(
+    monitor_type: MonitorType | str, config: dict[str, Any] | None, *, editor: bool
+) -> dict[str, Any]:
+    """The config as a user may see it: secrets removed, sensitive values only for editors."""
+    shown = decrypt_sensitive(monitor_type, config) if editor else redact_sensitive(monitor_type, config)
+    return redact_config(monitor_type, shown)
+
+
 def parse_config(monitor_type: MonitorType | str, config: dict[str, Any] | None) -> _Strict:
     return CONFIG_MODELS[MonitorType(monitor_type)].model_validate(config or {})
 
@@ -231,6 +277,7 @@ class MonitorRead(BaseModel):
 
     @model_validator(mode="after")
     def _hide_secrets(self) -> "MonitorRead":
+        # Sensitive fields (HTTP headers and body) depend on the caller's role; see config_for().
         self.config = redact_config(self.type, self.config)
         return self
 

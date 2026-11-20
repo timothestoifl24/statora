@@ -21,7 +21,13 @@ from statora.db.models import (
     StatusPageGroup,
     StatusPageItem,
 )
-from statora.schemas.monitor import SECRET_FIELDS, MonitorBase, MonitorCreate, MonitorUpdate
+from statora.schemas.monitor import (
+    SECRET_FIELDS,
+    MonitorBase,
+    MonitorCreate,
+    MonitorUpdate,
+    encrypt_sensitive,
+)
 from statora.schemas.pages import (
     IncidentCreate,
     IncidentPatch,
@@ -43,8 +49,8 @@ class ValidationProblem(ValueError):
 
 
 def _store_secrets(monitor_type: str, config: dict, previous: dict | None = None) -> dict:
-    """Encrypt secret config fields. An empty value keeps the previously stored secret."""
-    config = dict(config)
+    """Encrypt secret and sensitive config fields. An empty secret keeps the previously stored one."""
+    config = encrypt_sensitive(monitor_type, config)
     for name in SECRET_FIELDS.get(MonitorType(monitor_type), ()):
         value = config.get(name)
         if value and not crypto.is_encrypted(value):

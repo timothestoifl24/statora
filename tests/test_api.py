@@ -407,3 +407,43 @@ async def test_sql_monitor_password_is_write_only(client, auth, session):
 
     oracle = {**payload, "config": {"engine": "oracle", "query": "DELETE FROM orders"}}
     assert (await client.post("/api/v1/monitors", json=oracle, headers=auth)).status_code == 422
+
+
+async def test_http_monitor_credentials_are_encrypted_and_hidden_from_viewers(client, auth, session):
+    payload = {
+        **HTTP_MONITOR,
+        "config": {"method": "POST", "headers": {"Authorization": "Bearer s3cret"}, "body": "token=abc"},
+    }
+    created = await client.post("/api/v1/monitors", json=payload, headers=auth)
+    assert created.status_code == 201, created.text
+    # Editors (and admins) get the values back: they need them to edit the monitor.
+    assert created.json()["config"]["headers"] == {"Authorization": "Bearer s3cret"}
+    assert created.json()["config"]["body"] == "token=abc"
+
+    stored = await session.get(Monitor, created.json()["id"])
+    assert crypto.is_encrypted(stored.config["headers"]["Authorization"])
+    assert crypto.is_encrypted(stored.config["body"])
+    assert crypto.decrypt(stored.config["headers"]["Authorization"]) == "Bearer s3cret"
+
+    viewer = {"Authorization": f"Bearer {await make_token(await make_user('viewer', UserRole.VIEWER))}"}
+    one = await client.get(f"/api/v1/monitors/{stored.id}", headers=viewer)
+    listed = await client.get("/api/v1/monitors", headers=viewer)
+    for response in (one, listed):
+        assert response.status_code == 200
+        assert (
+            "s3cret" not in response.text and "token=abc" not in response.text and "enc:" not in response.text
+        )
+    assert one.json()["config"]["headers"] == {"Authorization": None}
+    assert one.json()["config"]["body"] is None
+
+    # An editor's round trip re-encrypts the values instead of storing them in clear text.
+    editor = {"Authorization": f"Bearer {await make_token(await make_user('editor', UserRole.EDITOR))}"}
+    fetched = (await client.get(f"/api/v1/monitors/{stored.id}", headers=editor)).json()
+    assert fetched["config"]["headers"] == {"Authorization": "Bearer s3cret"}
+    patched = await client.patch(
+        f"/api/v1/monitors/{stored.id}", json={"config": fetched["config"]}, headers=editor
+    )
+    assert patched.status_code == 200, patched.text
+    await session.refresh(stored)
+    assert crypto.is_encrypted(stored.config["headers"]["Authorization"])
+    assert crypto.decrypt(stored.config["headers"]["Authorization"]) == "Bearer s3cret"
