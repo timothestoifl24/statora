@@ -188,7 +188,9 @@ services:
 
 When a proxy is in front, you can stop publishing the port to all interfaces. Set `STATORA_HTTP_PORT=127.0.0.1:8000`, or remove `ports:` and put the proxy on the same network.
 
-The image only trusts `X-Forwarded-*` headers from loopback and private addresses, which covers a proxy on the same host or container network. A proxy or load balancer that connects from a public address must be added to `FORWARDED_ALLOW_IPS`, or every request will appear to come from it and share one login rate limit. If other machines on your private network can reach the port directly, set `FORWARDED_ALLOW_IPS` to your proxy's address alone. Never set it to `*`: anyone could then choose the address the login rate limit counts against.
+The image only trusts `X-Forwarded-*` headers from loopback and private addresses, which covers a proxy on the same host or container network. A proxy or load balancer that connects from a public address must be added to `FORWARDED_ALLOW_IPS`, or every request will appear to come from it and share one login rate limit. If other machines on your private network can reach the port directly, set `FORWARDED_ALLOW_IPS` to your proxy's address alone. The same applies when Docker or Podman hands the container connections from its own gateway address, as rootless Podman and Docker Desktop do: clients connecting to the published port then look like a private address and could choose the address they are counted under. Never set it to `*`: anyone could then choose the address the login rate limit counts against.
+
+Login attempts are counted per client address, per client address and account, and per account with a ten times higher limit. A client that keeps guessing is blocked without locking the account for everyone else.
 
 ## Podman notes <span id="podman"></span>
 

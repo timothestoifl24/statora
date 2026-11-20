@@ -80,8 +80,8 @@ async def login_submit(
     session: AsyncSession = Depends(get_session),
 ):
     client_ip = request.client.host if request.client else "unknown"
-    keys = (f"ip:{client_ip}", f"user:{username.strip().lower()}")
-    if not await ratelimit.hit(*keys):
+    keys = ratelimit.login_keys(client_ip, username)
+    if not await ratelimit.hit(keys):
         return await _render_login(
             request, session, "Too many login attempts. Try again in a few minutes.", 429
         )
@@ -90,7 +90,7 @@ async def login_submit(
     except AuthError as exc:
         await session.commit()
         return await _render_login(request, session, str(exc), 401)
-    await ratelimit.reset(keys[1])
+    await ratelimit.succeeded(keys)
     login_user(request, user)
     return RedirectResponse(local_path(next), status_code=303)
 

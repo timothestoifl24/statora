@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+import httpx
 import pytest
 from openapi_spec_validator import validate
 
@@ -107,6 +108,45 @@ async def test_login_rate_limit(client):
         for _ in range(11)
     ]
     assert codes[:10] == [401] * 10 and codes[10] == 429
+
+
+def _client_at(app, ip: str) -> httpx.AsyncClient:
+    transport = httpx.ASGITransport(app=app, client=(ip, 40000))
+    return httpx.AsyncClient(transport=transport, base_url="http://testserver")
+
+
+async def test_one_client_cannot_lock_someone_else_out(app):
+    from statora.auth import ratelimit
+
+    await make_user("dave", UserRole.VIEWER, password="davepassword")
+    async with _client_at(app, "203.0.113.7") as attacker, _client_at(app, "198.51.100.2") as dave:
+        for _ in range(12):
+            await attacker.post("/api/v1/auth/token", json={"username": "dave", "password": "wrong"})
+        blocked = await attacker.post(
+            "/api/v1/auth/token", json={"username": "dave", "password": "davepassword"}
+        )
+        assert blocked.status_code == 429
+        ok = await dave.post("/api/v1/auth/token", json={"username": "dave", "password": "davepassword"})
+        assert ok.status_code == 201, ok.text
+
+    # Every counter has a TTL, so none of them can block its key for good.
+    redis = cache.get_redis()
+    keys = ratelimit.login_keys("203.0.113.7", "dave")
+    for key in (keys.client, keys.client_account, keys.account):
+        assert 0 < await redis.ttl(f"statora:ratelimit:login:{key}") <= 300
+
+    # The account-wide ceiling still stops guessing spread over many addresses.
+    limit = 10 * ratelimit.ACCOUNT_LIMIT_FACTOR
+    for i in range(limit):
+        assert await ratelimit.hit(ratelimit.login_keys(f"10.0.{i // 250}.{i % 250}", "erin"))
+    assert not await ratelimit.hit(ratelimit.login_keys("10.9.9.9", "erin"))
+
+
+def test_login_keys_cap_the_username():
+    from statora.auth import ratelimit
+
+    keys = ratelimit.login_keys("192.0.2.1", "  " + "A" * 10_000)
+    assert keys.account == "user:" + "a" * 128 and keys.client_account.endswith(keys.account)
 
 
 async def test_user_management(client, auth):
