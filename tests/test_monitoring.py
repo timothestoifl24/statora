@@ -48,12 +48,29 @@ async def test_state_machine_with_retries(session):
 
 async def test_status_change_invalidates_page_cache(session):
     monitor = await _monitor(session, status=MonitorStatus.UP)
-    await cache.set_json(cache.page_key("x"), {"cached": True})
+    await cache.set_page(cache.page_key("x"), {"cached": True})
+    await cache.set_json("statora:unrelated", {"kept": True})
     await record_result(session, monitor, CheckResult.up(1.0))
     assert await cache.get_json(cache.page_key("x")) is not None  # no change, cache kept
     monitor.retries = 0
     await record_result(session, monitor, CheckResult.down("boom"))
     assert await cache.get_json(cache.page_key("x")) is None
+    assert await cache.get_json("statora:unrelated") == {"kept": True}
+    assert not await cache.get_redis().exists(cache.CACHED_PAGES_KEY)  # the list is cleared too
+    await cache.invalidate_pages()  # nothing cached: a no-op
+
+
+async def test_invalidate_pages_across_delete_batches(services):
+    # The script deletes in batches of 500: 1001 keys means two full batches and a partial one.
+    keys = [cache.page_key(f"page-{i}") for i in range(1001)]
+    for key in keys:
+        await cache.set_page(key, {"cached": True}, 60)
+    await cache.set_json("statora:unrelated", {"kept": True})
+    await cache.invalidate_pages()
+    redis = cache.get_redis()
+    assert await redis.exists(*keys) == 0
+    assert not await redis.exists(cache.CACHED_PAGES_KEY)
+    assert await cache.get_json("statora:unrelated") == {"kept": True}
 
 
 async def test_maintenance_window(session):
