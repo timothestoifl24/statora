@@ -1,7 +1,8 @@
+import ipaddress
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Example values shipped in this repository (defaults, .env and Kubernetes examples). `statora serve`
@@ -35,6 +36,25 @@ class Settings(BaseSettings):
 
     login_rate_limit: int = 10
     login_rate_window: int = 300
+
+    # Addresses monitors may not reach, comma-separated: link-local (which includes the
+    # 169.254.169.254 cloud metadata service) and the other providers' metadata addresses. Anyone
+    # who may edit monitors could otherwise use one to read instance credentials. Empty allows all.
+    monitor_blocked_networks: str = "169.254.0.0/16,fe80::/10,fd00:ec2::254/128,100.100.100.200/32"
+
+    @field_validator("monitor_blocked_networks")
+    @classmethod
+    def _check_networks(cls, value: str) -> str:
+        for part in filter(None, (item.strip() for item in value.split(","))):
+            ipaddress.ip_network(part, strict=False)  # raises ValueError for a typo
+        return value
+
+    @property
+    def blocked_networks(self) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+        return [
+            ipaddress.ip_network(part, strict=False)
+            for part in filter(None, (item.strip() for item in self.monitor_blocked_networks.split(",")))
+        ]
 
     @property
     def runs_web(self) -> bool:
