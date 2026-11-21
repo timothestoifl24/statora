@@ -74,9 +74,24 @@ async def _reset_admin(password: str, username: str | None) -> str | None:
             admin.password_hash = hash_password(password)
             admin.role = UserRole.ADMIN
             admin.active = True
-            return admin.username
+            await session.flush()
+            name, admin_id = admin.username, admin.id
+        await _end_sessions(admin_id)
+        return name
     finally:
         await dispose_engine()
+
+
+async def _end_sessions(user_id: int) -> None:
+    """Delete a user's web session records. The new password already ends those sessions (they
+    carry a fingerprint of the old one); this only tidies Redis, so it may fail without harm."""
+    from statora import cache
+    from statora.web.deps import end_user_sessions
+
+    try:
+        await end_user_sessions(user_id)
+    finally:
+        await cache.close_redis()
 
 
 @app.command("reset-admin")

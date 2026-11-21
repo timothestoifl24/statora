@@ -4,6 +4,7 @@ from statora.db.models import MonitorType
 
 from .base import Check, CheckResult, CheckTarget
 from .dns import check_dns
+from .guard import host_of, refusal
 from .http import check_http
 from .ping import check_ping
 from .sql import check_sql
@@ -25,6 +26,8 @@ CHECKS: dict[MonitorType, Check] = {
 
 async def run_check(target: CheckTarget) -> CheckResult:
     try:
+        if problem := await refusal(host_of(target), target.timeout_s):
+            return CheckResult.down(problem)
         return await CHECKS[MonitorType(target.type)](target)
     except Exception as exc:  # a broken check must never kill the scheduler
         # A bug in a check rather than a failing target: log the traceback the heartbeat can't hold.

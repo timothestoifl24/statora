@@ -20,13 +20,17 @@ def _server(cfg: LdapConfig) -> Server:
 
 
 def _connect(cfg: LdapConfig, user: str | None, password: str | None) -> Connection:
+    """An open, bound connection; it is closed again if opening, StartTLS or the bind fails."""
     conn = Connection(_server(cfg), user=user, password=password, receive_timeout=10, raise_exceptions=False)
-    conn.open()
-    if cfg.start_tls:
-        conn.start_tls()
-    if not conn.bind():
+    try:
+        conn.open()
+        if cfg.start_tls:
+            conn.start_tls()
+        if not conn.bind():
+            raise AuthError("Invalid username or password")
+    except BaseException:
         conn.unbind()
-        raise AuthError("Invalid username or password")
+        raise
     return conn
 
 
@@ -46,21 +50,23 @@ def _authenticate_sync(cfg: LdapConfig, username: str, password: str) -> Externa
 
     if cfg.bind_dn_template:
         user_dn = cfg.bind_dn_template.format(username=escape_rdn(username))
-        conn = _connect(cfg, user_dn, password)
-        conn.search(user_dn, "(objectClass=*)", search_scope="BASE", attributes=ALL_ATTRIBUTES)
     else:
         service = _connect(cfg, cfg.bind_dn, cfg.bind_password)
-        search_filter = cfg.user_filter.format(username=escape_filter_chars(username))
-        service.search(cfg.user_search_base, search_filter, SUBTREE, attributes=ALL_ATTRIBUTES, size_limit=2)
-        entries = list(service.entries)
-        service.unbind()
+        try:
+            search_filter = cfg.user_filter.format(username=escape_filter_chars(username))
+            service.search(
+                cfg.user_search_base, search_filter, SUBTREE, attributes=ALL_ATTRIBUTES, size_limit=2
+            )
+            entries = list(service.entries)
+        finally:
+            service.unbind()
         if len(entries) != 1:
             raise AuthError("Invalid username or password")
         user_dn = entries[0].entry_dn
-        conn = _connect(cfg, user_dn, password)
-        conn.search(user_dn, "(objectClass=*)", search_scope="BASE", attributes=ALL_ATTRIBUTES)
 
+    conn = _connect(cfg, user_dn, password)
     try:
+        conn.search(user_dn, "(objectClass=*)", search_scope="BASE", attributes=ALL_ATTRIBUTES)
         if not conn.entries:
             raise AuthError("User entry not readable after bind")
         entry = conn.entries[0]
@@ -102,8 +108,10 @@ def _test_sync(cfg: LdapConfig) -> str:
         conn.unbind()
         return f"Connected and bound as {cfg.bind_dn}"
     conn = Connection(_server(cfg), receive_timeout=10)
-    conn.open()
-    conn.unbind()
+    try:
+        conn.open()
+    finally:
+        conn.unbind()
     return "Connected (no service account configured)"
 
 

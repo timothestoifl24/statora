@@ -1,5 +1,8 @@
+import asyncio
+import contextlib
 from datetime import timedelta
 
+import pytest
 from sqlalchemy import select
 
 from statora import cache
@@ -45,12 +48,29 @@ async def test_state_machine_with_retries(session):
 
 async def test_status_change_invalidates_page_cache(session):
     monitor = await _monitor(session, status=MonitorStatus.UP)
-    await cache.set_json(cache.page_key("x"), {"cached": True})
+    await cache.set_page(cache.page_key("x"), {"cached": True})
+    await cache.set_json("statora:unrelated", {"kept": True})
     await record_result(session, monitor, CheckResult.up(1.0))
     assert await cache.get_json(cache.page_key("x")) is not None  # no change, cache kept
     monitor.retries = 0
     await record_result(session, monitor, CheckResult.down("boom"))
     assert await cache.get_json(cache.page_key("x")) is None
+    assert await cache.get_json("statora:unrelated") == {"kept": True}
+    assert not await cache.get_redis().exists(cache.CACHED_PAGES_KEY)  # the list is cleared too
+    await cache.invalidate_pages()  # nothing cached: a no-op
+
+
+async def test_invalidate_pages_across_delete_batches(services):
+    # The script deletes in batches of 500: 1001 keys means two full batches and a partial one.
+    keys = [cache.page_key(f"page-{i}") for i in range(1001)]
+    for key in keys:
+        await cache.set_page(key, {"cached": True}, 60)
+    await cache.set_json("statora:unrelated", {"kept": True})
+    await cache.invalidate_pages()
+    redis = cache.get_redis()
+    assert await redis.exists(*keys) == 0
+    assert not await redis.exists(cache.CACHED_PAGES_KEY)
+    assert await cache.get_json("statora:unrelated") == {"kept": True}
 
 
 async def test_maintenance_window(session):
@@ -143,3 +163,74 @@ async def test_scheduler_sync_follows_database(session, monkeypatch):
     )  # restarted with new interval
     await sched.stop()
     assert not sched._tasks
+
+
+async def test_scheduler_listener_survives_bad_messages_and_disconnects(services, monkeypatch):
+    from statora import scheduler as scheduler_module
+
+    monkeypatch.setattr(scheduler_module, "LOCK_RENEW_INTERVAL", 0.01)
+    sched = scheduler_module.Scheduler()
+    reloaded, synced, got_new_monitor = [], asyncio.Event(), asyncio.Event()
+
+    async def reload_one(monitor_id):
+        reloaded.append(monitor_id)
+        if monitor_id == 7:
+            got_new_monitor.set()
+
+    async def sync():
+        # A monitor created while the catch-up resync runs: its notification must not be lost,
+        # so the listener has to be subscribed already.
+        await cache.publish_monitors_changed(7)
+        synced.set()
+
+    monkeypatch.setattr(sched, "reload_one", reload_one)
+    monkeypatch.setattr(sched, "sync", sync)
+
+    real_listen_once, calls = sched._listen_once, []
+
+    async def flaky_listen_once(catch_up=False):
+        calls.append(catch_up)
+        if len(calls) == 1:
+            raise ConnectionError("redis went away")
+        await real_listen_once(catch_up)
+
+    monkeypatch.setattr(sched, "_listen_once", flaky_listen_once)
+    listener = asyncio.create_task(sched._listen())
+    try:
+        async with asyncio.timeout(5):
+            await synced.wait()  # reconnected, and caught up on what it may have missed
+            await got_new_monitor.wait()
+            while 42 not in reloaded:
+                await cache.get_redis().publish(cache.MONITORS_CHANGED_CHANNEL, "not-a-number")
+                await cache.publish_monitors_changed(42)
+                await asyncio.sleep(0.05)
+    finally:
+        listener.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await listener
+    assert calls == [False, True] and set(reloaded) == {7, 42}
+
+
+async def test_scheduler_restarts_when_its_listener_stops(services, monkeypatch):
+    from statora import scheduler as scheduler_module
+
+    monkeypatch.setattr(scheduler_module, "LOCK_RENEW_INTERVAL", 0.01)
+    sched = scheduler_module.Scheduler()
+
+    async def nothing():
+        return None
+
+    async def forever():
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(sched, "sync", nothing)
+    monkeypatch.setattr(sched, "_listen", nothing)
+    monkeypatch.setattr(sched, "_housekeeping", forever)
+    assert await sched._lock.acquire()
+    try:
+        with pytest.raises(RuntimeError, match="scheduler-listener stopped"):
+            async with asyncio.timeout(5):
+                await sched._lead()
+    finally:
+        await sched._lock.release()
+    assert not sched.is_leader

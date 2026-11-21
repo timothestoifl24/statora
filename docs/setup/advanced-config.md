@@ -14,8 +14,9 @@ Statora is configured with environment variables, all prefixed with `STATORA_`. 
 | `STATORA_ROLE` | `all` | `all`, `web` (UI + API only) or `worker` (checks only). The same image does all three. |
 | `STATORA_HOST` / `STATORA_PORT` | `0.0.0.0` / `8000` | Listen address. |
 | `STATORA_HEARTBEAT_RETENTION_DAYS` | `30` | How long raw check results are kept. Minute and hour uptime bars need at least 5 days. Daily rollups (the daily bars) are kept indefinitely. |
+| `STATORA_MONITOR_BLOCKED_NETWORKS` | link-local and cloud metadata addresses | Comma-separated networks monitors may not reach: `169.254.0.0/16,fe80::/10,fd00:ec2::254/128,100.100.100.200/32` by default, which covers the metadata services of the common clouds. A monitor whose host (or HTTP redirect) resolves into one of them reports *down* without connecting. Add `127.0.0.0/8,::1/128` or private ranges to keep editors away from internal services; leave it empty to allow every address. |
 | `STATORA_PAGE_CACHE_TTL` | `30` | Seconds a status page summary stays cached. Changes clear it immediately. |
-| `STATORA_SESSION_MAX_AGE` | `43200` | Admin session lifetime in seconds (12 h). |
+| `STATORA_SESSION_MAX_AGE` | `43200` | Admin session lifetime in seconds (12 h). Sessions are also recorded in Redis: signing out, or a password change, ends them straight away, and flushing Redis signs everyone out. |
 | `STATORA_DISABLE_LOCAL_LOGIN` | `false` | Hide password login for everyone except local admins, for SSO-only setups. |
 | `STATORA_LOGIN_RATE_LIMIT` | `10` | Login attempts allowed per IP address and per username… |
 | `STATORA_LOGIN_RATE_WINDOW` | `300` | …within this many seconds. |

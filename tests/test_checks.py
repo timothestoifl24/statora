@@ -130,6 +130,89 @@ async def test_broken_check_never_raises(monkeypatch):
     assert result.status == MonitorStatus.DOWN and "bug" in result.message
 
 
+@pytest.mark.parametrize(
+    ("type_", "host", "config"),
+    [
+        (MonitorType.HTTP, "http://169.254.169.254/latest/meta-data/", {}),
+        (MonitorType.HTTP, "http://[fd00:ec2::254]/latest/", {}),
+        (MonitorType.TCP, "169.254.169.254", {"port": 80}),
+        (MonitorType.PING, "fe80::1", {}),
+        (MonitorType.SQL, "169.254.10.10", {"engine": "postgresql"}),
+        (MonitorType.DNS, "example.org", {"resolver": "169.254.169.253"}),
+        (MonitorType.TCP, "::ffff:169.254.169.254", {"port": 80}),
+    ],
+)
+async def test_metadata_and_link_local_targets_are_refused(monkeypatch, type_, host, config):
+    async def never(_):
+        raise AssertionError("the check must not run")
+
+    monkeypatch.setitem(__import__("statora.checks", fromlist=["CHECKS"]).CHECKS, type_, never)
+    result = await run_check(target(type_, host, **config))
+    assert result.status == MonitorStatus.DOWN and "blocked network" in result.message
+
+
+@respx.mock
+async def test_blocked_networks_follow_redirects_and_names(monkeypatch):
+    from statora.config import get_settings
+
+    respx.get("https://svc.test/").respond(302, headers={"Location": "http://169.254.169.254/creds"})
+    metadata = respx.get("http://169.254.169.254/creds").respond(200, text="secret")
+    result = await run_check(target(MonitorType.HTTP, "https://svc.test/"))
+    assert result.status == MonitorStatus.DOWN and "169.254.169.254" in result.message
+    assert not metadata.called
+
+    # Names are resolved: an operator can block loopback too, and "localhost" is caught.
+    monkeypatch.setattr(get_settings(), "monitor_blocked_networks", "127.0.0.0/8,::1/128")
+    blocked = await run_check(target(MonitorType.TCP, "localhost", port=9))
+    assert "localhost (" in blocked.message and "blocked network" in blocked.message
+
+    # An empty setting allows every address.
+    monkeypatch.setattr(get_settings(), "monitor_blocked_networks", "")
+    assert (await run_check(target(MonitorType.HTTP, "https://svc.test/"))).status == MonitorStatus.UP
+
+
+@pytest.mark.parametrize(
+    ("blocked", "host"),
+    [
+        ("::ffff:127.0.0.1/128", "::ffff:127.0.0.1"),  # an IPv6 entry for a mapped address
+        ("127.0.0.1/32", "::ffff:127.0.0.1"),  # an IPv4 entry, the target written as IPv6
+        ("::ffff:127.0.0.0/104", "127.0.0.1"),  # a mapped-IPv6 entry, the target written as IPv4
+    ],
+)
+async def test_mapped_ipv6_addresses_match_both_ways(monkeypatch, blocked, host):
+    from statora.checks.guard import blocked_address
+    from statora.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "monitor_blocked_networks", blocked)
+    assert await blocked_address(host) == host
+    assert await blocked_address("10.1.2.3") is None and await blocked_address("::ffff:10.1.2.3") is None
+
+
+async def test_a_slow_lookup_counts_against_the_monitor_timeout(monkeypatch):
+    from statora.checks import guard
+
+    async def hang(host):
+        await asyncio.sleep(30)
+
+    async def never(_):
+        raise AssertionError("the check must not run")
+
+    monkeypatch.setattr(guard, "blocked_address", hang)
+    monkeypatch.setitem(__import__("statora.checks", fromlist=["CHECKS"]).CHECKS, MonitorType.TCP, never)
+    slow = CheckTarget(id=1, type=MonitorType.TCP, target="slow.test", timeout_s=1, config={"port": 80})
+    async with asyncio.timeout(5):
+        result = await run_check(slow)
+    assert result.status == MonitorStatus.DOWN and result.message == "Timeout after 1s resolving slow.test"
+
+
+def test_blocked_networks_setting_is_validated():
+    from statora.config import Settings
+
+    assert Settings(monitor_blocked_networks="10.0.0.0/8, fd00::/8").blocked_networks[1].version == 6
+    with pytest.raises(ValueError):
+        Settings(monitor_blocked_networks="169.254.0.0/16,not-a-network")
+
+
 async def test_unexpected_check_errors_are_cut_short_and_logged(monkeypatch, caplog):
     async def boom(_):
         raise RuntimeError("x" * 10_000)
