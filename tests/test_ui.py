@@ -3,10 +3,12 @@ import json
 import re
 from datetime import timedelta
 
+import httpx
 import pytest
 import typer
 from sqlalchemy import update
 
+from statora import cache
 from statora.auth import crypto
 from statora.auth.service import authenticate_local
 from statora.db import session as db
@@ -1187,3 +1189,104 @@ async def test_summary_cached_before_show_title_keeps_the_name(client, auth):
     del summary["page"]["show_title"]  # as written by the previous version
     await cache.set_json(key, summary, 60)
     assert '<h1 class="page-title">Acme Status</h1>' in (await client.get("/s/old-cache")).text
+
+
+def _browser(app, cookie: str | None = None) -> httpx.AsyncClient:
+    browser = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver")
+    if cookie:
+        browser.cookies.set("statora_session", cookie)
+    return browser
+
+
+async def test_logout_ends_the_session_on_the_server(app, client):
+    await make_user("admin", UserRole.ADMIN)
+    await login(client)
+    stolen = client.cookies["statora_session"]
+    async with _browser(app, stolen) as copy:
+        assert (await copy.get("/admin")).status_code == 200  # a copied cookie works while signed in
+
+    await client.post("/logout", headers={"X-CSRF-Token": csrf_from((await client.get("/admin")).text)})
+    async with _browser(app, stolen) as copy:
+        response = await copy.get("/admin")
+    assert response.status_code == 303 and response.headers["location"].startswith("/login")
+
+
+async def test_password_change_ends_the_users_other_sessions(app, client, auth):
+    dana = await make_user("dana", UserRole.EDITOR)
+    admin2 = await make_user("admin2", UserRole.ADMIN)
+    async with _browser(app) as dana_browser, _browser(app) as admin_browser:
+        await login(dana_browser, "dana")
+        await login(admin_browser, "admin2")
+        form = (await admin_browser.get(f"/admin/users/{dana.id}/edit")).text
+        saved = await admin_browser.post(
+            f"/admin/users/{dana.id}/edit",
+            data={
+                "csrf_token": csrf_from(form),
+                "role": "editor",
+                "active": "on",
+                "password": "brand-new-pass",
+            },
+        )
+        assert saved.status_code in (200, 303), saved.text
+        assert (await dana_browser.get("/admin")).status_code == 303  # signed out
+
+        # Changing your own password keeps you signed in here.
+        form = (await admin_browser.get(f"/admin/users/{admin2.id}/edit")).text
+        await admin_browser.post(
+            f"/admin/users/{admin2.id}/edit",
+            data={"csrf_token": csrf_from(form), "role": "admin", "active": "on", "password": "another-pass"},
+        )
+        assert (await admin_browser.get("/admin")).status_code == 200
+
+        # A password set through the API ends the web sessions too.
+        await login(dana_browser, "dana", "brand-new-pass")
+        assert (await dana_browser.get("/admin")).status_code == 200
+        changed = await client.patch(
+            f"/api/v1/users/{dana.id}", json={"password": "third-password"}, headers=auth
+        )
+        assert changed.status_code == 200, changed.text
+        assert (await dana_browser.get("/admin")).status_code == 303
+
+
+async def test_password_change_ends_sessions_without_redis_cleanup(app):
+    # A login that raced the change, or a change saved while Redis was down, leaves a session
+    # record behind; the password fingerprint in it still ends the session.
+    from statora.auth.passwords import hash_password
+
+    erin = await make_user("erin", UserRole.EDITOR)
+    async with _browser(app) as browser:
+        await login(browser, "erin")
+        assert (await browser.get("/admin")).status_code == 200
+        async with db.session_scope() as s:
+            await s.execute(
+                update(User).where(User.id == erin.id).values(password_hash=hash_password("changed1"))
+            )
+        assert (await browser.get("/admin")).status_code == 303
+
+
+async def test_logout_clears_the_cookie_even_if_redis_fails(client, monkeypatch):
+    await make_user("admin", UserRole.ADMIN)
+    await login(client)
+    token = csrf_from((await client.get("/admin")).text)
+
+    async def redis_down(*args, **kwargs):
+        raise ConnectionError("redis went away")
+
+    monkeypatch.setattr(cache.get_redis(), "delete", redis_down)
+    response = await client.post("/logout", headers={"X-CSRF-Token": token})
+    assert response.status_code == 303 and response.headers["location"] == "/login"
+    monkeypatch.undo()
+    assert (await client.get("/admin")).status_code == 303  # this browser is signed out
+
+
+async def test_expired_session_ids_are_pruned(app):
+    import time as time_module
+
+    fay = await make_user("fay", UserRole.VIEWER)
+    redis = cache.get_redis()
+    key = f"statora:user-sessions:{fay.id}"
+    await redis.zadd(key, {"long-gone": time_module.time() - 60})
+    async with _browser(app) as browser:
+        await login(browser, "fay")
+    members = await redis.zrange(key, 0, -1)
+    assert "long-gone" not in members and len(members) == 1

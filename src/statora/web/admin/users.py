@@ -20,7 +20,14 @@ from statora.schemas.auth_provider import CONFIG_MODELS, SECRET_FIELDS, AuthProv
 from statora.schemas.users import UserCreate, UserUpdate
 from statora.services import app_settings
 from statora.services.auth_providers import test_provider
-from statora.web.deps import current_user, get_session, not_found, ui_role
+from statora.web.deps import (
+    current_user,
+    end_user_sessions,
+    get_session,
+    not_found,
+    refresh_session,
+    ui_role,
+)
 
 from .common import checkbox, done, error_messages, flash, opt, redirect, render, render_form, rollback
 
@@ -155,6 +162,12 @@ async def update_user(
     if data.password:
         target.password_hash = passwords.hash_password(data.password)
     await session.commit()
+    if data.password:
+        # The new password ends the user's other sessions; an admin changing their own password
+        # stays signed in here.
+        if target.id == user.id:
+            await refresh_session(request, target)
+        await end_user_sessions(target.id, keep=request if target.id == user.id else None)
     flash(request, "User saved")
     return done(request, "/admin/users")
 
