@@ -45,10 +45,31 @@ async def blocked_address(host: str | None) -> str | None:
             return None  # unresolvable: the check itself reports it
         addresses = [ipaddress.ip_address(info[4][0].split("%")[0]) for info in infos]
     for address in addresses:
-        mapped = getattr(address, "ipv4_mapped", None)
-        if any((mapped or address) in network for network in networks):
+        if any(form in network for form in _forms(address) for network in networks):
             return str(address)
     return None
+
+
+def _forms(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> list:
+    """An address and its other spelling: ::ffff:a.b.c.d and a.b.c.d reach the same host, so an
+    IPv4 entry or an IPv6 entry for it can't be bypassed by writing the address the other way."""
+    if isinstance(address, ipaddress.IPv4Address):
+        return [address, ipaddress.IPv6Address(f"::ffff:{address}")]
+    return [address, address.ipv4_mapped] if address.ipv4_mapped else [address]
+
+
+async def refusal(host: str | None, timeout_s: float) -> str | None:
+    """Why a check may not connect to `host` (a message for the heartbeat), or None.
+
+    The lookup counts against the monitor's own timeout: a slow resolver must not hold a check
+    slot longer than the check itself may take.
+    """
+    try:
+        async with asyncio.timeout(timeout_s):
+            address = await blocked_address(host)
+    except TimeoutError:
+        return f"Timeout after {timeout_s}s resolving {host}"
+    return blocked_message(host, address) if address else None
 
 
 def blocked_message(host: str, address: str) -> str:

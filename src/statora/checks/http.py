@@ -5,19 +5,23 @@ import httpx
 from statora.schemas.monitor import HttpConfig
 
 from .base import CheckResult, CheckTarget
-from .guard import blocked_address, blocked_message
+from .guard import refusal
 
 USER_AGENT = "statora-monitor/0.1"
 
 
 class BlockedTarget(httpx.RequestError):
-    """A request (usually a redirect) to an address in STATORA_MONITOR_BLOCKED_NETWORKS."""
+    """A request (usually a redirect) refused by the target guard: a blocked network, or a
+    lookup that took longer than the check may."""
 
 
-async def _refuse_blocked(request: httpx.Request) -> None:
-    # Runs for the first request and for every redirect it follows.
-    if address := await blocked_address(request.url.host):
-        raise BlockedTarget(blocked_message(request.url.host, address), request=request)
+def _refuse_blocked(timeout_s: float):
+    async def hook(request: httpx.Request) -> None:
+        # Runs for the first request and for every redirect it follows.
+        if problem := await refusal(request.url.host, timeout_s):
+            raise BlockedTarget(problem, request=request)
+
+    return hook
 
 
 async def check_http(target: CheckTarget) -> CheckResult:
@@ -29,7 +33,7 @@ async def check_http(target: CheckTarget) -> CheckResult:
             timeout=target.timeout_s,
             follow_redirects=cfg.follow_redirects,
             verify=cfg.verify_tls,
-            event_hooks={"request": [_refuse_blocked]},
+            event_hooks={"request": [_refuse_blocked(target.timeout_s)]},
         ) as client:
             response = await client.request(cfg.method, target.target, headers=headers, content=cfg.body)
     except BlockedTarget as exc:

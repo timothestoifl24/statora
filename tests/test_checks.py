@@ -153,6 +153,40 @@ async def test_blocked_networks_follow_redirects_and_names(monkeypatch):
     assert (await run_check(target(MonitorType.HTTP, "https://svc.test/"))).status == MonitorStatus.UP
 
 
+@pytest.mark.parametrize(
+    ("blocked", "host"),
+    [
+        ("::ffff:127.0.0.1/128", "::ffff:127.0.0.1"),  # an IPv6 entry for a mapped address
+        ("127.0.0.1/32", "::ffff:127.0.0.1"),  # an IPv4 entry, the target written as IPv6
+        ("::ffff:127.0.0.0/104", "127.0.0.1"),  # a mapped-IPv6 entry, the target written as IPv4
+    ],
+)
+async def test_mapped_ipv6_addresses_match_both_ways(monkeypatch, blocked, host):
+    from statora.checks.guard import blocked_address
+    from statora.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "monitor_blocked_networks", blocked)
+    assert await blocked_address(host) == host
+    assert await blocked_address("10.1.2.3") is None and await blocked_address("::ffff:10.1.2.3") is None
+
+
+async def test_a_slow_lookup_counts_against_the_monitor_timeout(monkeypatch):
+    from statora.checks import guard
+
+    async def hang(host):
+        await asyncio.sleep(30)
+
+    async def never(_):
+        raise AssertionError("the check must not run")
+
+    monkeypatch.setattr(guard, "blocked_address", hang)
+    monkeypatch.setitem(__import__("statora.checks", fromlist=["CHECKS"]).CHECKS, MonitorType.TCP, never)
+    slow = CheckTarget(id=1, type=MonitorType.TCP, target="slow.test", timeout_s=1, config={"port": 80})
+    async with asyncio.timeout(5):
+        result = await run_check(slow)
+    assert result.status == MonitorStatus.DOWN and result.message == "Timeout after 1s resolving slow.test"
+
+
 def test_blocked_networks_setting_is_validated():
     from statora.config import Settings
 
