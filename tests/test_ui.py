@@ -414,27 +414,36 @@ async def test_clone_keeps_the_stored_sql_password(client, auth, session):
     assert f'name="clone_of" value="{source["id"]}"' in form
     assert "Stored — leave empty to keep" in form and "hunter22" not in form and "enc:" not in form
 
-    created = await client.post(
-        "/admin/monitors/new",
-        data={
-            "csrf_token": csrf_from(form),
-            "clone_of": str(source["id"]),
-            "name": "Orders DB (copy)",
-            "type": "sql",
-            "target": "db2.internal",
-            "interval_s": "60",
-            "timeout_s": "10",
-            "retries": "0",
-            "active": "on",
-            "cfg_engine": "postgresql",
-            "cfg_database": "orders",
-            "cfg_username": "probe",
-            "cfg_password": "",
-        },
-    )
+    data = {
+        "csrf_token": csrf_from(form),
+        "clone_of": str(source["id"]),
+        "name": "Orders DB (copy)",
+        "type": "sql",
+        "target": "db.internal",
+        "interval_s": "60",
+        "timeout_s": "10",
+        "retries": "0",
+        "active": "on",
+        "cfg_engine": "postgresql",
+        "cfg_database": "orders_replica",
+        "cfg_username": "probe",
+        "cfg_password": "",
+        "cfg_verify_tls": "on",
+    }
+    created = await client.post("/admin/monitors/new", data=data)
     assert created.status_code == 303, created.text
     copy = await session.get(Monitor, int(created.headers["location"].rsplit("/", 1)[1]))
     assert crypto.decrypt(copy.config["password"]) == "hunter22"
+
+    # A copy that connects somewhere else, or less safely, needs the password typed in again:
+    # otherwise an editor could send someone else's stored password to a server of their own.
+    for changed in ({"target": "db.attacker.example"}, {"cfg_port": "15432"}, {"cfg_verify_tls": ""}):
+        refused = await client.post("/admin/monitors/new", data={**data, **changed})
+        assert refused.status_code == 422 and "Enter the password again" in refused.text
+    retyped = await client.post(
+        "/admin/monitors/new", data={**data, "target": "db2.internal", "cfg_password": "other-pass"}
+    )
+    assert retyped.status_code == 303, retyped.text
 
 
 async def test_sidebar_shows_open_incident_count(client, auth):
