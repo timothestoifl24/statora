@@ -159,3 +159,14 @@ def test_blocked_networks_setting_is_validated():
     assert Settings(monitor_blocked_networks="10.0.0.0/8, fd00::/8").blocked_networks[1].version == 6
     with pytest.raises(ValueError):
         Settings(monitor_blocked_networks="169.254.0.0/16,not-a-network")
+
+
+async def test_unexpected_check_errors_are_cut_short_and_logged(monkeypatch, caplog):
+    async def boom(_):
+        raise RuntimeError("x" * 10_000)
+
+    monkeypatch.setitem(__import__("statora.checks", fromlist=["CHECKS"]).CHECKS, MonitorType.PING, boom)
+    with caplog.at_level("ERROR", logger="statora.checks"):
+        result = await run_check(target(MonitorType.PING, "127.0.0.1"))
+    assert len(result.message) < 250 and result.message.startswith("Check error: RuntimeError: xxx")
+    assert "Check for monitor 1 raised" in caplog.text and "Traceback" in caplog.text

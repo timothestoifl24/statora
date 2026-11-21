@@ -66,10 +66,9 @@ async def authenticate_local(session: AsyncSession, username: str, password: str
             func.lower(User.username) == username.strip().lower(), User.auth_provider_id.is_(None)
         )
     )
-    if not passwords.verify_password(password, user.password_hash if user else None):
-        return None
-    assert user is not None
-    if not user.active:
+    # Verify even without a user (against a dummy hash), so the response time doesn't reveal names.
+    verified = passwords.verify_password(password, user.password_hash if user else None)
+    if user is None or not verified or not user.active:
         return None
     if passwords.needs_rehash(user.password_hash):
         user.password_hash = passwords.hash_password(password)
