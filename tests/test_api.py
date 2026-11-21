@@ -67,6 +67,10 @@ async def test_unauthenticated_and_invalid_tokens(client):
     assert (await client.get("/api/v1/monitors")).json()["code"] == "unauthenticated"
     bad = await client.get("/api/v1/monitors", headers={"Authorization": "Bearer st_nope_nope"})
     assert bad.status_code == 401 and bad.json()["code"] == "invalid_token"
+    # Random tokens leave nothing behind in Redis.
+    for i in range(5):
+        await client.get("/api/v1/monitors", headers={"Authorization": f"Bearer st_nope_{i}"})
+    assert not [key async for key in cache.get_redis().scan_iter(match="statora:token:*")]
 
 
 async def test_read_scope_cannot_write(client):

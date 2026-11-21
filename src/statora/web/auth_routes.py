@@ -1,6 +1,5 @@
 """Browser login: local/LDAP form, OIDC and SAML single sign-on, logout."""
 
-import json
 import logging
 import secrets
 
@@ -212,10 +211,9 @@ async def saml_acs(provider_id: int, request: Request, session: AsyncSession = D
     provider = await _provider(session, provider_id, AuthProviderType.SAML)
     form = {k: v for k, v in (await request.form()).items() if isinstance(v, str)}
     relay = form.get("RelayState", "")
-    state = await cache.get_redis().getdel(_relay_key(relay)) if relay else None
+    state = await cache.pop_json(_relay_key(relay)) if relay else None
     if state is None:
         return await _render_login(request, session, "SAML login expired or was not started here", 400)
-    state = json.loads(state)
     if state.get("pid") != provider_id:
         return await _render_login(request, session, "SAML response for a different provider", 400)
     try:

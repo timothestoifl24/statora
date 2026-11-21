@@ -14,6 +14,15 @@ from statora.schemas.common import IconRef, ImageRef, LinkUrl
 from .conftest import make_user, needs_services
 
 
+def test_private_sections_match_whole_path_segments():
+    from statora.web.security import is_private
+
+    for path in ("/admin", "/admin/monitors/1", "/login", "/logout", "/auth/oidc/1/callback"):
+        assert is_private(path), path
+    for path in ("/", "/s/admin", "/administrators", "/login-help", "/authors", "/media/abc"):
+        assert not is_private(path), path
+
+
 @needs_services
 async def test_security_headers(client):
     await make_user("admin", UserRole.ADMIN)
