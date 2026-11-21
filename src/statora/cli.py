@@ -83,16 +83,13 @@ async def _reset_admin(password: str, username: str | None) -> str | None:
 
 
 async def _end_sessions(user_id: int) -> None:
-    """Sign a user out of the web UI everywhere (best effort: Redis may be unreachable from here)."""
+    """Delete a user's web session records. The new password already ends those sessions (they
+    carry a fingerprint of the old one); this only tidies Redis, so it may fail without harm."""
     from statora import cache
     from statora.web.deps import end_user_sessions
 
     try:
         await end_user_sessions(user_id)
-    except Exception as exc:  # the password is reset either way
-        typer.secho(
-            f"Could not end existing sessions ({exc}); they expire on their own.", fg="yellow", err=True
-        )
     finally:
         await cache.close_redis()
 

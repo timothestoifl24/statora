@@ -8,6 +8,7 @@ import pytest
 import typer
 from sqlalchemy import update
 
+from statora import cache
 from statora.auth import crypto
 from statora.auth.service import authenticate_local
 from statora.db import session as db
@@ -1236,3 +1237,47 @@ async def test_password_change_ends_the_users_other_sessions(app, client, auth):
         )
         assert changed.status_code == 200, changed.text
         assert (await dana_browser.get("/admin")).status_code == 303
+
+
+async def test_password_change_ends_sessions_without_redis_cleanup(app):
+    # A login that raced the change, or a change saved while Redis was down, leaves a session
+    # record behind; the password fingerprint in it still ends the session.
+    from statora.auth.passwords import hash_password
+
+    erin = await make_user("erin", UserRole.EDITOR)
+    async with _browser(app) as browser:
+        await login(browser, "erin")
+        assert (await browser.get("/admin")).status_code == 200
+        async with db.session_scope() as s:
+            await s.execute(
+                update(User).where(User.id == erin.id).values(password_hash=hash_password("changed1"))
+            )
+        assert (await browser.get("/admin")).status_code == 303
+
+
+async def test_logout_clears_the_cookie_even_if_redis_fails(client, monkeypatch):
+    await make_user("admin", UserRole.ADMIN)
+    await login(client)
+    token = csrf_from((await client.get("/admin")).text)
+
+    async def redis_down(*args, **kwargs):
+        raise ConnectionError("redis went away")
+
+    monkeypatch.setattr(cache.get_redis(), "delete", redis_down)
+    response = await client.post("/logout", headers={"X-CSRF-Token": token})
+    assert response.status_code == 303 and response.headers["location"] == "/login"
+    monkeypatch.undo()
+    assert (await client.get("/admin")).status_code == 303  # this browser is signed out
+
+
+async def test_expired_session_ids_are_pruned(app):
+    import time as time_module
+
+    fay = await make_user("fay", UserRole.VIEWER)
+    redis = cache.get_redis()
+    key = f"statora:user-sessions:{fay.id}"
+    await redis.zadd(key, {"long-gone": time_module.time() - 60})
+    async with _browser(app) as browser:
+        await login(browser, "fay")
+    members = await redis.zrange(key, 0, -1)
+    assert "long-gone" not in members and len(members) == 1
