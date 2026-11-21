@@ -9,15 +9,18 @@ from .base import CheckResult, CheckTarget
 USER_AGENT = "statora-monitor/0.1"
 # Only a keyword check reads the body, and only this much of it.
 MAX_BODY_BYTES = 1024 * 1024
+READ_CHUNK_BYTES = 64 * 1024
 
 
 async def _read_body(response: httpx.Response) -> str:
     body = bytearray()
-    async for chunk in response.aiter_bytes():
-        body += chunk
+    # Re-chunked by httpx, so a compressed response that decodes into one huge piece arrives in
+    # small parts; only what still fits is kept, so the buffer never grows past the limit.
+    async for chunk in response.aiter_bytes(chunk_size=READ_CHUNK_BYTES):
+        body += chunk[: MAX_BODY_BYTES - len(body)]
         if len(body) >= MAX_BODY_BYTES:
             break
-    return bytes(body[:MAX_BODY_BYTES]).decode(response.encoding or "utf-8", errors="replace")
+    return bytes(body).decode(response.encoding or "utf-8", errors="replace")
 
 
 async def check_http(target: CheckTarget) -> CheckResult:

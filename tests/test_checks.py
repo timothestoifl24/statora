@@ -44,6 +44,19 @@ class _CountingStream(httpx.AsyncByteStream):
             yield chunk
 
 
+async def test_http_body_buffer_stays_within_the_limit():
+    import gzip
+
+    from statora.checks.http import MAX_BODY_BYTES, _read_body
+
+    # One chunk three times the limit, and a small gzip body that decodes to 8 MiB.
+    one_chunk = httpx.Response(200, stream=_CountingStream([b"x" * (3 * MAX_BODY_BYTES)]))
+    assert len(await _read_body(one_chunk)) == MAX_BODY_BYTES
+    packed = gzip.compress(b"y" * (8 * MAX_BODY_BYTES))
+    compressed = httpx.Response(200, headers={"Content-Encoding": "gzip"}, stream=_CountingStream([packed]))
+    assert len(await _read_body(compressed)) == MAX_BODY_BYTES
+
+
 @respx.mock
 async def test_http_body_is_only_read_for_a_keyword_and_capped():
     from statora.checks.http import MAX_BODY_BYTES
