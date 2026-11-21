@@ -25,7 +25,7 @@ Both show in the monitor list and on every status page that includes the monitor
 
 Requests a URL and checks the answer.
 
-- **Method**: `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE` or `OPTIONS`, optionally with headers (JSON) and a body.
+- **Method**: `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE` or `OPTIONS`, optionally with headers (JSON) and a body. Header values and the body often hold credentials, so they are stored encrypted. Editors and admins see them; viewers only see the header names, in the UI and the API.
 - **Accepted status codes**: codes and ranges, for example `200-299, 301`.
 - **Keyword**: text that must appear in the response. Tick *Down if keyword is found* to invert it, for example to alert on `maintenance mode`. Only the first 1 MiB of the response is searched; without a keyword the body isn't downloaded at all, and the response time is measured until the status line and headers arrive.
 - **Follow redirects** and **verify TLS certificate**: both on by default.

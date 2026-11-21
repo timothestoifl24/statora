@@ -8,7 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from statora.db.base import utcnow
 from statora.db.models import Heartbeat, Monitor, MonitorType, User, UserRole, monitor_group_members
-from statora.schemas.monitor import CONFIG_MODELS, SECRET_FIELDS, MonitorCreate, MonitorUpdate
+from statora.schemas.monitor import (
+    CONFIG_MODELS,
+    SECRET_FIELDS,
+    MonitorCreate,
+    MonitorUpdate,
+    config_for,
+    decrypt_sensitive,
+)
 from statora.services import crud
 from statora.services.monitoring import monitors_in_maintenance, uptime_days, uptime_since
 from statora.web.deps import current_user, get_session, local_path, not_found, ui_role
@@ -125,7 +132,8 @@ def _monitor_values(monitor: Monitor | None) -> dict:
         "timeout_s": monitor.timeout_s if monitor else 10,
         "retries": monitor.retries if monitor else 1,
         "active": monitor.active if monitor else True,
-        "config": dict(monitor.config) if monitor else {},
+        # Only editors reach the forms; they see the stored headers and body in clear text.
+        "config": decrypt_sensitive(monitor.type, monitor.config) if monitor else {},
         "member_ids": monitor.member_ids if monitor else [],
     }
 
@@ -314,6 +322,7 @@ async def monitor_detail(
         "admin/monitor_detail.html",
         user,
         monitor=monitor,
+        config=config_for(monitor.type, monitor.config, editor=user.has_role(UserRole.EDITOR)),
         chart=chart,
         events=events,
         stats=stats,

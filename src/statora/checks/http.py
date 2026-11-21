@@ -2,7 +2,8 @@ import time
 
 import httpx
 
-from statora.schemas.monitor import HttpConfig
+from statora.db.models import MonitorType
+from statora.schemas.monitor import HttpConfig, decrypt_sensitive
 
 from .base import CheckResult, CheckTarget
 from .guard import refusal
@@ -39,7 +40,7 @@ def _refuse_blocked(timeout_s: float):
 
 
 async def check_http(target: CheckTarget) -> CheckResult:
-    cfg = HttpConfig.model_validate(target.config)
+    cfg = HttpConfig.model_validate(decrypt_sensitive(MonitorType.HTTP, target.config))
     headers = {"User-Agent": USER_AGENT, **cfg.headers}
     start = time.perf_counter()
     text = None

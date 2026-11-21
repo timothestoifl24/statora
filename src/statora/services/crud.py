@@ -27,6 +27,7 @@ from statora.schemas.monitor import (
     MonitorBase,
     MonitorCreate,
     MonitorUpdate,
+    encrypt_sensitive,
 )
 from statora.schemas.pages import (
     IncidentCreate,
@@ -66,9 +67,9 @@ def _store_secrets(
     target: str = "",
     previous_target: str = "",
 ) -> dict:
-    """Encrypt secret config fields. An empty value keeps the previously stored secret, but only
-    while the target and the connection settings it was entered for stay the same."""
-    config = dict(config)
+    """Encrypt secret and sensitive config fields. An empty secret keeps the previously stored one,
+    but only while the target and the connection settings it was entered for stay the same."""
+    config = encrypt_sensitive(monitor_type, config, previous)
     previous = previous or {}
     rebound = _secret_binding(monitor_type, target, config) != _secret_binding(
         monitor_type, previous_target, previous

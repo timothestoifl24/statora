@@ -5,14 +5,28 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from statora.db.base import utcnow
-from statora.db.models import Heartbeat, Monitor, MonitorType
+from statora.db.models import Heartbeat, Monitor, MonitorType, UserRole
 from statora.schemas.common import Page
-from statora.schemas.monitor import HeartbeatRead, MonitorCreate, MonitorRead, MonitorUpdate, UptimeRead
+from statora.schemas.monitor import (
+    HeartbeatRead,
+    MonitorCreate,
+    MonitorRead,
+    MonitorUpdate,
+    UptimeRead,
+    config_for,
+)
 from statora.services import crud
 from statora.services.monitoring import uptime_days, uptime_since
-from statora.web.deps import get_session, not_found, write_role
+from statora.web.deps import Principal, api_principal, get_session, not_found, write_role
 
 router = APIRouter(prefix="/monitors", tags=["monitors"], dependencies=[Depends(write_role())])
+
+
+def _read(monitor: Monitor, principal: Principal) -> MonitorRead:
+    """Request headers and bodies often hold credentials: only editors get their values."""
+    data = MonitorRead.model_validate(monitor)
+    data.config = config_for(monitor.type, monitor.config, editor=principal.user.has_role(UserRole.EDITOR))
+    return data
 
 
 async def _get(session: AsyncSession, monitor_id: int) -> Monitor:
@@ -24,6 +38,7 @@ async def _get(session: AsyncSession, monitor_id: int) -> Monitor:
 
 @router.get("", response_model=Page[MonitorRead])
 async def list_monitors(
+    principal: Principal = Depends(api_principal),
     session: AsyncSession = Depends(get_session),
     name: str | None = Query(default=None, description="Exact name match"),
     type: MonitorType | None = None,
@@ -37,32 +52,50 @@ async def list_monitors(
         query = query.where(Monitor.type == type)
     total = await session.scalar(select(func.count()).select_from(query.subquery()))
     items = (await session.scalars(query.order_by(Monitor.id).limit(limit).offset(offset))).all()
-    return Page(items=items, total=total or 0, limit=limit, offset=offset)
+    return Page(items=[_read(m, principal) for m in items], total=total or 0, limit=limit, offset=offset)
 
 
 @router.post("", response_model=MonitorRead, status_code=201)
-async def create_monitor(data: MonitorCreate, session: AsyncSession = Depends(get_session)):
+async def create_monitor(
+    data: MonitorCreate,
+    principal: Principal = Depends(api_principal),
+    session: AsyncSession = Depends(get_session),
+):
     monitor = await crud.create_monitor(session, data)
     await session.commit()
     await crud.notify_monitor_changed(monitor.id)
-    return monitor
+    return _read(monitor, principal)
 
 
 @router.get("/{monitor_id}", response_model=MonitorRead)
-async def get_monitor(monitor_id: int, session: AsyncSession = Depends(get_session)):
-    return await _get(session, monitor_id)
+async def get_monitor(
+    monitor_id: int,
+    principal: Principal = Depends(api_principal),
+    session: AsyncSession = Depends(get_session),
+):
+    return _read(await _get(session, monitor_id), principal)
 
 
 @router.patch("/{monitor_id}", response_model=MonitorRead)
-async def update_monitor(monitor_id: int, data: MonitorUpdate, session: AsyncSession = Depends(get_session)):
+async def update_monitor(
+    monitor_id: int,
+    data: MonitorUpdate,
+    principal: Principal = Depends(api_principal),
+    session: AsyncSession = Depends(get_session),
+):
     monitor = await crud.update_monitor(session, await _get(session, monitor_id), data)
     await session.commit()
     await crud.notify_monitor_changed(monitor.id)
-    return monitor
+    return _read(monitor, principal)
 
 
 @router.put("/{monitor_id}", response_model=MonitorRead)
-async def replace_monitor(monitor_id: int, data: MonitorCreate, session: AsyncSession = Depends(get_session)):
+async def replace_monitor(
+    monitor_id: int,
+    data: MonitorCreate,
+    principal: Principal = Depends(api_principal),
+    session: AsyncSession = Depends(get_session),
+):
     monitor = await _get(session, monitor_id)
     if data.type != monitor.type:
         monitor.type = data.type
@@ -71,7 +104,7 @@ async def replace_monitor(monitor_id: int, data: MonitorCreate, session: AsyncSe
     )
     await session.commit()
     await crud.notify_monitor_changed(monitor.id)
-    return monitor
+    return _read(monitor, principal)
 
 
 @router.delete("/{monitor_id}", status_code=204)
