@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+import httpx
 import pytest
 from openapi_spec_validator import validate
 
@@ -111,6 +112,56 @@ async def test_login_rate_limit(client):
         for _ in range(11)
     ]
     assert codes[:10] == [401] * 10 and codes[10] == 429
+
+
+def _client_at(app, ip: str) -> httpx.AsyncClient:
+    transport = httpx.ASGITransport(app=app, client=(ip, 40000))
+    return httpx.AsyncClient(transport=transport, base_url="http://testserver")
+
+
+async def test_one_client_cannot_lock_someone_else_out(app):
+    from statora.auth import ratelimit
+
+    await make_user("dave", UserRole.VIEWER, password="davepassword")
+    async with _client_at(app, "203.0.113.7") as attacker, _client_at(app, "198.51.100.2") as dave:
+        # Well past the account-wide ceiling: attempts after the client is blocked don't count.
+        for _ in range(10 * ratelimit.ACCOUNT_LIMIT_FACTOR + 20):
+            await attacker.post("/api/v1/auth/token", json={"username": "dave", "password": "wrong"})
+        blocked = await attacker.post(
+            "/api/v1/auth/token", json={"username": "dave", "password": "davepassword"}
+        )
+        assert blocked.status_code == 429
+        ok = await dave.post("/api/v1/auth/token", json={"username": "dave", "password": "davepassword"})
+        assert ok.status_code == 201, ok.text
+
+    # Every counter has a TTL, so none of them can block its key for good.
+    redis = cache.get_redis()
+    keys = ratelimit.login_keys("203.0.113.7", "dave")
+    for key in (keys.client, keys.client_account, keys.account):
+        assert 0 < await redis.ttl(f"statora:ratelimit:login:{key}") <= 300
+
+    # The account-wide ceiling still stops guessing spread over many addresses.
+    limit = 10 * ratelimit.ACCOUNT_LIMIT_FACTOR
+    for i in range(limit):
+        assert await ratelimit.hit(ratelimit.login_keys(f"10.0.{i // 250}.{i % 250}", "erin"))
+    assert not await ratelimit.hit(ratelimit.login_keys("10.9.9.9", "erin"))
+
+    # A counter left without a TTL by an older version gets one on the next attempt.
+    stale = ratelimit.login_keys("192.0.2.50", "frank")
+    await redis.set(f"statora:ratelimit:login:{stale.client}", 3)
+    await ratelimit.hit(stale)
+    assert 0 < await redis.ttl(f"statora:ratelimit:login:{stale.client}") <= 300
+
+
+def test_login_keys_are_short_and_distinct_per_account():
+    from statora.auth import ratelimit
+
+    long_name = "a" * 140
+    first = ratelimit.login_keys("192.0.2.1", "  " + long_name.upper() + "X")
+    second = ratelimit.login_keys("192.0.2.1", long_name + "y")
+    assert first.account != second.account  # names that differ late don't share a counter
+    assert len(first.account) < 80 and first.client_account.endswith(first.account)
+    assert ratelimit.login_keys("192.0.2.9", " Dave ").account == ratelimit.login_keys("x", "dave").account
 
 
 async def test_user_management(client, auth):

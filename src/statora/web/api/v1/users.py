@@ -53,15 +53,15 @@ async def create_token_with_credentials(
     data: TokenRequest, request: Request, session: AsyncSession = Depends(get_session)
 ):
     client_ip = request.client.host if request.client else "unknown"
-    keys = (f"ip:{client_ip}", f"user:{data.username.strip().lower()}")
-    if not await ratelimit.hit(*keys):
+    keys = ratelimit.login_keys(client_ip, data.username)
+    if not await ratelimit.hit(keys):
         raise ApiError(429, "rate_limited", "Too many login attempts; try again later")
     try:
         user = await authenticate_password(session, data.username, data.password)
     except AuthError as exc:
         await session.commit()
         raise ApiError(401, "invalid_credentials", str(exc)) from exc
-    await ratelimit.reset(keys[1])
+    await ratelimit.succeeded(keys)
     issued = await tokens.issue_token(session, user, data.name, data.scopes, _expiry(data.expires_in))
     await session.commit()
     return _issued(issued)

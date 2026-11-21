@@ -18,7 +18,7 @@ Statora is configured with environment variables, all prefixed with `STATORA_`. 
 | `STATORA_PAGE_CACHE_TTL` | `30` | Seconds a status page summary stays cached. Changes clear it immediately. |
 | `STATORA_SESSION_MAX_AGE` | `43200` | Admin session lifetime in seconds (12 h). Sessions are also recorded in Redis: signing out, or a password change, ends them straight away, and flushing Redis signs everyone out. |
 | `STATORA_DISABLE_LOCAL_LOGIN` | `false` | Hide password login for everyone except local admins, for SSO-only setups. |
-| `STATORA_LOGIN_RATE_LIMIT` | `10` | Login attempts allowed per IP address and per username… |
+| `STATORA_LOGIN_RATE_LIMIT` | `10` | Login attempts allowed per IP address, and per IP address and username; one account takes ten times as many from all addresses together… |
 | `STATORA_LOGIN_RATE_WINDOW` | `300` | …within this many seconds. |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1`; loopback and private networks in the image | Comma-separated addresses or CIDR ranges of reverse proxies whose `X-Forwarded-*` headers are trusted. Add your proxy or load balancer if it connects from a public address. Never set it to `*`: anyone could then pick the address the login rate limit counts against. |
 
