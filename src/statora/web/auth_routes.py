@@ -1,6 +1,5 @@
 """Browser login: local/LDAP form, OIDC and SAML single sign-on, logout."""
 
-import json
 import logging
 import secrets
 
@@ -25,7 +24,15 @@ from statora.config import get_settings
 from statora.db.models import AuthProvider, AuthProviderType, User, UserRole
 from statora.schemas.users import UserCreate
 from statora.web.admin.common import error_messages
-from statora.web.deps import get_session, local_path, login_user, not_found, optional_user, verify_csrf
+from statora.web.deps import (
+    get_session,
+    local_path,
+    login_user,
+    logout_user,
+    not_found,
+    optional_user,
+    verify_csrf,
+)
 from statora.web.templating import templates
 
 log = logging.getLogger(__name__)
@@ -91,7 +98,7 @@ async def login_submit(
         await session.commit()
         return await _render_login(request, session, str(exc), 401)
     await ratelimit.succeeded(keys)
-    login_user(request, user)
+    await login_user(request, user)
     return RedirectResponse(local_path(next), status_code=303)
 
 
@@ -141,13 +148,13 @@ async def setup_submit(request: Request, session: AsyncSession = Depends(get_ses
         # Someone else finished the setup a moment earlier.
         await session.rollback()
         return RedirectResponse("/login", status_code=303)
-    login_user(request, user)
+    await login_user(request, user)
     return RedirectResponse("/admin", status_code=303)
 
 
 @router.post("/logout", dependencies=[Depends(verify_csrf)])
 async def logout(request: Request):
-    request.session.clear()
+    await logout_user(request)
     return RedirectResponse("/login", status_code=303)
 
 
@@ -185,7 +192,7 @@ async def oidc_callback(provider_id: int, request: Request, session: AsyncSessio
     except AuthError as exc:
         return await _render_login(request, session, str(exc), 401)
     await session.commit()
-    login_user(request, user)
+    await login_user(request, user)
     return RedirectResponse(local_path(flow.get("next") if flow else None), status_code=303)
 
 
@@ -212,10 +219,9 @@ async def saml_acs(provider_id: int, request: Request, session: AsyncSession = D
     provider = await _provider(session, provider_id, AuthProviderType.SAML)
     form = {k: v for k, v in (await request.form()).items() if isinstance(v, str)}
     relay = form.get("RelayState", "")
-    state = await cache.get_redis().getdel(_relay_key(relay)) if relay else None
+    state = await cache.pop_json(_relay_key(relay)) if relay else None
     if state is None:
         return await _render_login(request, session, "SAML login expired or was not started here", 400)
-    state = json.loads(state)
     if state.get("pid") != provider_id:
         return await _render_login(request, session, "SAML response for a different provider", 400)
     try:
@@ -224,7 +230,7 @@ async def saml_acs(provider_id: int, request: Request, session: AsyncSession = D
     except AuthError as exc:
         return await _render_login(request, session, str(exc), 401)
     await session.commit()
-    login_user(request, user)
+    await login_user(request, user)
     return RedirectResponse(local_path(state.get("next")), status_code=303)
 
 

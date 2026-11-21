@@ -9,12 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from statora import cache
 from statora.db.base import utcnow
 from statora.db.models import ApiToken, TokenScope, User
 
 TOKEN_PREFIX = "st_"
-CACHE_TTL = 60
 LAST_USED_RESOLUTION = timedelta(minutes=1)
 
 
@@ -51,25 +49,21 @@ async def issue_token(
 
 
 async def revoke_token(session: AsyncSession, token: ApiToken) -> None:
-    await cache.get_redis().delete(cache.token_key(token.token_hash))
     await session.delete(token)
 
 
 async def authenticate_token(session: AsyncSession, plaintext: str) -> tuple[User, ApiToken] | None:
     if not plaintext.startswith(TOKEN_PREFIX):
         return None
-    token_hash = hash_token(plaintext)
-    key = cache.token_key(token_hash)
-
-    cached = await cache.get_json(key)
-    if cached == "invalid":
-        return None
+    # Unknown tokens aren't cached: that let anyone create a Redis key for every random token they
+    # sent, and the lookup is a unique index hit anyway.
     token = await session.scalar(
-        select(ApiToken).where(ApiToken.token_hash == token_hash).options(selectinload(ApiToken.user))
+        select(ApiToken)
+        .where(ApiToken.token_hash == hash_token(plaintext))
+        .options(selectinload(ApiToken.user))
     )
     now = utcnow()
     if token is None or not token.user.active or (token.expires_at and token.expires_at <= now):
-        await cache.set_json(key, "invalid", CACHE_TTL)
         return None
 
     if token.last_used_at is None or now - token.last_used_at > LAST_USED_RESOLUTION:

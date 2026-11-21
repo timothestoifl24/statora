@@ -15,8 +15,15 @@ ADMIN_POLICY = _BASE_POLICY.format(frames="; frame-ancestors 'none'")
 # Status pages may be embedded in other sites, so they don't restrict frame-ancestors.
 PUBLIC_POLICY = _BASE_POLICY.format(frames="")
 
-# Signed-in areas: never shown inside another site's frame (clickjacking).
-_PRIVATE_PREFIXES = ("/admin", "/login", "/logout", "/auth/")
+# Signed-in areas: never shown inside another site's frame (clickjacking). Whole path segments
+# only, so a path such as /administrators or /login-help isn't mistaken for one.
+_PRIVATE_SECTIONS = ("/admin", "/login", "/logout", "/auth")
+
+
+def is_private(path: str) -> bool:
+    return any(path == section or path.startswith(section + "/") for section in _PRIVATE_SECTIONS)
+
+
 # Swagger UI and ReDoc bring their own scripts and workers; they get the generic headers only.
 _NO_CSP_PREFIXES = ("/api/docs", "/api/redoc", "/api/openapi.json")
 
@@ -29,7 +36,7 @@ class SecurityHeaders:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         path: str = scope["path"]
-        private = path.startswith(_PRIVATE_PREFIXES)
+        private = is_private(path)
         hsts = get_settings().secure_cookies
 
         async def send_with_headers(message):

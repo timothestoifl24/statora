@@ -19,7 +19,15 @@ from statora.schemas.users import (
     UserRead,
     UserUpdate,
 )
-from statora.web.deps import ApiError, Principal, api_principal, api_role, get_session, not_found
+from statora.web.deps import (
+    ApiError,
+    Principal,
+    api_principal,
+    api_role,
+    end_user_sessions,
+    get_session,
+    not_found,
+)
 
 auth = APIRouter(prefix="/auth", tags=["auth"])
 users = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(api_role(UserRole.ADMIN))])
@@ -152,9 +160,14 @@ async def update_user(
         if not user.is_local:
             raise ApiError(400, "external_user", "Passwords of external users are managed by their provider")
         user.password_hash = passwords.hash_password(changes.pop("password"))
+        password_changed = True
+    else:
+        password_changed = False
     for field, value in changes.items():
         setattr(user, field, value)
     await session.commit()
+    if password_changed:
+        await end_user_sessions(user.id)  # web sessions; API tokens stay valid until revoked
     return user
 
 
