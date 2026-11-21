@@ -110,3 +110,14 @@ async def test_broken_check_never_raises(monkeypatch):
     monkeypatch.setitem(__import__("statora.checks", fromlist=["CHECKS"]).CHECKS, MonitorType.PING, boom)
     result = await run_check(target(MonitorType.PING, "127.0.0.1"))
     assert result.status == MonitorStatus.DOWN and "bug" in result.message
+
+
+async def test_unexpected_check_errors_are_cut_short_and_logged(monkeypatch, caplog):
+    async def boom(_):
+        raise RuntimeError("x" * 10_000)
+
+    monkeypatch.setitem(__import__("statora.checks", fromlist=["CHECKS"]).CHECKS, MonitorType.PING, boom)
+    with caplog.at_level("ERROR", logger="statora.checks"):
+        result = await run_check(target(MonitorType.PING, "127.0.0.1"))
+    assert len(result.message) < 250 and result.message.startswith("Check error: RuntimeError: xxx")
+    assert "Check for monitor 1 raised" in caplog.text and "Traceback" in caplog.text

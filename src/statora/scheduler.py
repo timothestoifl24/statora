@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+import random
 import time
 
 from sqlalchemy import select
@@ -22,6 +23,8 @@ LOCK_RENEW_INTERVAL = 5
 RESYNC_INTERVAL = 60
 HOUSEKEEPING_INTERVAL = 3600
 MAX_CONCURRENT_CHECKS = 50
+# When many monitors start together, their first checks are spread over up to this many seconds.
+MAX_START_SPREAD = 30
 
 
 def _snapshot(monitor: Monitor) -> CheckTarget:
@@ -157,7 +160,11 @@ class Scheduler:
                 self._cancel(monitor_id)
         started = [mid for mid in wanted if mid not in self._tasks]
         for monitor_id in started:
-            self._spawn(monitor_id, wanted[monitor_id])
+            interval = wanted[monitor_id]
+            # Many monitors starting at once (start-up, a new leader) would all check at the same
+            # moment and stay aligned on every interval; spread their first checks out instead.
+            delay = random.uniform(0, min(interval, MAX_START_SPREAD)) if len(started) > 1 else 0.0
+            self._spawn(monitor_id, interval, delay)
         if started:
             log.info("Scheduling %d monitors (%d new)", len(self._tasks), len(started))
 
@@ -174,13 +181,15 @@ class Scheduler:
             if monitor is not None and monitor.active:
                 self._spawn(monitor.id, monitor.interval_s)
 
-    def _spawn(self, monitor_id: int, interval: int) -> None:
+    def _spawn(self, monitor_id: int, interval: int, delay: float = 0.0) -> None:
         self._intervals[monitor_id] = interval
         self._tasks[monitor_id] = asyncio.create_task(
-            self._loop(monitor_id, interval), name=f"monitor-{monitor_id}"
+            self._loop(monitor_id, interval, delay), name=f"monitor-{monitor_id}"
         )
 
-    async def _loop(self, monitor_id: int, interval: int) -> None:
+    async def _loop(self, monitor_id: int, interval: int, delay: float = 0.0) -> None:
+        if delay:
+            await asyncio.sleep(delay)
         while True:
             started = time.monotonic()
             try:
