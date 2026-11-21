@@ -7,7 +7,7 @@ from statora import cache
 from statora.db.base import utcnow
 from statora.db.models import Monitor, MonitorStatus, MonitorType
 from statora.scheduler import check_monitor_once
-from statora.services.groups import evaluate_group
+from statora.services.groups import effective_status, evaluate_group, member_status
 
 from .conftest import needs_services
 
@@ -18,6 +18,23 @@ UP, DOWN, DEG, PEND, MAINT = (
     MonitorStatus.PENDING,
     MonitorStatus.MAINTENANCE,
 )
+
+
+def test_effective_status_is_one_rule_for_pages_and_groups():
+    live = SimpleNamespace(id=1, active=True, status="down")
+    paused = SimpleNamespace(id=2, active=False, status="down")
+    assert effective_status(live, set()) == DOWN and effective_status(live, {1}) == MAINT
+    assert effective_status(paused, {2}) == PEND  # paused wins over maintenance
+    assert member_status(live, {1}) == MAINT and member_status(paused, set()) is None
+
+
+@needs_services
+async def test_pop_json_reads_once(services):
+    await cache.set_json("statora:test:once", {"a": 1}, 60)
+    assert await cache.pop_json("statora:test:once") == {"a": 1}
+    assert await cache.pop_json("statora:test:once") is None
+
+
 STACK = {"mode": "stack"}
 
 
