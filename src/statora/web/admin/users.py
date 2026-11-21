@@ -492,11 +492,12 @@ async def create_token(
     days = str(form.get("expires_days", "")).strip()
     expires_at = utcnow() + timedelta(days=int(days)) if days.isdigit() and int(days) > 0 else None
     issued = await tokens.issue_token(session, user, name, scopes, expires_at)
-    await session.commit()
     # Shown exactly once on the next page load. The session cookie is signed but readable, so it only
     # carries a random handle; the token itself waits in Redis, for this user and a few minutes only.
+    # It is put there before the commit: if Redis fails, no token exists that nobody was shown.
     handle = secrets.token_urlsafe(16)
     await cache.get_redis().set(_new_token_key(user, handle), issued.plaintext, ex=NEW_TOKEN_TTL)
+    await session.commit()
     request.session["new_token"] = handle
     return redirect("/admin/profile/tokens")
 
