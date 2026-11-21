@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+import random
 import time
 
 from sqlalchemy import select
@@ -22,6 +23,8 @@ LOCK_RENEW_INTERVAL = 5
 RESYNC_INTERVAL = 60
 HOUSEKEEPING_INTERVAL = 3600
 MAX_CONCURRENT_CHECKS = 50
+# When many monitors start together, their first checks are spread over up to this many seconds.
+MAX_START_SPREAD = 30
 
 
 def _snapshot(monitor: Monitor) -> CheckTarget:
@@ -103,12 +106,20 @@ class Scheduler:
 
     async def _lead(self) -> None:
         await self.sync()
-        listener = asyncio.create_task(self._listen())
-        housekeeping = asyncio.create_task(self._housekeeping())
+        helpers = [
+            asyncio.create_task(self._listen(), name="scheduler-listener"),
+            asyncio.create_task(self._housekeeping(), name="scheduler-housekeeping"),
+        ]
         last_sync = time.monotonic()
         try:
             while True:
                 await asyncio.sleep(LOCK_RENEW_INTERVAL)
+                for task in helpers:
+                    if task.done():
+                        # Both retry their own errors, so this is a bug: surface it, and let _run
+                        # log it and start over instead of leading without live reloads.
+                        task.result()
+                        raise RuntimeError(f"{task.get_name()} stopped")
                 if not await self._lock.renew():
                     log.warning("Scheduler lost leadership")
                     break
@@ -116,23 +127,48 @@ class Scheduler:
                     await self.sync()
                     last_sync = time.monotonic()
         finally:
-            listener.cancel()
-            housekeeping.cancel()
+            for task in helpers:
+                task.cancel()
+            await asyncio.gather(*helpers, return_exceptions=True)
             await self._stop_monitors()
             self.is_leader = False
 
     async def _listen(self) -> None:
+        """Apply monitor changes as they are published; reconnects after Redis errors."""
+        catch_up = False  # _lead() has just synced before the first subscription
+        while True:
+            try:
+                await self._listen_once(catch_up)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("Monitor change listener failed; reconnecting")
+            catch_up = True
+            await asyncio.sleep(LOCK_RENEW_INTERVAL)
+
+    async def _listen_once(self, catch_up: bool = False) -> None:
         pubsub = cache.get_redis().pubsub()
-        await pubsub.subscribe(cache.MONITORS_CHANGED_CHANNEL)
         try:
+            await pubsub.subscribe(cache.MONITORS_CHANGED_CHANNEL)
+            if catch_up:
+                # Changes published while disconnected were missed. Resync only once subscribed, so
+                # a change made during the resync is queued instead of falling in the gap.
+                try:
+                    await self.sync()
+                except Exception:
+                    log.exception("Resync after reconnecting failed")
             async for message in pubsub.listen():
                 if message["type"] != "message":
                     continue
                 data = message["data"]
-                if data:
-                    await self.reload_one(int(data))
-                else:
-                    await self.sync()
+                try:
+                    if data:
+                        await self.reload_one(int(data))
+                    else:
+                        await self.sync()
+                except Exception:
+                    # One bad message or failed reload must not end live reloads.
+                    log.exception("Could not apply monitor change %r", data)
         finally:
             await pubsub.aclose()
 
@@ -157,7 +193,11 @@ class Scheduler:
                 self._cancel(monitor_id)
         started = [mid for mid in wanted if mid not in self._tasks]
         for monitor_id in started:
-            self._spawn(monitor_id, wanted[monitor_id])
+            interval = wanted[monitor_id]
+            # Many monitors starting at once (start-up, a new leader) would all check at the same
+            # moment and stay aligned on every interval; spread their first checks out instead.
+            delay = random.uniform(0, min(interval, MAX_START_SPREAD)) if len(started) > 1 else 0.0
+            self._spawn(monitor_id, interval, delay)
         if started:
             log.info("Scheduling %d monitors (%d new)", len(self._tasks), len(started))
 
@@ -174,13 +214,15 @@ class Scheduler:
             if monitor is not None and monitor.active:
                 self._spawn(monitor.id, monitor.interval_s)
 
-    def _spawn(self, monitor_id: int, interval: int) -> None:
+    def _spawn(self, monitor_id: int, interval: int, delay: float = 0.0) -> None:
         self._intervals[monitor_id] = interval
         self._tasks[monitor_id] = asyncio.create_task(
-            self._loop(monitor_id, interval), name=f"monitor-{monitor_id}"
+            self._loop(monitor_id, interval, delay), name=f"monitor-{monitor_id}"
         )
 
-    async def _loop(self, monitor_id: int, interval: int) -> None:
+    async def _loop(self, monitor_id: int, interval: int, delay: float = 0.0) -> None:
+        if delay:
+            await asyncio.sleep(delay)
         while True:
             started = time.monotonic()
             try:

@@ -40,10 +40,6 @@ def monitor_state_key(monitor_id: int) -> str:
     return f"statora:monitor:{monitor_id}:state"
 
 
-def token_key(token_hash: str) -> str:
-    return f"statora:token:{token_hash}"
-
-
 async def get_json(key: str) -> Any | None:
     raw = await get_redis().get(key)
     return json.loads(raw) if raw is not None else None
@@ -53,12 +49,38 @@ async def set_json(key: str, value: Any, ttl: int | None = None) -> None:
     await get_redis().set(key, json.dumps(value, default=str), ex=ttl)
 
 
+async def pop_json(key: str) -> Any | None:
+    """Read a value stored with set_json() and delete it, in one step (for one-time state)."""
+    raw = await get_redis().getdel(key)
+    return json.loads(raw) if raw is not None else None
+
+
+# Every cached status page key, so invalidation doesn't have to scan the whole keyspace (monitor
+# state, tokens, rate limits, …) each time a monitor changes status.
+CACHED_PAGES_KEY = "statora:pages:cached"
+
+_INVALIDATE_PAGES = """
+local keys = redis.call('smembers', KEYS[1])
+for i = 1, #keys, 500 do
+    redis.call('del', unpack(keys, i, math.min(i + 499, #keys)))
+end
+redis.call('del', KEYS[1])
+return #keys
+"""
+
+
+async def set_page(key: str, value: Any, ttl: int | None = None) -> None:
+    """Cache a status page summary and remember the key for invalidate_pages()."""
+    async with get_redis().pipeline(transaction=True) as pipe:
+        pipe.set(key, json.dumps(value, default=str), ex=ttl)
+        pipe.sadd(CACHED_PAGES_KEY, key)
+        await pipe.execute()
+
+
 async def invalidate_pages() -> None:
-    """Drop every cached status page; cheap because there are only a handful of pages."""
-    redis = get_redis()
-    keys = [key async for key in redis.scan_iter(match=page_key("*"))]
-    if keys:
-        await redis.delete(*keys)
+    """Drop every cached status page, atomically: a page cached meanwhile is either dropped too or
+    still listed for the next invalidation."""
+    await get_redis().eval(_INVALIDATE_PAGES, 1, CACHED_PAGES_KEY)
 
 
 async def publish_monitors_changed(monitor_id: int | None = None) -> None:

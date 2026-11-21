@@ -5,6 +5,7 @@ import httpx
 from statora.schemas.monitor import HttpConfig
 
 from .base import CheckResult, CheckTarget
+from .guard import refusal
 
 USER_AGENT = "statora-monitor/0.1"
 # Only a keyword check reads the body, and only this much of it.
@@ -23,6 +24,20 @@ async def _read_body(response: httpx.Response) -> str:
     return bytes(body).decode(response.encoding or "utf-8", errors="replace")
 
 
+class BlockedTarget(httpx.RequestError):
+    """A request (usually a redirect) refused by the target guard: a blocked network, or a
+    lookup that took longer than the check may."""
+
+
+def _refuse_blocked(timeout_s: float):
+    async def hook(request: httpx.Request) -> None:
+        # Runs for the first request and for every redirect it follows.
+        if problem := await refusal(request.url.host, timeout_s):
+            raise BlockedTarget(problem, request=request)
+
+    return hook
+
+
 async def check_http(target: CheckTarget) -> CheckResult:
     cfg = HttpConfig.model_validate(target.config)
     headers = {"User-Agent": USER_AGENT, **cfg.headers}
@@ -34,6 +49,7 @@ async def check_http(target: CheckTarget) -> CheckResult:
                 timeout=target.timeout_s,
                 follow_redirects=cfg.follow_redirects,
                 verify=cfg.verify_tls,
+                event_hooks={"request": [_refuse_blocked(target.timeout_s)]},
             ) as client,
             client.stream(cfg.method, target.target, headers=headers, content=cfg.body) as response,
         ):
@@ -42,6 +58,8 @@ async def check_http(target: CheckTarget) -> CheckResult:
             latency = (time.perf_counter() - start) * 1000
             if cfg.keyword and cfg.status_ok(response.status_code):
                 text = await _read_body(response)
+    except BlockedTarget as exc:
+        return CheckResult.down(str(exc))
     except httpx.TimeoutException:
         return CheckResult.down(f"Timeout after {target.timeout_s}s")
     except httpx.HTTPError as exc:

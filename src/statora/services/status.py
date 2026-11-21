@@ -19,12 +19,14 @@ from statora.db.models import (
     IncidentImpact,
     IncidentStatus,
     Maintenance,
+    Monitor,
     MonitorDailyStat,
     MonitorStatus,
     StatusPage,
     maintenance_pages,
 )
 from statora.services import crud, media
+from statora.services.groups import effective_status
 from statora.services.markdown import render_markdown
 from statora.services.monitoring import STATUS_COUNTER, monitors_in_maintenance
 
@@ -128,14 +130,23 @@ def overall_status(
     return result
 
 
+# How far before the window the minute and hour bars look for a result to continue (the largest
+# check interval, at most this).
+MAX_LOOKBACK = timedelta(days=1)
+# An all-up bar turns yellow when more than this share of its checks were slow (degraded).
+DEGRADED_BAR_SHARE = 0.1
+# A bar with failed checks is a partial outage at this uptime or above, a full outage below it.
+PARTIAL_OUTAGE_UPTIME = 0.95
+
+
 def bar_level(stat: Counts | MonitorDailyStat | None) -> str:
     """Bucket a bar (a day, hour or minute) for its colour."""
     if stat is None or stat.total == 0:
         return "maintenance" if stat and stat.maintenance_count else "none"
     ratio = stat.uptime or 0
     if stat.down_count == 0:
-        return "degraded" if stat.degraded_count > stat.total * 0.1 else "up"
-    return "partial" if ratio >= 0.95 else "down"
+        return "degraded" if stat.degraded_count > stat.total * DEGRADED_BAR_SHARE else "up"
+    return "partial" if ratio >= PARTIAL_OUTAGE_UPTIME else "down"
 
 
 def bar_starts(resolution: HistoryResolution, now: datetime) -> list[datetime]:
@@ -201,7 +212,7 @@ def window_uptime(starts: list[datetime], buckets: dict[datetime, Counts]) -> fl
 
 
 async def _history(
-    session: AsyncSession, resolution: HistoryResolution, monitors: list, starts: list[datetime]
+    session: AsyncSession, resolution: HistoryResolution, monitors: list[Monitor], starts: list[datetime]
 ) -> dict[int, dict[datetime, Counts]]:
     """Counts per monitor and bar start: daily from the rollup, minutes and hours from heartbeats."""
     result: dict[int, dict[datetime, Counts]] = {m.id: {} for m in monitors}
@@ -220,7 +231,7 @@ async def _history(
             )
         return result
     # Look back one check interval before the window, so its first bars can continue that result.
-    lookback = timedelta(seconds=min(max(m.interval_s for m in monitors), 86_400))
+    lookback = min(timedelta(seconds=max(m.interval_s for m in monitors)), MAX_LOOKBACK)
     # Literal arguments: bound parameters would make GROUP BY see a different expression.
     bucket = func.date_trunc(literal_column(f"'{resolution.value}'"), Heartbeat.ts, literal_column("'UTC'"))
     rows = await session.execute(
@@ -248,7 +259,7 @@ def _incident_dict(incident: Incident) -> dict[str, Any]:
     }
 
 
-def _maintenance_dict(m: Maintenance, now) -> dict[str, Any]:
+def _maintenance_dict(m: Maintenance, now: datetime) -> dict[str, Any]:
     return {
         "id": m.id,
         "title": m.title,
@@ -270,12 +281,8 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
     history = await _history(session, resolution, list(monitors.values()), starts)
     in_maintenance = await monitors_in_maintenance(session, now)
 
-    def effective_status(monitor) -> MonitorStatus:
-        if not monitor.active:
-            return MonitorStatus.PENDING
-        if monitor.id in in_maintenance:
-            return MonitorStatus.MAINTENANCE
-        return MonitorStatus(monitor.status)
+    def status_of(monitor: Monitor) -> MonitorStatus:
+        return effective_status(monitor, in_maintenance)
 
     def bars_and_uptime(monitor) -> tuple[list[dict[str, Any]], float | None]:
         return build_bars(resolution, starts, history[monitor.id], monitor.interval_s)
@@ -293,7 +300,7 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
         components = []
         for item in group.items:
             monitor = item.monitor
-            status = effective_status(monitor)
+            status = status_of(monitor)
             statuses.append(status)
             bars, uptime = bars_and_uptime(monitor)
             components.append(
@@ -312,7 +319,7 @@ async def build_page_summary(session: AsyncSession, page: StatusPage) -> dict[st
                             "name": member.name,
                             "icon": member.icon,
                             "link_url": member.link_url,
-                            "status": (member_status := effective_status(member)),
+                            "status": (member_status := status_of(member)),
                             "status_label": COMPONENT_LABELS.get(member_status, "Unknown"),
                             "uptime": member_uptime(member),
                         }
@@ -412,16 +419,11 @@ async def page_overall(session: AsyncSession, pages: list[StatusPage]) -> dict[i
         ).all()
     )
 
-    def status(monitor) -> MonitorStatus:
-        if not monitor.active:
-            return MonitorStatus.PENDING
-        if monitor.id in in_maintenance:
-            return MonitorStatus.MAINTENANCE
-        return MonitorStatus(monitor.status)
-
     result = {}
     for page in pages:
-        statuses = [status(item.monitor) for group in page.groups for item in group.items]
+        statuses = [
+            effective_status(item.monitor, in_maintenance) for group in page.groups for item in group.items
+        ]
         overall = overall_status(statuses, impacts[page.id])
         if overall == Overall.OPERATIONAL and page.id in under_maintenance:
             overall = Overall.MAINTENANCE
@@ -445,5 +447,5 @@ async def get_page_summary(session: AsyncSession, slug: str | None) -> dict[str,
     if page is None:
         return None
     summary = await build_page_summary(session, page)
-    await cache.set_json(key, summary, get_settings().page_cache_ttl)
+    await cache.set_page(key, summary, get_settings().page_cache_ttl)
     return summary
