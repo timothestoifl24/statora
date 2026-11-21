@@ -23,6 +23,7 @@ from statora.db.models import (
 )
 from statora.schemas.monitor import (
     SECRET_FIELDS,
+    SQL_DEFAULT_PORTS,
     MonitorBase,
     MonitorCreate,
     MonitorUpdate,
@@ -48,21 +49,61 @@ class ValidationProblem(ValueError):
 # ---------------------------------------------------------------- monitors
 
 
-def _store_secrets(monitor_type: str, config: dict, previous: dict | None = None) -> dict:
-    """Encrypt secret and sensitive config fields. An empty secret keeps the previously stored one."""
+def _secret_binding(monitor_type: str, target: str, config: dict) -> tuple:
+    """Where, and how safely, a stored secret is sent. A kept secret must not follow a change of it,
+    or anyone allowed to edit the monitor could send it to a server of their own."""
+    if MonitorType(monitor_type) != MonitorType.SQL:
+        return (target,)
+    engine = config.get("engine")
+    port = config.get("port") or SQL_DEFAULT_PORTS.get(engine)
+    return (target.strip().lower(), engine, port, bool(config.get("tls")), bool(config.get("verify_tls")))
+
+
+def _store_secrets(
+    monitor_type: str,
+    config: dict,
+    previous: dict | None = None,
+    *,
+    target: str = "",
+    previous_target: str = "",
+) -> dict:
+    """Encrypt secret and sensitive config fields. An empty secret keeps the previously stored one,
+    but only while the target and the connection settings it was entered for stay the same."""
     config = encrypt_sensitive(monitor_type, config, previous)
+    previous = previous or {}
+    rebound = _secret_binding(monitor_type, target, config) != _secret_binding(
+        monitor_type, previous_target, previous
+    )
     for name in SECRET_FIELDS.get(MonitorType(monitor_type), ()):
         value = config.get(name)
         if value and not crypto.is_encrypted(value):
             config[name] = crypto.encrypt(value)
-        elif not value and previous and previous.get(name):
+        elif previous.get(name) and (not value or value == previous[name]):
+            if rebound:
+                label = name.replace("_", " ")
+                raise ValidationProblem(
+                    f"Enter the {label} again: the target or connection settings it was saved for changed"
+                )
             config[name] = previous[name]
+        elif value:
+            # An encrypted value that isn't this monitor's own (copied from somewhere else).
+            raise ValidationProblem(f"Enter the {name.replace('_', ' ')} in clear text")
     return config
 
 
-async def create_monitor(session: AsyncSession, data: MonitorCreate) -> Monitor:
+async def create_monitor(
+    session: AsyncSession, data: MonitorCreate, source: Monitor | None = None
+) -> Monitor:
+    """`source`: the monitor being cloned. Its stored secrets are reused for the same target only."""
     monitor = Monitor(**data.model_dump(exclude={"member_ids"}))
-    monitor.config = _store_secrets(monitor.type, monitor.config)
+    same_type = source is not None and source.type == monitor.type
+    monitor.config = _store_secrets(
+        monitor.type,
+        monitor.config,
+        dict(source.config or {}) if same_type else None,
+        target=monitor.target,
+        previous_target=source.target if same_type else "",
+    )
     # Always assign the collection: a lazy load on a freshly inserted object would fail in async code.
     monitor.members = await _group_members(session, None, data.member_ids)
     session.add(monitor)
@@ -80,11 +121,14 @@ async def update_monitor(session: AsyncSession, monitor: Monitor, data: MonitorU
         }
     )
     previous_config = dict(monitor.config or {})
+    previous_target = monitor.target
     for field in changes:
         if field != "member_ids":
             setattr(monitor, field, getattr(merged, field))
-    if "config" in changes:
-        monitor.config = _store_secrets(monitor.type, monitor.config, previous_config)
+    # Also on a target-only change: the stored secret must not be carried to a new server.
+    monitor.config = _store_secrets(
+        monitor.type, monitor.config, previous_config, target=monitor.target, previous_target=previous_target
+    )
     if "member_ids" in changes:
         monitor.members = await _group_members(session, monitor.id, merged.member_ids)
     if changes.get("active") is False:

@@ -14,13 +14,19 @@ from statora.schemas.monitor import GroupConfig
 AVAILABLE = {MonitorStatus.UP, MonitorStatus.DEGRADED, MonitorStatus.PENDING}
 
 
-def member_status(member: Monitor, in_maintenance: set[int]) -> MonitorStatus | None:
-    """Effective status of a member; None for paused members, which are ignored."""
-    if not member.active:
-        return None
-    if member.id in in_maintenance:
+def effective_status(monitor: Monitor, in_maintenance: set[int]) -> MonitorStatus:
+    """The status shown for a monitor: paused monitors read as pending, and a maintenance window
+    wins over the stored status. Status pages, page overviews and groups all use this rule."""
+    if not monitor.active:
+        return MonitorStatus.PENDING
+    if monitor.id in in_maintenance:
         return MonitorStatus.MAINTENANCE
-    return MonitorStatus(member.status)
+    return MonitorStatus(monitor.status)
+
+
+def member_status(member: Monitor, in_maintenance: set[int]) -> MonitorStatus | None:
+    """Effective status of a group member; None for paused members, which groups ignore."""
+    return effective_status(member, in_maintenance) if member.active else None
 
 
 def evaluate_group(config: dict, members: Iterable[Monitor], in_maintenance: set[int]) -> CheckResult:
