@@ -132,22 +132,28 @@ class Scheduler:
 
     async def _listen(self) -> None:
         """Apply monitor changes as they are published; reconnects after Redis errors."""
+        catch_up = False  # _lead() has just synced before the first subscription
         while True:
             try:
-                await self._listen_once()
+                await self._listen_once(catch_up)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 log.exception("Monitor change listener failed; reconnecting")
+            catch_up = True
             await asyncio.sleep(LOCK_RENEW_INTERVAL)
-            # Changes published while disconnected were missed.
-            with contextlib.suppress(Exception):
-                await self.sync()
 
-    async def _listen_once(self) -> None:
+    async def _listen_once(self, catch_up: bool = False) -> None:
         pubsub = cache.get_redis().pubsub()
         try:
             await pubsub.subscribe(cache.MONITORS_CHANGED_CHANNEL)
+            if catch_up:
+                # Changes published while disconnected were missed. Resync only once subscribed, so
+                # a change made during the resync is queued instead of falling in the gap.
+                try:
+                    await self.sync()
+                except Exception:
+                    log.exception("Resync after reconnecting failed")
             async for message in pubsub.listen():
                 if message["type"] != "message":
                     continue
