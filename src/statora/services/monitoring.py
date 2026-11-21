@@ -67,7 +67,9 @@ async def record_result(
         status != MonitorStatus.PENDING or previous == MonitorStatus.MAINTENANCE
     )
 
-    monitor.consecutive_failures = monitor.consecutive_failures + 1 if result.status == "down" else 0
+    monitor.consecutive_failures = (
+        monitor.consecutive_failures + 1 if result.status == MonitorStatus.DOWN else 0
+    )
     if changed:
         monitor.status = status
         monitor.status_changed_at = now

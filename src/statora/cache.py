@@ -40,10 +40,6 @@ def monitor_state_key(monitor_id: int) -> str:
     return f"statora:monitor:{monitor_id}:state"
 
 
-def token_key(token_hash: str) -> str:
-    return f"statora:token:{token_hash}"
-
-
 async def get_json(key: str) -> Any | None:
     raw = await get_redis().get(key)
     return json.loads(raw) if raw is not None else None
@@ -51,6 +47,12 @@ async def get_json(key: str) -> Any | None:
 
 async def set_json(key: str, value: Any, ttl: int | None = None) -> None:
     await get_redis().set(key, json.dumps(value, default=str), ex=ttl)
+
+
+async def pop_json(key: str) -> Any | None:
+    """Read a value stored with set_json() and delete it, in one step (for one-time state)."""
+    raw = await get_redis().getdel(key)
+    return json.loads(raw) if raw is not None else None
 
 
 # Every cached status page key, so invalidation doesn't have to scan the whole keyspace (monitor

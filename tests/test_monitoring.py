@@ -116,6 +116,26 @@ async def test_check_monitor_once_end_to_end(session):
     assert (await session.get(Monitor, monitor_id)).status == MonitorStatus.DOWN
 
 
+async def test_scheduler_spreads_out_monitors_starting_together(session, monkeypatch):
+    from statora import scheduler as scheduler_module
+
+    sched = scheduler_module.Scheduler()
+    delays: dict[int, float] = {}
+    monkeypatch.setattr(sched, "_spawn", lambda mid, interval, delay=0.0: delays.__setitem__(mid, delay))
+    monitors = [await _monitor(session, interval_s=20) for _ in range(20)]
+    await sched.sync()
+    assert set(delays) == {m.id for m in monitors}
+    assert all(0 <= d <= 20 for d in delays.values()) and len(set(delays.values())) > 1
+
+    # A single monitor (an edit, a resync that found one new monitor) still starts right away.
+    delays.clear()
+    sched._tasks = {m.id: None for m in monitors}
+    sched._intervals = {m.id: 20 for m in monitors}
+    extra = await _monitor(session)
+    await sched.sync()
+    assert delays == {extra.id: 0.0}
+
+
 async def test_scheduler_sync_follows_database(session, monkeypatch):
     from statora import scheduler as scheduler_module
 
