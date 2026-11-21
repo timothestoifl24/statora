@@ -34,6 +34,72 @@ async def test_http_up():
     assert result.latency_ms is not None
 
 
+class _CountingStream(httpx.AsyncByteStream):
+    def __init__(self, chunks: list[bytes]) -> None:
+        self.chunks, self.read = chunks, 0
+
+    async def __aiter__(self):
+        for chunk in self.chunks:
+            self.read += 1
+            yield chunk
+
+
+async def test_http_body_buffer_stays_within_the_limit():
+    import gzip
+
+    from statora.checks.http import MAX_BODY_BYTES, _read_body
+
+    # One chunk three times the limit, and a small gzip body that decodes to 8 MiB.
+    one_chunk = httpx.Response(200, stream=_CountingStream([b"x" * (3 * MAX_BODY_BYTES)]))
+    assert len(await _read_body(one_chunk)) == MAX_BODY_BYTES
+    packed = gzip.compress(b"y" * (8 * MAX_BODY_BYTES))
+    compressed = httpx.Response(200, headers={"Content-Encoding": "gzip"}, stream=_CountingStream([packed]))
+    assert len(await _read_body(compressed)) == MAX_BODY_BYTES
+
+
+@respx.mock
+async def test_http_body_is_only_read_for_a_keyword_and_capped():
+    from statora.checks.http import MAX_BODY_BYTES
+
+    stream = _CountingStream([b"x" * 65536] * 64)  # 4 MiB
+    respx.get("https://big.test/").mock(return_value=httpx.Response(200, stream=stream))
+    assert (await run_check(target(MonitorType.HTTP, "https://big.test/"))).status == MonitorStatus.UP
+    assert stream.read == 0  # no keyword: the body isn't downloaded
+
+    chunk = MAX_BODY_BYTES // 4
+    late = _CountingStream([b"a" * chunk] * 4 + [b"needle"] + [b"b" * chunk] * 8)
+    respx.get("https://late.test/").mock(return_value=httpx.Response(200, stream=late))
+    result = await run_check(target(MonitorType.HTTP, "https://late.test/", keyword="needle"))
+    assert result.status == MonitorStatus.DOWN and "not found" in result.message
+    assert late.read == 4  # stopped at the cap
+
+    early = _CountingStream([b"<html>needle</html>", b"z" * chunk])
+    respx.get("https://early.test/").mock(return_value=httpx.Response(200, stream=early))
+    assert (await run_check(target(MonitorType.HTTP, "https://early.test/", keyword="needle"))).status == (
+        MonitorStatus.UP
+    )
+
+
+def test_window_uptime_matches_the_bars():
+    from datetime import UTC, datetime, timedelta
+
+    from statora.db.models import HistoryResolution
+    from statora.services.status import Counts, bar_starts, build_bars, window_uptime
+
+    now = datetime(2026, 11, 21, 12, 30, tzinfo=UTC)
+    for resolution in HistoryResolution:
+        starts = bar_starts(resolution, now)
+        buckets = {
+            starts[3]: Counts(up_count=5, down_count=1, last_status="down", last_ts=starts[3]),
+            starts[4]: Counts(maintenance_count=2, last_status="maintenance", last_ts=starts[4]),
+            starts[-1]: Counts(up_count=2, degraded_count=1, last_status="up", last_ts=starts[-1]),
+            starts[0] - timedelta(days=400): Counts(down_count=9),  # outside the window
+        }
+        _, uptime = build_bars(resolution, starts, buckets, 300)
+        assert uptime == window_uptime(starts, buckets) == round(8 / 9 * 100, 3)
+    assert window_uptime(starts, {}) is None
+
+
 @respx.mock
 async def test_http_unexpected_status():
     respx.get("https://svc.test/").respond(503)
